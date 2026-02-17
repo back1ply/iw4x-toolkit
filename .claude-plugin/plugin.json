@@ -1,6 +1,6 @@
 {
   "name": "iw4x-toolkit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "IW4X/MW2 modding toolkit — IWD file operations, DVAR reference",
   "author": {
     "name": "back1ply"

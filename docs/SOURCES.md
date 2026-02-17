@@ -261,19 +261,26 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 
 The IW engine modding ecosystem spans many titles. Formats, DVARs, and scripting patterns are often shared or evolved across these projects.
 
-| Game | Client | Repository |
-|------|--------|------------|
-| CoD4: Modern Warfare | CoD4x | https://github.com/callofduty4x/CoD4x_Server |
-| CoD: World at War | Plutonium T4 | https://github.com/plutoniummod/t4-scripts |
-| CoD: Modern Warfare 2 | **IW4x** | https://github.com/iw4x/iw4x-client |
-| CoD: Modern Warfare 3 | Plutonium IW5 | https://github.com/plutoniummod/iw5-scripts |
-| CoD: Black Ops | Plutonium T5 | https://github.com/plutoniummod/t5-scripts |
-| CoD: Black Ops 2 | Plutonium T6 | https://github.com/plutoniummod/t6-scripts |
-| CoD: Black Ops 3 | T7x (AlterWare) | https://git.alterware.dev/alterware/t7-rawfiles |
-| CoD: Ghosts | IW6x (AlterWare) | https://git.alterware.dev/alterware/iw6-mod |
-| CoD: Advanced Warfare | S1x (AlterWare) | https://git.alterware.dev/alterware/s1-mod |
-| CoD4: Remastered | H1-Mod | https://github.com/auroramod/h1-mod |
-| MW2: Campaign Remastered | H2-Mod | https://github.com/alicealys/h2-mod |
+| Game | Code | Client | Year | Repository |
+|------|------|--------|------|------------|
+| Call of Duty | COD1 | cod.pm | 2003 | — |
+| Call of Duty: United Offensive | CODUO | cod.pm | 2004 | — |
+| Call of Duty 2 | COD2 | cod.pm | 2005 | — |
+| Call of Duty 4: Modern Warfare | IW3/COD4 | CoD4x | 2007 | https://github.com/callofduty4x/CoD4x_Server |
+| Call of Duty: World at War | T4 | Plutonium | 2008 | https://github.com/plutoniummod/t4-scripts |
+| World at War Zombies | T4ZM | Plutonium | 2008 | https://github.com/plutoniummod/t4-scripts |
+| Call of Duty: Modern Warfare 2 | IW4 | **IW4x** | 2009 | https://github.com/iw4x/iw4x-client |
+| Call of Duty: Black Ops | T5 | Plutonium | 2010 | https://github.com/plutoniummod/t5-scripts |
+| Black Ops Zombies | T5ZM | Plutonium | 2010 | https://github.com/plutoniummod/t5-scripts |
+| Call of Duty: Modern Warfare 3 | IW5 | Plutonium | 2011 | https://github.com/plutoniummod/iw5-scripts |
+| Call of Duty: Black Ops II | T6 | Plutonium | 2012 | https://github.com/plutoniummod/t6-scripts |
+| Black Ops II Zombies | T6ZM | Plutonium | 2012 | https://github.com/plutoniummod/t6-scripts |
+| Call of Duty: Ghosts | IW6 | AlterWare | 2013 | https://git.alterware.dev/alterware/iw6-mod |
+| Call of Duty: Advanced Warfare | S1 | AlterWare | 2014 | https://git.alterware.dev/alterware/s1-mod |
+| Call of Duty: Black Ops III | T7 | AlterWare | 2015 | https://git.alterware.dev/alterware/t7-rawfiles |
+| Call of Duty: Modern Warfare Remastered | H1 | Aurora | 2016 | https://github.com/auroramod/h1-mod |
+| Call of Duty: Infinite Warfare | IW7 | Aurora | 2016 | — |
+| HMW / H2M-Mod | HMW/H2M | Horizon | 2020 | — |
 
 ### Mod client hubs
 

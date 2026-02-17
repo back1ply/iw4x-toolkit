@@ -1,6 +1,8 @@
 {
-  "iw4x": {
-    "command": "node",
-    "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/dist/index.js"]
+  "mcpServers": {
+    "iw4x": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/dist/index.js"]
+    }
   }
 }
