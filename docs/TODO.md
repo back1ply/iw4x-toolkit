@@ -19,8 +19,15 @@
 - [x] Test suite — 27 tests via vitest (unit + integration via MCP in-memory transport)
 - [x] Fixed plugin.json skills path and cleaned up marketplace.json to match specs
 
+- [x] Expanded SOURCES.md with 50+ references across the IW engine modding ecosystem
+
 ### Remaining
 
+- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference (IN PROGRESS)
+  - Research done, needs: compile into structured JSON, add MCP resource, add skill
+- [ ] Build `knowledge/weapon-defs.json` — weapon property reference from IW4 rawfiles
+- [ ] Build `knowledge/fastfile-assets.json` — asset type index from Zeroy Wiki
+- [ ] Build `knowledge/menu-properties.json` — valid menuDef/itemDef properties
 - [ ] Enrich more DVARs — currently 89/1,731 have manual descriptions. Priority targets:
   - [ ] All `sm_*` shadow map DVARs (12 total, only 6 enriched)
   - [ ] All `snd_*` sound DVARs (descriptions + performance notes)
