@@ -1,0 +1,38 @@
+{
+  "name": "iw4x-toolkit",
+  "id": "iw4x-toolkit",
+  "description": "IW4X/MW2 modding toolkit — IWD file operations, DVAR reference",
+  "owner": {
+    "name": "back1ply",
+    "url": "https://github.com/back1ply"
+  },
+  "metadata": {
+    "description": "Claude Code plugin for IW4X/MW2 modding. Directly read, write, diff files inside IWD archives. Searchable DVAR knowledge base with 1,731 entries and FPS optimization guide.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "iw4x-toolkit",
+      "description": "IW4X/MW2 modding toolkit — IWD archive tools (list, read, write, remove, diff) and DVAR knowledge base",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "back1ply",
+        "url": "https://github.com/back1ply"
+      },
+      "homepage": "https://github.com/back1ply/iw4x-toolkit",
+      "repository": "https://github.com/back1ply/iw4x-toolkit",
+      "category": "workflow",
+      "keywords": [
+        "iw4x",
+        "mw2",
+        "modding",
+        "iwd",
+        "dvar",
+        "cod",
+        "game-modding",
+        "mcp"
+      ]
+    }
+  ]
+}
