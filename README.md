@@ -8,6 +8,32 @@ A Claude Code plugin for IW4X/MW2 modding. Provides direct IWD archive manipulat
 
 **DVAR Reference** — 1,731 MW2 DVARs catalogued with types, defaults, categories, and FPS impact ratings. 89 key DVARs manually enriched with descriptions.
 
+## Installation
+
+From inside Claude Code:
+
+```
+/plugin marketplace add back1ply/iw4x-toolkit
+```
+
+Then install the plugin:
+
+```
+/plugin install iw4x-toolkit
+```
+
+### Building from source
+
+If you clone the repo and want to rebuild the MCP server:
+
+```bash
+cd mcp-server
+npm install
+npm run build
+```
+
+Requires Node.js 18+ and TypeScript 5.7+.
+
 ## Tools
 
 | Tool | Parameters | Description |
@@ -35,43 +61,26 @@ A Claude Code plugin for IW4X/MW2 modding. Provides direct IWD archive manipulat
 ```
 iw4x-toolkit/
 ├── .claude-plugin/
-│   └── plugin.json              # Plugin manifest
+│   ├── plugin.json              # Plugin manifest
+│   └── marketplace.json         # Marketplace metadata
 ├── .mcp.json                    # MCP server config (stdio)
 ├── mcp-server/
 │   ├── src/
 │   │   └── index.ts             # MCP server — 5 tools + 1 resource
-│   ├── dist/                    # Compiled JS (built with tsc)
+│   ├── dist/
+│   │   └── index.js             # Compiled JS (committed for marketplace installs)
 │   ├── package.json
 │   └── tsconfig.json
 ├── knowledge/
 │   └── dvars.json               # 1,731 DVAR entries
 ├── skills/
-│   └── dvar-lookup.md           # DVAR search/FPS optimization skill
+│   └── dvar-lookup/
+│       └── SKILL.md             # DVAR search/FPS optimization skill
 ├── docs/
 │   ├── SOURCES.md               # Research sources and references
 │   └── TODO.md                  # Roadmap and planned features
 └── README.md
 ```
-
-## Installation
-
-### Development (local)
-
-```bash
-claude --plugin-dir "F:\Shehab Projects\iw4x-toolkit"
-```
-
-This starts Claude Code with the plugin loaded for that session.
-
-### Building from source
-
-```bash
-cd mcp-server
-npm install
-npm run build
-```
-
-Requires Node.js 18+ and TypeScript 5.7+.
 
 ## Usage examples
 

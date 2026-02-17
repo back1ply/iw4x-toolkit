@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "IW4X/MW2 modding toolkit — IWD file operations, DVAR reference",
   "author": {
-    "name": "Shehab"
+    "name": "back1ply"
   },
-  "keywords": ["iw4x", "mw2", "modding", "iwd", "dvar", "cod"]
+  "keywords": ["iw4x", "mw2", "modding", "iwd", "dvar", "cod"],
+  "skills": ["../skills/dvar-lookup"]
 }
