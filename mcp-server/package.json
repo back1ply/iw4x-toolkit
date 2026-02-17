@@ -1,0 +1,20 @@
+{
+  "name": "iw4x-toolkit-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for IW4X/MW2 modding — IWD file ops and DVAR reference",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "adm-zip": "^0.5.16"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

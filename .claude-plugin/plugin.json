@@ -1,0 +1,9 @@
+{
+  "name": "iw4x-toolkit",
+  "version": "1.0.0",
+  "description": "IW4X/MW2 modding toolkit — IWD file operations, DVAR reference",
+  "author": {
+    "name": "Shehab"
+  },
+  "keywords": ["iw4x", "mw2", "modding", "iwd", "dvar", "cod"]
+}
