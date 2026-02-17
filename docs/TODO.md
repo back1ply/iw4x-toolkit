@@ -13,9 +13,14 @@
 - [x] CRC32-based diff (no decompression needed)
 - [x] Plugin manifest and MCP config
 
+- [x] Published to GitHub (`back1ply/iw4x-toolkit`) with marketplace.json
+- [x] Fixed ESM `__dirname` crash (replaced with `import.meta.url` + `fileURLToPath`)
+- [x] Added `zod` as explicit dependency (was implicit)
+- [x] Test suite — 27 tests via vitest (unit + integration via MCP in-memory transport)
+- [x] Fixed plugin.json skills path and cleaned up marketplace.json to match specs
+
 ### Remaining
 
-- [ ] Publish plugin to a GitHub repo for easy `claude plugin add <url>` installation
 - [ ] Enrich more DVARs — currently 89/1,731 have manual descriptions. Priority targets:
   - [ ] All `sm_*` shadow map DVARs (12 total, only 6 enriched)
   - [ ] All `snd_*` sound DVARs (descriptions + performance notes)

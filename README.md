@@ -30,6 +30,7 @@ If you clone the repo and want to rebuild the MCP server:
 cd mcp-server
 npm install
 npm run build
+npm test
 ```
 
 Requires Node.js 18+ and TypeScript 5.7+.
@@ -66,7 +67,8 @@ iw4x-toolkit/
 ├── .mcp.json                    # MCP server config (stdio)
 ├── mcp-server/
 │   ├── src/
-│   │   └── index.ts             # MCP server — 5 tools + 1 resource
+│   │   ├── index.ts             # MCP server — 5 tools + 1 resource
+│   │   └── index.test.ts        # Test suite (27 tests via vitest)
 │   ├── dist/
 │   │   └── index.js             # Compiled JS (committed for marketplace installs)
 │   ├── package.json
@@ -129,7 +131,8 @@ Claude searches the knowledge base by name or category and returns structured re
 |---------|---------|---------|
 | `@modelcontextprotocol/sdk` | ^1.12.1 | MCP server framework |
 | `adm-zip` | ^0.5.16 | ZIP/IWD archive operations |
-| `zod` | 4.x (transitive) | Schema validation for tool parameters |
+| `zod` | ^3.23.0 | Schema validation for tool parameters |
+| `vitest` | ^3.0.0 | Test framework (dev) |
 
 ## License
 
