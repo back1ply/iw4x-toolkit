@@ -23,8 +23,11 @@
 
 ### Remaining
 
-- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference (IN PROGRESS)
-  - Research done, needs: compile into structured JSON, add MCP resource, add skill
+- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference
+  - Sources: Zeroy Wiki scripting reference, X Labs GSC functions, leafized/GSC-Functions, iw4x-rawfiles, xensik/gsc-tool grammars
+  - Use GitHub MCP to pull real function signatures from repos
+  - Schema per function: name, calledOn (level/player/entity/global), params, returnType, description, category
+  - Expose as `iw4x://gsc-builtins` MCP resource, add `gsc-lookup` skill
 - [ ] Build `knowledge/weapon-defs.json` — weapon property reference from IW4 rawfiles
 - [ ] Build `knowledge/fastfile-assets.json` — asset type index from Zeroy Wiki
 - [ ] Build `knowledge/menu-properties.json` — valid menuDef/itemDef properties
