@@ -6,15 +6,18 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "vitest run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "adm-zip": "^0.5.16"
+    "adm-zip": "^0.5.16",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   }
 }

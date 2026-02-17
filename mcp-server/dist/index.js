@@ -4,6 +4,9 @@ import { z } from "zod";
 import AdmZip from "adm-zip";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -266,14 +269,23 @@ server.resource("DVAR Reference", "iw4x://dvars", { description: "MW2/IW4X DVAR 
     ],
 }));
 // ---------------------------------------------------------------------------
+// Exports (for testing)
+// ---------------------------------------------------------------------------
+export { isBinaryEntry, normalizeEntry, loadDvars, resolveIwdPath, ensureBackup, atomicWrite, server };
+// ---------------------------------------------------------------------------
 // Start
 // ---------------------------------------------------------------------------
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 }
-main().catch((err) => {
-    console.error("Fatal:", err);
-    process.exit(1);
-});
+// Only auto-start when run directly (not when imported by tests)
+const isDirectRun = process.argv[1] &&
+    import.meta.url === `file:///${process.argv[1].replace(/\\/g, "/")}`;
+if (isDirectRun) {
+    main().catch((err) => {
+        console.error("Fatal:", err);
+        process.exit(1);
+    });
+}
 //# sourceMappingURL=index.js.map

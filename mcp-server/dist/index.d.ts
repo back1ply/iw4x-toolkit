@@ -1,1 +1,10 @@
-export {};
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import AdmZip from "adm-zip";
+declare function isBinaryEntry(entryName: string): boolean;
+declare function resolveIwdPath(iwdPath: string): string;
+declare function ensureBackup(iwdPath: string): void;
+declare function atomicWrite(zip: AdmZip, targetPath: string): void;
+declare function normalizeEntry(entry: string): string;
+declare function loadDvars(): string;
+declare const server: McpServer;
+export { isBinaryEntry, normalizeEntry, loadDvars, resolveIwdPath, ensureBackup, atomicWrite, server };
