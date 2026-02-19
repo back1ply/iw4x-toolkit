@@ -186,15 +186,15 @@ describe("ensureBackup", () => {
     // Cleanup handled per-test by OS temp, but be tidy
   });
 
-  it("creates a .bak file on first call", () => {
-    ensureBackup(iwdPath);
+  it("creates a .bak file on first call", async () => {
+    await ensureBackup(iwdPath);
     expect(fs.existsSync(iwdPath + ".bak")).toBe(true);
   });
 
-  it("does not overwrite existing .bak", () => {
+  it("does not overwrite existing .bak", async () => {
     // Pre-create a .bak with known content
     fs.writeFileSync(iwdPath + ".bak", "original-backup");
-    ensureBackup(iwdPath);
+    await ensureBackup(iwdPath);
     expect(fs.readFileSync(iwdPath + ".bak", "utf-8")).toBe("original-backup");
   });
 });
@@ -206,11 +206,11 @@ describe("atomicWrite", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "iw4x-test-"));
   });
 
-  it("writes a zip file atomically (no .tmp left behind)", () => {
+  it("writes a zip file atomically (no .tmp left behind)", async () => {
     const target = path.join(tmpDir, "output.iwd");
     const zip = new AdmZip();
     zip.addFile("test.gsc", Buffer.from("// script"));
-    atomicWrite(zip, target);
+    await atomicWrite(zip, target);
 
     expect(fs.existsSync(target)).toBe(true);
     expect(fs.existsSync(target + ".tmp")).toBe(false);
@@ -1412,7 +1412,7 @@ describe("IWD cache", () => {
     }
   });
 
-  it("picks up new content after a write + invalidation", () => {
+  it("picks up new content after a write + invalidation", async () => {
     // First read
     const r1 = openIwd(iwdFile);
     expect("zip" in r1).toBe(true);
@@ -1420,7 +1420,7 @@ describe("IWD cache", () => {
     // Write new content and invalidate
     if ("zip" in r1) {
       r1.zip.updateFile("scripts/test.gsc", Buffer.from("// updated"));
-      atomicWrite(r1.zip, iwdFile);
+      await atomicWrite(r1.zip, iwdFile);
     }
     invalidateIwdCache(iwdFile);
 

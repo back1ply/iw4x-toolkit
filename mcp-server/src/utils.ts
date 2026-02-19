@@ -63,8 +63,8 @@ interface IwdCacheEntry {
 /** In-memory cache of parsed IWD zip files, keyed by resolved absolute path. */
 const iwdCache = new Map<string, IwdCacheEntry>();
 
-/** Maximum number of IWD zips to keep open in memory simultaneously. */
-const IWD_CACHE_MAX = 10;
+/** Maximum number of IWD zips to keep open in memory simultaneously. changed to 3 to lower RAM usage */
+const IWD_CACHE_MAX = 3;
 
 /**
  * Evict the cache entry for the given resolved IWD path.
@@ -114,11 +114,12 @@ export function resolveIwdPath(iwdPath: string): string {
  * this session. Subsequent calls for the same path are no-ops, and an
  * already-existing `.bak` is never overwritten (preserving the original).
  */
-export function ensureBackup(iwdPath: string): void {
+export async function ensureBackup(iwdPath: string): Promise<void> {
   if (backedUp.has(iwdPath)) return;
   const bakPath = iwdPath + ".bak";
   if (!fs.existsSync(bakPath)) {
-    fs.copyFileSync(iwdPath, bakPath);
+    const { copyFile } = await import("node:fs/promises");
+    await copyFile(iwdPath, bakPath);
   }
   backedUp.add(iwdPath);
 }
@@ -127,10 +128,14 @@ export function ensureBackup(iwdPath: string): void {
  * Writes a zip to disk atomically by writing to a `.tmp` file first,
  * then renaming it over the target. Prevents partial-write corruption.
  */
-export function atomicWrite(zip: AdmZip, targetPath: string): void {
+export async function atomicWrite(
+  zip: AdmZip,
+  targetPath: string,
+): Promise<void> {
   const tmpPath = targetPath + ".tmp";
   zip.writeZip(tmpPath);
-  fs.renameSync(tmpPath, targetPath);
+  const { rename } = await import("node:fs/promises");
+  await rename(tmpPath, targetPath);
 }
 
 /**
@@ -158,9 +163,9 @@ export function globToRegex(pattern: string): RegExp {
   const regexStr = tokens
     .map((tok) => {
       if (tok === "**/") return "(.+/)?"; // zero or more directory levels
-      if (tok === "**") return ".*";      // match anything
-      if (tok === "*") return "[^/]+";    // match within one directory level
-      if (tok === "?") return "[^/]";     // single non-slash char
+      if (tok === "**") return ".*"; // match anything
+      if (tok === "*") return "[^/]+"; // match within one directory level
+      if (tok === "?") return "[^/]"; // single non-slash char
       return tok.replace(/[.+^${}()|[\]\\]/g, "\\$&"); // escape literal
     })
     .join("");
@@ -188,7 +193,11 @@ export function buildDiffSnippet(
 
   let changedLine = hintLine ?? 0;
   if (hintLine === undefined) {
-    for (let i = 0; i < Math.max(originalLines.length, patchedLines.length); i++) {
+    for (
+      let i = 0;
+      i < Math.max(originalLines.length, patchedLines.length);
+      i++
+    ) {
       if (originalLines[i] !== patchedLines[i]) {
         changedLine = i;
         break;
@@ -248,7 +257,9 @@ export function openIwd(resolved: string): { zip: AdmZip } | { error: string } {
   try {
     mtime = fs.statSync(resolved).mtimeMs;
   } catch (e) {
-    return { error: `Failed to stat IWD file: ${resolved}\nReason: ${getErrMsg(e)}` };
+    return {
+      error: `Failed to stat IWD file: ${resolved}\nReason: ${getErrMsg(e)}`,
+    };
   }
 
   const cached = iwdCache.get(resolved);
@@ -301,6 +312,6 @@ export function okResult(text: string) {
 export function entryNotFoundErr(normalized: string) {
   return errResult(
     `Error: Entry not found: ${normalized}\n` +
-    `Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`,
+      `Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`,
   );
 }

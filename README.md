@@ -62,15 +62,15 @@ For more examples, see [WORKFLOW.md](docs/WORKFLOW.md).
 
 ## Implementation details
 
-- **ZIP operations**: Uses `adm-zip` for all IWD read/write/delete. IWD files are standard ZIP archives.
-- **Atomic writes**: Writes go to a `.tmp` file first, then are renamed to the target to prevent corruption on failure.
+- **ZIP operations**: Uses `adm-zip` for all IWD read/write/delete. Caching is limited to 3 concurrent archives to prevent V8 memory bloat.
+- **Atomic writes**: Writes are piped to a `.tmp` file first, then asynchronously renamed to the target to prevent corruption on failure while keeping the event loop unblocked.
 - **Auto-backup**: On the first modification to any IWD in a session, a `.bak` copy is created (only if one doesn't already exist).
 - **Binary detection**: Known binary extensions (.iwi, .d3dbsp, etc.) are returned as base64 instead of UTF-8.
 - **CRC diff**: `iwd_diff` compares CRC32 values from the ZIP central directory — no decompression needed, very fast even on large archives.
 - **DVAR categorization**: DVARs are auto-categorized from their prefix (e.g. `r_` = renderer, `cg_` = client game, `sv_` = server) with subcategories for renderer DVARs (lighting, bloom, shadows, etc.).
 - **Corrupt archive detection**: All zip operations are wrapped with clear error messages if the file is not a valid ZIP/IWD archive.
 - **dry_run support**: Destructive/write operations support `dry_run=true` for safe previewing before committing.
-- **Context efficiency**: `iwd_grep` caps output at `max_matches` (default: 50); `iwd_list` defaults to compact names-only output (`names_only=true`) with an optional `summary_only` one-liner; `iwd_read` supports `limit`/`offset` pagination; `iwd_patch` diff is centred on the actual replacement line via `hintLine`.
+- **Context efficiency**: `iwd_grep` utilizes a pre-test regex fast-path to avoid string allocation GC spikes on large files, and caps output at `max_matches` (default: 50); `iwd_list` defaults to compact names-only output (`names_only=true`) with an optional `summary_only` one-liner; `iwd_read` supports `limit`/`offset` pagination; `iwd_patch` diff is centred on the actual replacement line via `hintLine`.
 
 ## Dependencies
 

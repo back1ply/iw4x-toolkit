@@ -47,7 +47,6 @@ interface ParsedDvarsCache {
   mtime: number;
 }
 
-let dvarsRawCache: RawCache | null = null;
 let dvarsCache: ParsedDvarsCache | null = null;
 let gscRawCache: RawCache | null = null;
 
@@ -74,26 +73,14 @@ function resolveKnowledgePath(filename: string): string | null {
 
 /**
  * Loads `dvars.json` as a raw JSON string.
- * Cached by mtime — disk is only re-read when the file changes.
+ * Uses getParsedDvars to fetch from the single cache, then serializes it.
  */
 export function loadDvars(): string {
-  const filePath = resolveKnowledgePath("dvars.json");
-  if (!filePath) {
-    return JSON.stringify({ error: "dvars.json not found" });
+  const result = getParsedDvars();
+  if ("error" in result) {
+    return JSON.stringify(result);
   }
-  try {
-    const mtime = fs.statSync(filePath).mtimeMs;
-    if (dvarsRawCache && dvarsRawCache.mtime === mtime) {
-      return dvarsRawCache.raw;
-    }
-    const raw = fs.readFileSync(filePath, "utf-8");
-    dvarsRawCache = { raw, mtime };
-    // Invalidate parsed cache when raw changes
-    dvarsCache = null;
-    return raw;
-  } catch (e) {
-    return JSON.stringify({ error: `Failed to load dvars.json: ${getErrMsg(e)}` });
-  }
+  return JSON.stringify(result, null, 2);
 }
 
 /**
@@ -131,8 +118,8 @@ function getParsedDvars(): { dvars: Dvar[] } | { error: string } {
     if (dvarsCache && dvarsCache.mtime === mtime) {
       return dvarsCache.data;
     }
-    // loadDvars updates dvarsRawCache; then we parse once
-    const raw = loadDvars();
+    
+    const raw = fs.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw) as { dvars: Dvar[] };
     dvarsCache = { data, mtime };
     return data;

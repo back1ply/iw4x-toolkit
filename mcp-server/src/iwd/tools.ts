@@ -309,13 +309,13 @@ export function registerIwdTools(server: McpServer): void {
         }
       }
 
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       if (existing) {
         zip.updateFile(normalized, Buffer.from(content, "utf-8"));
       } else {
         zip.addFile(normalized, Buffer.from(content, "utf-8"));
       }
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
 
       return okResult(
@@ -419,9 +419,9 @@ export function registerIwdTools(server: McpServer): void {
         return okResult(`[dry_run] ${normalized}: ${summary} (no changes written)\n\n${diffBlock}`);
       }
 
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       zip.updateFile(normalized, Buffer.from(patched, "utf-8"));
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
 
       return okResult(`Patched: ${normalized}\n${summary}\n\n${diffBlock}`);
@@ -472,9 +472,9 @@ export function registerIwdTools(server: McpServer): void {
         );
       }
 
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       zip.deleteFile(normalized);
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
 
       return okResult(`Removed ${normalized} from ${resolved}\nEntry was: ${size} bytes, CRC: ${crc}`);
@@ -668,6 +668,8 @@ export function registerIwdTools(server: McpServer): void {
       for (const e of entries) {
         if (truncated) break;
         const text = zip.readAsText(e);
+        if (!searchRe.test(text)) continue;
+
         const fileLines = text.split(/\r?\n/);
 
         for (let i = 0; i < fileLines.length; i++) {
@@ -758,16 +760,16 @@ export function registerIwdTools(server: McpServer): void {
         );
       }
 
-      const { mkdirSync, writeFileSync } = await import("node:fs");
+      const { mkdir, writeFile } = await import("node:fs/promises");
       const extracted: string[] = [];
 
       for (const e of entries) {
         const outPath = path.join(resolvedDest, e.entryName);
         const outDir = path.dirname(outPath);
-        mkdirSync(outDir, { recursive: true });
+        await mkdir(outDir, { recursive: true });
         const buf = zip.readFile(e);
         if (buf) {
-          writeFileSync(outPath, buf);
+          await writeFile(outPath, buf);
           extracted.push(e.entryName);
         }
       }
@@ -837,14 +839,14 @@ export function registerIwdTools(server: McpServer): void {
         return okResult(`[dry_run] Would rename ${normalized} → ${normalizedNew} in ${resolved}`);
       }
 
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       const buf = zip.readFile(zipEntry);
       if (!buf) {
         return errResult(`Error: Failed to read entry content: ${normalized}\nTip: the file may be corrupt.`);
       }
       zip.deleteFile(normalized);
       zip.addFile(normalizedNew, buf);
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
 
       return okResult(`Renamed ${normalized} → ${normalizedNew} in ${resolved}`);
@@ -921,13 +923,13 @@ export function registerIwdTools(server: McpServer): void {
         return errResult(`Error: Failed to read source entry: ${normSrc}\nTip: the file may be corrupt.`);
       }
 
-      ensureBackup(rDst);
+      await ensureBackup(rDst);
       if (existingDst) {
         dstZip.updateFile(normDst, buf);
       } else {
         dstZip.addFile(normDst, buf);
       }
-      atomicWrite(dstZip, rDst);
+      await atomicWrite(dstZip, rDst);
       invalidateIwdCache(rDst);
 
       return okResult(
