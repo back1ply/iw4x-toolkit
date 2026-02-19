@@ -62,13 +62,19 @@ export function registerIwdTools(server: McpServer): void {
           .optional()
           .default(true)
           .describe("If true (default), returns entry names only. Pass false to include file sizes."),
+        limit: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Max number of entries to return. Omit to return all.")
       },
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
       },
     },
-    async ({ path: iwdPath, pattern, summary_only, names_only }) => {
+    async ({ path: iwdPath, pattern, summary_only, names_only, limit }) => {
       const resolved = resolveIwdPath(iwdPath);
       const opened = openIwd(resolved);
       if ("error" in opened) return errResult(`Error: ${opened.error}`);
@@ -111,12 +117,19 @@ export function registerIwdTools(server: McpServer): void {
         );
       }
 
-      const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}\n${rows.length} of ${totalInArchive} entries:`;
+      let truncated = false;
+      const matchedCount = rows.length;
+      if (limit !== undefined && matchedCount > limit) {
+        rows = rows.slice(0, limit);
+        truncated = true;
+      }
+
+      const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}\n${matchedCount} of ${totalInArchive} entries${truncated ? ` (showing first ${limit})` : ""}:`;
       const body = names_only
         ? rows.map((r) => r.name).join("\n")
         : rows.map((r) => `${r.name}  (${r.size} → ${r.compressedSize} bytes)`).join("\n");
 
-      return okResult(`${header}\n\n${body}`);
+      return okResult(`${header}\n\n${body}${truncated ? `\n... truncated. Use pattern or increase limit to see more.` : ""}`);
     },
   );
 
@@ -187,9 +200,10 @@ export function registerIwdTools(server: McpServer): void {
       if (offset !== undefined || limit !== undefined) {
         const start = offset ?? 0;
         if (start >= totalLines && totalLines > 0) {
+          const isMinified = text.length / totalLines > 200;
           return errResult(
             `Error: offset ${start} is beyond end of file (${totalLines} lines).\n` +
-            `Tip: use offset values between 0 and ${totalLines - 1}.`,
+            `Tip: use offset values between 0 and ${totalLines - 1}.${isMinified ? "\nNote: This file averages over 200 chars per line and is likely minified. Use iwd_grep to search for specific terms if needed." : ""}`
           );
         }
         const end = limit !== undefined ? start + limit : totalLines;
@@ -213,13 +227,14 @@ export function registerIwdTools(server: McpServer): void {
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
         entry: z.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths."),
+        summary_only: z.boolean().optional().default(false).describe("If true, returns a compact single-line type-and-size string."),
       },
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
       },
     },
-    async ({ path: iwdPath, entry }) => {
+    async ({ path: iwdPath, entry, summary_only }) => {
       const resolved = resolveIwdPath(iwdPath);
       const opened = openIwd(resolved);
       if ("error" in opened) return errResult(`Error: ${opened.error}`);
@@ -242,6 +257,10 @@ export function registerIwdTools(server: McpServer): void {
         : size > 50_000
         ? `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.`
         : `Ready to read with iwd_read.`;
+
+      if (summary_only) {
+        return okResult(`Entry: ${normalized} | Type: ${binary ? "Binary" : "Text"} | Size: ${size} bytes`);
+      }
 
       return okResult(
         `Entry:     ${normalized}\n` +
@@ -673,12 +692,21 @@ export function registerIwdTools(server: McpServer): void {
         const fileLines = text.split(/\r?\n/);
 
         for (let i = 0; i < fileLines.length; i++) {
-          if (searchRe.test(fileLines[i] ?? "")) {
+          const line = fileLines[i] ?? "";
+          const match = searchRe.exec(line);
+          if (match) {
             if (totalMatches >= max_matches) {
               truncated = true;
               break;
             }
-            resultLines.push(`${e.entryName}:${i + 1}: ${(fileLines[i] ?? "").trim()}`);
+            let displayLine = line.trim();
+            if (displayLine.length > 200) {
+              const matchIdx = match.index;
+              const start = Math.max(0, matchIdx - 100);
+              const end = Math.min(line.length, matchIdx + 100);
+              displayLine = (start > 0 ? "... " : "") + line.slice(start, end) + (end < line.length ? " ..." : "");
+            }
+            resultLines.push(`${e.entryName}:${i + 1}: ${displayLine}`);
             totalMatches++;
           }
         }

@@ -23540,7 +23540,7 @@ var BINARY_EXTENSIONS = /* @__PURE__ */ new Set([
 var GREP_MAX_MATCHES_DEFAULT = 50;
 var backedUp = /* @__PURE__ */ new Set();
 var iwdCache = /* @__PURE__ */ new Map();
-var IWD_CACHE_MAX = 10;
+var IWD_CACHE_MAX = 3;
 function invalidateIwdCache(resolved) {
   iwdCache.delete(resolved);
 }
@@ -23555,18 +23555,20 @@ function isBinaryEntry(entryName) {
 function resolveIwdPath(iwdPath) {
   return path.resolve(iwdPath);
 }
-function ensureBackup(iwdPath) {
+async function ensureBackup(iwdPath) {
   if (backedUp.has(iwdPath)) return;
   const bakPath = iwdPath + ".bak";
   if (!fs.existsSync(bakPath)) {
-    fs.copyFileSync(iwdPath, bakPath);
+    const { copyFile } = await import("node:fs/promises");
+    await copyFile(iwdPath, bakPath);
   }
   backedUp.add(iwdPath);
 }
-function atomicWrite(zip, targetPath) {
+async function atomicWrite(zip, targetPath) {
   const tmpPath = targetPath + ".tmp";
   zip.writeZip(tmpPath);
-  fs.renameSync(tmpPath, targetPath);
+  const { rename } = await import("node:fs/promises");
+  await rename(tmpPath, targetPath);
 }
 function normalizeEntry(entry) {
   return entry.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -23628,8 +23630,10 @@ Tip: verify the file path is correct and the file exists.`
   try {
     mtime = fs.statSync(resolved).mtimeMs;
   } catch (e) {
-    return { error: `Failed to stat IWD file: ${resolved}
-Reason: ${getErrMsg(e)}` };
+    return {
+      error: `Failed to stat IWD file: ${resolved}
+Reason: ${getErrMsg(e)}`
+    };
   }
   const cached2 = iwdCache.get(resolved);
   if (cached2 && cached2.mtime === mtime) {
@@ -23681,14 +23685,15 @@ function registerIwdTools(server2) {
         summary_only: external_exports.boolean().optional().default(false).describe(
           "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
         ),
-        names_only: external_exports.boolean().optional().default(true).describe("If true (default), returns entry names only. Pass false to include file sizes.")
+        names_only: external_exports.boolean().optional().default(true).describe("If true (default), returns entry names only. Pass false to include file sizes."),
+        limit: external_exports.number().int().positive().optional().describe("Max number of entries to return. Omit to return all.")
       },
       annotations: {
         readOnlyHint: true,
         idempotentHint: true
       }
     },
-    async ({ path: iwdPath, pattern, summary_only, names_only }) => {
+    async ({ path: iwdPath, pattern, summary_only, names_only, limit }) => {
       const resolved = resolveIwdPath(iwdPath);
       const opened = openIwd(resolved);
       if ("error" in opened) return errResult(`Error: ${opened.error}`);
@@ -23719,12 +23724,19 @@ ${totalInArchive} entries: ${parts.join(", ")}`);
 Tip: use iwd_list without a pattern to see all entries.` : `No entries found in ${resolved}.`
         );
       }
+      let truncated = false;
+      const matchedCount = rows.length;
+      if (limit !== void 0 && matchedCount > limit) {
+        rows = rows.slice(0, limit);
+        truncated = true;
+      }
       const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}
-${rows.length} of ${totalInArchive} entries:`;
+${matchedCount} of ${totalInArchive} entries${truncated ? ` (showing first ${limit})` : ""}:`;
       const body = names_only ? rows.map((r) => r.name).join("\n") : rows.map((r) => `${r.name}  (${r.size} \u2192 ${r.compressedSize} bytes)`).join("\n");
       return okResult(`${header}
 
-${body}`);
+${body}${truncated ? `
+... truncated. Use pattern or increase limit to see more.` : ""}`);
     }
   );
   server2.registerTool(
@@ -23773,9 +23785,10 @@ Tip: the file may be corrupt.`);
       if (offset !== void 0 || limit !== void 0) {
         const start = offset ?? 0;
         if (start >= totalLines && totalLines > 0) {
+          const isMinified = text.length / totalLines > 200;
           return errResult(
             `Error: offset ${start} is beyond end of file (${totalLines} lines).
-Tip: use offset values between 0 and ${totalLines - 1}.`
+Tip: use offset values between 0 and ${totalLines - 1}.${isMinified ? "\nNote: This file averages over 200 chars per line and is likely minified. Use iwd_grep to search for specific terms if needed." : ""}`
           );
         }
         const end = limit !== void 0 ? start + limit : totalLines;
@@ -23795,14 +23808,15 @@ ${text}`);
       description: "Get metadata for a single entry in an IWD archive without reading its content. Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
       inputSchema: {
         path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        entry: external_exports.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths.")
+        entry: external_exports.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths."),
+        summary_only: external_exports.boolean().optional().default(false).describe("If true, returns a compact single-line type-and-size string.")
       },
       annotations: {
         readOnlyHint: true,
         idempotentHint: true
       }
     },
-    async ({ path: iwdPath, entry }) => {
+    async ({ path: iwdPath, entry, summary_only }) => {
       const resolved = resolveIwdPath(iwdPath);
       const opened = openIwd(resolved);
       if ("error" in opened) return errResult(`Error: ${opened.error}`);
@@ -23817,6 +23831,9 @@ ${text}`);
       const crc = zipEntry.header.crc.toString(16).toUpperCase();
       const time3 = zipEntry.header.time.toISOString();
       const readAdvice = binary ? `Note: Binary file \u2014 iwd_read will return base64 (${size} bytes).` : size > 5e4 ? `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.` : `Ready to read with iwd_read.`;
+      if (summary_only) {
+        return okResult(`Entry: ${normalized} | Type: ${binary ? "Binary" : "Text"} | Size: ${size} bytes`);
+      }
       return okResult(
         `Entry:     ${normalized}
 Size:      ${size} bytes (compressed: ${compressedSize})
@@ -23870,13 +23887,13 @@ Content: ${lineCount} lines, ${content.length} chars`
 ${snippet}`;
         }
       }
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       if (existing) {
         zip.updateFile(normalized, Buffer.from(content, "utf-8"));
       } else {
         zip.addFile(normalized, Buffer.from(content, "utf-8"));
       }
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
       return okResult(
         `${action} ${normalized} in ${resolved} (${lineCount} lines, ${content.length} chars)${diffSection}`
@@ -23952,9 +23969,9 @@ ${snippet}`;
 
 ${diffBlock}`);
       }
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       zip.updateFile(normalized, Buffer.from(patched, "utf-8"));
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
       return okResult(`Patched: ${normalized}
 ${summary}
@@ -23994,9 +24011,9 @@ ${diffBlock}`);
 Entry: ${size} bytes, CRC: ${crc}`
         );
       }
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       zip.deleteFile(normalized);
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
       return okResult(`Removed ${normalized} from ${resolved}
 Entry was: ${size} bytes, CRC: ${crc}`);
@@ -24144,14 +24161,24 @@ Tip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=fa
       for (const e of entries) {
         if (truncated) break;
         const text = zip.readAsText(e);
+        if (!searchRe.test(text)) continue;
         const fileLines = text.split(/\r?\n/);
         for (let i = 0; i < fileLines.length; i++) {
-          if (searchRe.test(fileLines[i] ?? "")) {
+          const line = fileLines[i] ?? "";
+          const match = searchRe.exec(line);
+          if (match) {
             if (totalMatches >= max_matches) {
               truncated = true;
               break;
             }
-            resultLines.push(`${e.entryName}:${i + 1}: ${(fileLines[i] ?? "").trim()}`);
+            let displayLine = line.trim();
+            if (displayLine.length > 200) {
+              const matchIdx = match.index;
+              const start = Math.max(0, matchIdx - 100);
+              const end = Math.min(line.length, matchIdx + 100);
+              displayLine = (start > 0 ? "... " : "") + line.slice(start, end) + (end < line.length ? " ..." : "");
+            }
+            resultLines.push(`${e.entryName}:${i + 1}: ${displayLine}`);
             totalMatches++;
           }
         }
@@ -24210,15 +24237,15 @@ Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`
 ` + names.join("\n")
         );
       }
-      const { mkdirSync, writeFileSync } = await import("node:fs");
+      const { mkdir, writeFile } = await import("node:fs/promises");
       const extracted = [];
       for (const e of entries) {
         const outPath = path2.join(resolvedDest, e.entryName);
         const outDir = path2.dirname(outPath);
-        mkdirSync(outDir, { recursive: true });
+        await mkdir(outDir, { recursive: true });
         const buf = zip.readFile(e);
         if (buf) {
-          writeFileSync(outPath, buf);
+          await writeFile(outPath, buf);
           extracted.push(e.entryName);
         }
       }
@@ -24272,7 +24299,7 @@ Tip: remove it first with iwd_remove, or choose a different new_entry path.`
       if (dry_run) {
         return okResult(`[dry_run] Would rename ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
       }
-      ensureBackup(resolved);
+      await ensureBackup(resolved);
       const buf = zip.readFile(zipEntry);
       if (!buf) {
         return errResult(`Error: Failed to read entry content: ${normalized}
@@ -24280,7 +24307,7 @@ Tip: the file may be corrupt.`);
       }
       zip.deleteFile(normalized);
       zip.addFile(normalizedNew, buf);
-      atomicWrite(zip, resolved);
+      await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
       return okResult(`Renamed ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
     }
@@ -24335,13 +24362,13 @@ Tip: set overwrite=true to replace it.`
         return errResult(`Error: Failed to read source entry: ${normSrc}
 Tip: the file may be corrupt.`);
       }
-      ensureBackup(rDst);
+      await ensureBackup(rDst);
       if (existingDst) {
         dstZip.updateFile(normDst, buf);
       } else {
         dstZip.addFile(normDst, buf);
       }
-      atomicWrite(dstZip, rDst);
+      await atomicWrite(dstZip, rDst);
       invalidateIwdCache(rDst);
       return okResult(
         `Copied ${normSrc} (${rSrc})
@@ -24358,7 +24385,6 @@ import * as path3 from "node:path";
 import { fileURLToPath } from "node:url";
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path3.dirname(__filename);
-var dvarsRawCache = null;
 var dvarsCache = null;
 var gscRawCache = null;
 function resolveKnowledgePath(filename) {
@@ -24376,22 +24402,11 @@ function resolveKnowledgePath(filename) {
   return null;
 }
 function loadDvars() {
-  const filePath = resolveKnowledgePath("dvars.json");
-  if (!filePath) {
-    return JSON.stringify({ error: "dvars.json not found" });
+  const result = getParsedDvars();
+  if ("error" in result) {
+    return JSON.stringify(result);
   }
-  try {
-    const mtime = fs2.statSync(filePath).mtimeMs;
-    if (dvarsRawCache && dvarsRawCache.mtime === mtime) {
-      return dvarsRawCache.raw;
-    }
-    const raw = fs2.readFileSync(filePath, "utf-8");
-    dvarsRawCache = { raw, mtime };
-    dvarsCache = null;
-    return raw;
-  } catch (e) {
-    return JSON.stringify({ error: `Failed to load dvars.json: ${getErrMsg(e)}` });
-  }
+  return JSON.stringify(result, null, 2);
 }
 function loadGscBuiltins() {
   const filePath = resolveKnowledgePath("gsc-builtins.json");
@@ -24418,7 +24433,7 @@ function getParsedDvars() {
     if (dvarsCache && dvarsCache.mtime === mtime) {
       return dvarsCache.data;
     }
-    const raw = loadDvars();
+    const raw = fs2.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw);
     dvarsCache = { data, mtime };
     return data;

@@ -2,3 +2,5 @@ node_modules/
 *.tmp
 *.bak
 .claude/settings.local.json
+
+testiwd/
