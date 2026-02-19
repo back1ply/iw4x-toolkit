@@ -24,6 +24,8 @@
 
 ### 🔍 Path 1: Find & Fix ("change X to Y in this mod")
 
+> **Pro Tip**: If you are making many changes, consider extracting the file to `userraw/` first!
+
 ```
 1. iwd_grep  path="mod.iwd"  pattern="X"  entry_glob="*.gsc"  max_matches=5
    → tells you which file and line number

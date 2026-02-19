@@ -207,6 +207,23 @@ export function loadDvars(): string {
   });
 }
 
+export function loadGscBuiltins(): string {
+  // Resolve relative to this file's location → ../knowledge/gsc-builtins.json
+  const candidates = [
+    path.resolve(__dirname, "..", "..", "knowledge", "gsc-builtins.json"),
+    path.resolve(__dirname, "..", "knowledge", "gsc-builtins.json"),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return fs.readFileSync(candidate, "utf-8");
+    }
+  }
+  return JSON.stringify({
+    error: "gsc-builtins.json not found",
+    searched: candidates,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // MCP Server
 // ---------------------------------------------------------------------------
@@ -1099,6 +1116,80 @@ server.resource(
       },
     ],
   }),
+);
+
+// --- Resource: iw4x://gsc-builtins ---
+server.resource(
+  "GSC Built-ins Reference",
+  "iw4x://gsc-builtins",
+  {
+    description:
+      "GSC built-in functions for CoD4, IW4, IW4x, and CoD4x. Used for autocomplete and validation.",
+  },
+  async () => ({
+    contents: [
+      {
+        uri: "iw4x://gsc-builtins",
+        mimeType: "application/json",
+        text: loadGscBuiltins(),
+      },
+    ],
+  }),
+);
+
+// --- Tool: dvar_search ---
+server.tool(
+  "dvar_search",
+  "Search the MW2 DVAR knowledge base without loading the full file. " +
+  "Filters by name or description. Returns top 20 results to save context.",
+  {
+    query: z.string().describe("Search term (e.g. 'fov', 'shadow', 'network')"),
+    category: z.string().optional().describe("Optional category filter (e.g. 'graphic', 'sound', 'network')"),
+  },
+  async ({ query, category }) => {
+    const jsonStr = loadDvars();
+    let data;
+    try {
+      data = JSON.parse(jsonStr);
+    } catch (e) {
+       return errResult("Failed to parse dvars.json knowledge base.");
+    }
+
+    if (!data.dvars || !Array.isArray(data.dvars)) {
+      return errResult("Invalid dvars.json structure: missing 'dvars' array.");
+    }
+
+    const q = query.toLowerCase();
+    const cat = category?.toLowerCase();
+
+    const matches = data.dvars.filter((d: any) => {
+      const nameMatch = d.name.toLowerCase().includes(q);
+      const descMatch = d.description?.toLowerCase().includes(q);
+      const catMatch = cat ? d.category?.toLowerCase() === cat : true;
+      return (nameMatch || descMatch) && catMatch;
+    });
+
+    const count = matches.length;
+    if (count === 0) {
+      return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
+    }
+
+    const limited = matches.slice(0, 20);
+    const output = limited.map((d: any) => {
+      const desc = d.description ? `\n  ${d.description}` : "";
+      const meta = `[${d.type}, default: ${d.default}]`;
+      const catInfo = `(${d.category}/${d.subcategory})`;
+      return `- ${d.name} ${meta} ${catInfo}${desc}`;
+    }).join("\n");
+
+    const footer = count > 20 
+      ? `\n\n... and ${count - 20} more. Refine your search.`
+      : "";
+
+    return okResult(
+      `Found ${count} DVARs matching '${query}':\n\n${output}${footer}`
+    );
+  }
 );
 
 // ---------------------------------------------------------------------------

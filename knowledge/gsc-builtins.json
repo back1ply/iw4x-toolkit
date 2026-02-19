@@ -1,0 +1,129 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "source": "Manual Compilation + Community Wikis (X-Labs, Zeroy, CoD4x)",
+    "last_updated": "2026-02-19"
+  },
+  "functions": [
+    {
+      "name": "iprintln",
+      "returnType": "void",
+      "parameters": [
+        { "name": "message", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Prints a message to the bottom left of the screen for all players.",
+      "category": "io"
+    },
+    {
+      "name": "iprintlnbold",
+      "returnType": "void",
+      "parameters": [
+        { "name": "message", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Prints a bold message to the center of the screen for all players.",
+      "category": "io"
+    },
+    {
+      "name": "getent",
+      "returnType": "entity",
+      "parameters": [
+        { "name": "targetname", "type": "string", "optional": false },
+        { "name": "key", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the first entity found matching the key/value pair.",
+      "category": "entity"
+    },
+    {
+      "name": "getentarray",
+      "returnType": "array",
+      "parameters": [
+        { "name": "targetname", "type": "string", "optional": false },
+        { "name": "key", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns an array of all entities matching the key/value pair.",
+      "category": "entity"
+    },
+    {
+      "name": "json_encode",
+      "returnType": "string",
+      "parameters": [
+        { "name": "array", "type": "array", "optional": false }
+      ],
+      "engines": ["cod4x", "iw4x-experimental"],
+      "description": "Encodes a GSC array into a JSON string. (Support varies by client version)",
+      "category": "json"
+    },
+    {
+      "name": "json_decode",
+      "returnType": "array",
+      "parameters": [
+        { "name": "json_string", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4x", "iw4x-experimental"],
+      "description": "Decodes a JSON string into a GSC array.",
+      "category": "json"
+    },
+    {
+      "name": "readfile",
+      "returnType": "string",
+      "parameters": [
+        { "name": "filepath", "type": "string", "optional": false }
+      ],
+      "engines": ["iw4x", "cod4x"],
+      "description": "Reads the contents of a file from the disk (usually restricted to specific directories like scriptdata).",
+      "category": "filesystem"
+    },
+    {
+      "name": "writefile",
+      "returnType": "void",
+      "parameters": [
+        { "name": "filepath", "type": "string", "optional": false },
+        { "name": "content", "type": "string", "optional": false }
+      ],
+      "engines": ["iw4x", "cod4x"],
+      "description": "Writes content to a file on the disk (usually restricted to specific directories).",
+      "category": "filesystem"
+    },
+    {
+      "name": "fileexists",
+      "returnType": "bool",
+      "parameters": [
+        { "name": "filepath", "type": "string", "optional": false }
+      ],
+      "engines": ["iw4x", "cod4x"],
+      "description": "Checks if a file exists at the specified path.",
+      "category": "filesystem"
+    },
+    {
+      "name": "getping",
+      "returnType": "int",
+      "parameters": [],
+      "calledOn": "player",
+      "engines": ["iw4x", "cod4x"],
+      "description": "Returns the player's current ping.",
+      "category": "player"
+    },
+    {
+      "name": "executecommand",
+      "returnType": "void",
+      "parameters": [
+        { "name": "command", "type": "string", "optional": false }
+      ],
+      "engines": ["iw4x", "cod4x"],
+      "description": "Executes a console command on the server.",
+      "category": "system"
+    },
+    {
+      "name": "getsystemtime",
+      "returnType": "int",
+      "parameters": [],
+      "engines": ["iw4x", "cod4x"],
+      "description": "Returns the current system time (timestamp).",
+      "category": "system"
+    }
+  ]
+}

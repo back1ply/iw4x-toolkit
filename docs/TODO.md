@@ -66,7 +66,13 @@
   - [ ] All `snd_*` sound DVARs (descriptions + performance notes)
   - [ ] Network DVARs (`rate`, `cl_maxpackets`, `snaps`, `sv_maxRate`) with competitive tuning notes
   - [ ] Gametype script DVARs (`scr_sd_*`, `scr_dom_*`, etc.) with promod-relevant values
-- [ ] Add DVAR search tool (server-side filtering) so Claude doesn't need to load the full 440KB JSON into context
+- [ ] **DVAR Search Tool** — Server-side filtering (`dvar_search`) to avoid token limits.
+- [ ] **Knowledge Mining (Engine Heritage)** — Build `knowledge/gsc-builtins.json` using CoD4/WaW official docs as primary sources.
+- [ ] **GSC Linter** — Static analysis tool for syntax/logic checks (Priority: Critical).
+    - [ ] Feature: Check for engine hard limits (DVARs < 4096, Entities < 1024).
+- [ ] **Userraw Workspace Tools** — `setup_workspace`/`deploy_mod` for loose-file development.
+- [ ] **OpenWarfare Analysis** — Study OpenWarfare source to extract "lost" admin/gameplay scripts for IW4x.
+- [ ] **ZoneBuilder Integration** — Investigate wrapping `ZoneBuilder.exe` for automated FastFile generation (Long term).
 - [ ] Test on larger IWD files (iw_00.iwd through iw_23.iwd are 50-200MB each)
 
 ---
