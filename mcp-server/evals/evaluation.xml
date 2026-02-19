@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  iw4x-toolkit MCP Server — Evaluation Harness
+  Per mcp-builder Phase 4 guidelines.
+  Each question requires multiple read-only tool calls and has a verifiable answer.
+-->
+<evaluation>
+
+  <!-- ── iwd_list ─────────────────────────────────────────── -->
+  <qa_pair>
+    <question>How many entries does the test fixture IWD contain in total (all types, no filter)?</question>
+    <tool_hint>iwd_list with no pattern on mcp-server/tests/fixtures/test.iwd</tool_hint>
+    <answer>Determined by iwd_list: count the "X of X entries" line</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Does the test fixture IWD contain any entries with the .iwi extension?</question>
+    <tool_hint>iwd_list with pattern="*.iwi"</tool_hint>
+    <answer>Yes — at least textures/test.iwi is present</answer>
+  </qa_pair>
+
+  <!-- ── iwd_info ──────────────────────────────────────────── -->
+  <qa_pair>
+    <question>What is the uncompressed size (in bytes) of the entry "scripts/test.gsc" in test.iwd?</question>
+    <tool_hint>iwd_info: read the "Size" field</tool_hint>
+    <answer>Exact byte count reported by iwd_info — stable as the fixture is checked in</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Is "textures/test.iwi" classified as Binary or Text by iwd_info?</question>
+    <tool_hint>iwd_info on textures/test.iwi — check the "Type" field</tool_hint>
+    <answer>Binary</answer>
+  </qa_pair>
+
+  <!-- ── iwd_read ──────────────────────────────────────────── -->
+  <qa_pair>
+    <question>What is the exact content of the first line of "scripts/test.gsc" inside test.iwd?</question>
+    <tool_hint>iwd_read with limit=1, offset=0</tool_hint>
+    <answer>First line of scripts/test.gsc as stored in the fixture</answer>
+  </qa_pair>
+
+  <!-- ── iwd_grep ──────────────────────────────────────────── -->
+  <qa_pair>
+    <question>In test.iwd, how many lines across all text entries contain the literal string "hello" (case-insensitive)?</question>
+    <tool_hint>iwd_grep with pattern="hello", is_regex=false</tool_hint>
+    <answer>Exact match count shown in the summary line of iwd_grep output</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Using a regex, how many lines in test.iwd match the pattern "^\s*//.*" (lines starting with // comments)?</question>
+    <tool_hint>iwd_grep with pattern="^\s*//.*", is_regex=true</tool_hint>
+    <answer>Count from grep summary</answer>
+  </qa_pair>
+
+  <!-- ── iwd_diff ──────────────────────────────────────────── -->
+  <qa_pair>
+    <question>When comparing test.iwd to itself using iwd_diff, how many entries are reported as "modified"?</question>
+    <tool_hint>iwd_diff with path1 and path2 both pointing to test.iwd</tool_hint>
+    <answer>0 — identical archives have no CRC differences</answer>
+  </qa_pair>
+
+  <!-- ── iwd_patch dry_run ─────────────────────────────────── -->
+  <qa_pair>
+    <question>What line number (1-indexed) does iwd_patch report as "Context around change" when dry_run patching "hello" → "world" in scripts/test.gsc?</question>
+    <tool_hint>iwd_patch with dry_run=true, old="hello", new="world" — read the "Context around change (line N)" from the output</tool_hint>
+    <answer>Line number where "hello" first appears in scripts/test.gsc</answer>
+  </qa_pair>
+
+  <!-- ── iw4x://dvars resource ────────────────────────────── -->
+  <qa_pair>
+    <question>How many DVARs in the iw4x://dvars knowledge base have "fps" in their name (case-insensitive)?</question>
+    <tool_hint>Read iw4x://dvars resource, filter dvars array by name.toLowerCase().includes("fps")</tool_hint>
+    <answer>Exact count from the DVAR JSON</answer>
+  </qa_pair>
+
+</evaluation>

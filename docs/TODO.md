@@ -16,10 +16,40 @@
 - [x] Published to GitHub (`back1ply/iw4x-toolkit`) with marketplace.json
 - [x] Fixed ESM `__dirname` crash (replaced with `import.meta.url` + `fileURLToPath`)
 - [x] Added `zod` as explicit dependency (was implicit)
-- [x] Test suite — 27 tests via vitest (unit + integration via MCP in-memory transport)
 - [x] Fixed plugin.json skills path and cleaned up marketplace.json to match specs
 
 - [x] Expanded SOURCES.md with 50+ references across the IW engine modding ecosystem
+
+- [x] `iwd_grep(path, pattern, [entry_glob], [is_regex], [max_matches])` — search all text entries for a pattern; case-insensitive literal by default, regex mode available; skips binary entries; results capped at `max_matches` (default 50) to prevent context flood
+- [x] `iwd_patch(path, entry, old, new, [count], [dry_run])` — surgical string replacement; returns ±3-line diff for verification; `count=-1` replaces all occurrences; `dry_run=true` to preview without writing; backup on first modification
+- [x] `iwd_info(path, entry)` — entry metadata (size, CRC, type) before reading; warns if binary or large (>50 KB)
+- [x] `iwd_read` — added `limit` and `offset` params for line-based pagination of large files
+- [x] `iwd_list` — added `pattern` glob filter and `names_only` flag for token-efficient output
+- [x] `globToRegex` helper — tokenizer-based glob→regex; unit tested
+- [x] LLM-friendly error messages across all tools (actionable Tips, exact entry paths, case-sensitivity notes)
+
+**Polish pass (2026-02-19):**
+- [x] `openIwd()` helper — centralised file-not-found + corrupt-ZIP error handling for all tools
+- [x] `dry_run=true` on `iwd_write`, `iwd_patch`, `iwd_remove`, `iwd_extract`, `iwd_rename`, `iwd_copy`
+- [x] `iwd_write` — returns ±3-line diff snippet when replacing existing text entries
+- [x] `iwd_remove` — reports CRC and size of removed entry in success message
+- [x] `iwd_diff` — added `entry_glob` filter and `content_diff=true` option for line-level diffs on modified entries
+- [x] `iwd_extract(path, dest, [entry_glob], [dry_run])` — extract entries to disk for use with native shell tools (rg, fd, etc.)
+- [x] `iwd_rename(path, entry, new_entry, [dry_run])` — atomic rename/move of an entry within an archive
+- [x] `iwd_copy(src_path, src_entry, dst_path, dst_entry, [overwrite], [dry_run])` — copy entries between archives or within the same archive
+- [x] Test suite expanded from 48 → 75 tests
+
+**Audit & efficiency pass (2026-02-19):**
+- [x] `iwd_grep` truncation off-by-one fixed — output now strictly respects `max_matches`
+- [x] `entryNotFoundErr` helper — single unified error message across all 6 entry-not-found paths (DRY)
+- [x] `buildDiffSnippet` `hintLine` param — `iwd_patch` diff now centred on actual replacement line, not line 0
+- [x] `iwd_extract` — cleans up partially written files on failure before returning error
+- [x] `iwd_list` — `names_only=true` is now the **default** (compact by default, verbose on request)
+- [x] `iwd_list` — new `summary_only=true` mode: one-line extension breakdown (e.g. `45 .gsc, 12 .menu, 8 binary`)
+- [x] `buildDiffSnippet` unit tests (4 tests: identical, last-line, EOF addition, hintLine centering)
+- [x] `mcp-server/evals/evaluation.xml` — mcp-builder Phase 4 evaluation harness (10 read-only Q&A pairs)
+- [x] `docs/WORKFLOW.md` — vibe-coder workflow guide: 4 golden paths, anti-pattern table, copy-paste LLM session primer
+- [x] Test suite expanded from 75 → 81 tests
 
 ### Remaining
 
