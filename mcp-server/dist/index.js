@@ -2986,7 +2986,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref);
+      let _sch = resolve4.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3013,7 +3013,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref) {
+    function resolve4(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3228,8 +3228,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path2) {
-      let input = path2;
+    function removeDotSegments(path4) {
+      let input = path4;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3428,8 +3428,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path2, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path2 && path2 !== "/" ? path2 : void 0;
+        const [path4, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path4 && path4 !== "/" ? path4 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -3588,7 +3588,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve2(baseURI, relativeURI, options) {
+    function resolve4(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3815,7 +3815,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve2,
+      resolve: resolve4,
       resolveComponent,
       equal,
       serialize,
@@ -6791,12 +6791,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs2, exportName) {
+    function addFormats(ajv, list, fs3, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs2[f]);
+        ajv.addFormat(f, fs3[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7114,7 +7114,7 @@ var require_utils2 = __commonJS({
     module.exports = Utils;
     Utils.prototype.makeDir = function(folder) {
       const self = this;
-      function mkdirSync2(fpath) {
+      function mkdirSync(fpath) {
         let resolvedPath = fpath.split(self.sep)[0];
         fpath.split(self.sep).forEach(function(name) {
           if (!name || name.substr(-1, 1) === ":") return;
@@ -7128,27 +7128,27 @@ var require_utils2 = __commonJS({
           if (stat && stat.isFile()) throw Errors.FILE_IN_THE_WAY(`"${resolvedPath}"`);
         });
       }
-      mkdirSync2(folder);
+      mkdirSync(folder);
     };
-    Utils.prototype.writeFileTo = function(path2, content, overwrite, attr) {
+    Utils.prototype.writeFileTo = function(path4, content, overwrite, attr) {
       const self = this;
-      if (self.fs.existsSync(path2)) {
+      if (self.fs.existsSync(path4)) {
         if (!overwrite) return false;
-        var stat = self.fs.statSync(path2);
+        var stat = self.fs.statSync(path4);
         if (stat.isDirectory()) {
           return false;
         }
       }
-      var folder = pth.dirname(path2);
+      var folder = pth.dirname(path4);
       if (!self.fs.existsSync(folder)) {
         self.makeDir(folder);
       }
       var fd;
       try {
-        fd = self.fs.openSync(path2, "w", 438);
+        fd = self.fs.openSync(path4, "w", 438);
       } catch (e) {
-        self.fs.chmodSync(path2, 438);
-        fd = self.fs.openSync(path2, "w", 438);
+        self.fs.chmodSync(path4, 438);
+        fd = self.fs.openSync(path4, "w", 438);
       }
       if (fd) {
         try {
@@ -7157,31 +7157,31 @@ var require_utils2 = __commonJS({
           self.fs.closeSync(fd);
         }
       }
-      self.fs.chmodSync(path2, attr || 438);
+      self.fs.chmodSync(path4, attr || 438);
       return true;
     };
-    Utils.prototype.writeFileToAsync = function(path2, content, overwrite, attr, callback) {
+    Utils.prototype.writeFileToAsync = function(path4, content, overwrite, attr, callback) {
       if (typeof attr === "function") {
         callback = attr;
         attr = void 0;
       }
       const self = this;
-      self.fs.exists(path2, function(exist) {
+      self.fs.exists(path4, function(exist) {
         if (exist && !overwrite) return callback(false);
-        self.fs.stat(path2, function(err, stat) {
+        self.fs.stat(path4, function(err, stat) {
           if (exist && stat.isDirectory()) {
             return callback(false);
           }
-          var folder = pth.dirname(path2);
+          var folder = pth.dirname(path4);
           self.fs.exists(folder, function(exists) {
             if (!exists) self.makeDir(folder);
-            self.fs.open(path2, "w", 438, function(err2, fd) {
+            self.fs.open(path4, "w", 438, function(err2, fd) {
               if (err2) {
-                self.fs.chmod(path2, 438, function() {
-                  self.fs.open(path2, "w", 438, function(err3, fd2) {
+                self.fs.chmod(path4, 438, function() {
+                  self.fs.open(path4, "w", 438, function(err3, fd2) {
                     self.fs.write(fd2, content, 0, content.length, 0, function() {
                       self.fs.close(fd2, function() {
-                        self.fs.chmod(path2, attr || 438, function() {
+                        self.fs.chmod(path4, attr || 438, function() {
                           callback(true);
                         });
                       });
@@ -7191,13 +7191,13 @@ var require_utils2 = __commonJS({
               } else if (fd) {
                 self.fs.write(fd, content, 0, content.length, 0, function() {
                   self.fs.close(fd, function() {
-                    self.fs.chmod(path2, attr || 438, function() {
+                    self.fs.chmod(path4, attr || 438, function() {
                       callback(true);
                     });
                   });
                 });
               } else {
-                self.fs.chmod(path2, attr || 438, function() {
+                self.fs.chmod(path4, attr || 438, function() {
                   callback(true);
                 });
               }
@@ -7206,7 +7206,7 @@ var require_utils2 = __commonJS({
         });
       });
     };
-    Utils.prototype.findFiles = function(path2) {
+    Utils.prototype.findFiles = function(path4) {
       const self = this;
       function findSync(dir, pattern, recursive) {
         if (typeof pattern === "boolean") {
@@ -7215,16 +7215,16 @@ var require_utils2 = __commonJS({
         }
         let files = [];
         self.fs.readdirSync(dir).forEach(function(file) {
-          const path3 = pth.join(dir, file);
-          const stat = self.fs.statSync(path3);
-          if (!pattern || pattern.test(path3)) {
-            files.push(pth.normalize(path3) + (stat.isDirectory() ? self.sep : ""));
+          const path5 = pth.join(dir, file);
+          const stat = self.fs.statSync(path5);
+          if (!pattern || pattern.test(path5)) {
+            files.push(pth.normalize(path5) + (stat.isDirectory() ? self.sep : ""));
           }
-          if (stat.isDirectory() && recursive) files = files.concat(findSync(path3, pattern, recursive));
+          if (stat.isDirectory() && recursive) files = files.concat(findSync(path5, pattern, recursive));
         });
         return files;
       }
-      return findSync(path2, void 0, true);
+      return findSync(path4, void 0, true);
     };
     Utils.prototype.findFilesAsync = function(dir, cb) {
       const self = this;
@@ -7279,14 +7279,14 @@ var require_utils2 = __commonJS({
           return "UNSUPPORTED (" + method + ")";
       }
     };
-    Utils.canonical = function(path2) {
-      if (!path2) return "";
-      const safeSuffix = pth.posix.normalize("/" + path2.split("\\").join("/"));
+    Utils.canonical = function(path4) {
+      if (!path4) return "";
+      const safeSuffix = pth.posix.normalize("/" + path4.split("\\").join("/"));
       return pth.join(".", safeSuffix);
     };
-    Utils.zipnamefix = function(path2) {
-      if (!path2) return "";
-      const safeSuffix = pth.posix.normalize("/" + path2.split("\\").join("/"));
+    Utils.zipnamefix = function(path4) {
+      if (!path4) return "";
+      const safeSuffix = pth.posix.normalize("/" + path4.split("\\").join("/"));
       return pth.posix.join(".", safeSuffix);
     };
     Utils.findLast = function(arr, callback) {
@@ -7303,9 +7303,9 @@ var require_utils2 = __commonJS({
       prefix = pth.resolve(pth.normalize(prefix));
       var parts = name.split("/");
       for (var i = 0, l = parts.length; i < l; i++) {
-        var path2 = pth.normalize(pth.join(prefix, parts.slice(i, l).join(pth.sep)));
-        if (path2.indexOf(prefix) === 0) {
-          return path2;
+        var path4 = pth.normalize(pth.join(prefix, parts.slice(i, l).join(pth.sep)));
+        if (path4.indexOf(prefix) === 0) {
+          return path4;
         }
       }
       return pth.normalize(pth.join(prefix, pth.basename(name)));
@@ -7345,8 +7345,8 @@ var require_utils2 = __commonJS({
 var require_fattr = __commonJS({
   "node_modules/adm-zip/util/fattr.js"(exports, module) {
     var pth = __require("path");
-    module.exports = function(path2, { fs: fs2 }) {
-      var _path = path2 || "", _obj = newAttr(), _stat = null;
+    module.exports = function(path4, { fs: fs3 }) {
+      var _path = path4 || "", _obj = newAttr(), _stat = null;
       function newAttr() {
         return {
           directory: false,
@@ -7357,8 +7357,8 @@ var require_fattr = __commonJS({
           atime: 0
         };
       }
-      if (_path && fs2.existsSync(_path)) {
-        _stat = fs2.statSync(_path);
+      if (_path && fs3.existsSync(_path)) {
+        _stat = fs3.statSync(_path);
         _obj.directory = _stat.isDirectory();
         _obj.mtime = _stat.mtime;
         _obj.atime = _stat.atime;
@@ -9129,10 +9129,10 @@ var require_adm_zip = __commonJS({
          * @param {function|string} [props.namefix] - optional function to help fix filename
          */
         addLocalFolderPromise: function(localPath2, props) {
-          return new Promise((resolve2, reject) => {
+          return new Promise((resolve4, reject) => {
             this.addLocalFolderAsync2(Object.assign({ localPath: localPath2 }, props), (err, done) => {
               if (err) reject(err);
-              if (done) resolve2(this);
+              if (done) resolve4(this);
             });
           });
         },
@@ -9319,12 +9319,12 @@ var require_adm_zip = __commonJS({
           keepOriginalPermission = get_Bool(false, keepOriginalPermission);
           overwrite = get_Bool(false, overwrite);
           if (!callback) {
-            return new Promise((resolve2, reject) => {
+            return new Promise((resolve4, reject) => {
               this.extractAllToAsync(targetPath, overwrite, keepOriginalPermission, function(err) {
                 if (err) {
                   reject(err);
                 } else {
-                  resolve2(this);
+                  resolve4(this);
                 }
               });
             });
@@ -9422,11 +9422,11 @@ var require_adm_zip = __commonJS({
                  */
         writeZipPromise: function(targetFileName, props) {
           const { overwrite, perm } = Object.assign({ overwrite: true }, props);
-          return new Promise((resolve2, reject) => {
+          return new Promise((resolve4, reject) => {
             if (!targetFileName && opts.filename) targetFileName = opts.filename;
             if (!targetFileName) reject("ADM-ZIP: ZIP File Name Missing");
             this.toBufferPromise().then((zipData) => {
-              const ret = (done) => done ? resolve2(done) : reject("ADM-ZIP: Wasn't able to write zip file");
+              const ret = (done) => done ? resolve4(done) : reject("ADM-ZIP: Wasn't able to write zip file");
               filetools.writeFileToAsync(targetFileName, zipData, overwrite, perm, ret);
             }, reject);
           });
@@ -9435,8 +9435,8 @@ var require_adm_zip = __commonJS({
          * @returns {Promise<Buffer>} A promise to the Buffer.
          */
         toBufferPromise: function() {
-          return new Promise((resolve2, reject) => {
-            _zip.toAsyncBuffer(resolve2, reject);
+          return new Promise((resolve4, reject) => {
+            _zip.toAsyncBuffer(resolve4, reject);
           });
         },
         /**
@@ -9938,8 +9938,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path2, errorMaps, issueData } = params;
-  const fullPath = [...path2, ...issueData.path || []];
+  const { data, path: path4, errorMaps, issueData } = params;
+  const fullPath = [...path4, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -10055,11 +10055,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path2, key) {
+  constructor(parent, value, path4, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path2;
+    this._path = path4;
     this._key = key;
   }
   get path() {
@@ -13696,10 +13696,10 @@ function assignProp(target, prop, value) {
     configurable: true
   });
 }
-function getElementAtPath(obj, path2) {
-  if (!path2)
+function getElementAtPath(obj, path4) {
+  if (!path4)
     return obj;
-  return path2.reduce((acc, key) => acc?.[key], obj);
+  return path4.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -14019,11 +14019,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path2, issues) {
+function prefixIssues(path4, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path2);
+    iss.path.unshift(path4);
     return iss;
   });
 }
@@ -21532,7 +21532,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+        await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -21549,7 +21549,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve4, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -21627,7 +21627,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve2(parseResult.data);
+            resolve4(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -21888,12 +21888,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve4, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve2, interval);
+      const timeoutId = setTimeout(resolve4, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -22852,7 +22852,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+      await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -23495,24 +23495,24 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve2) => {
+    return new Promise((resolve4) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve2();
+        resolve4();
       } else {
-        this._stdout.once("drain", resolve2);
+        this._stdout.once("drain", resolve4);
       }
     });
   }
 };
 
-// src/index.ts
+// src/iwd/tools.ts
+import * as path2 from "node:path";
+
+// src/utils.ts
 var import_adm_zip = __toESM(require_adm_zip(), 1);
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-var __filename = fileURLToPath(import.meta.url);
-var __dirname = path.dirname(__filename);
 var BINARY_EXTENSIONS = /* @__PURE__ */ new Set([
   ".iwi",
   ".d3dbsp",
@@ -23539,6 +23539,15 @@ var BINARY_EXTENSIONS = /* @__PURE__ */ new Set([
 ]);
 var GREP_MAX_MATCHES_DEFAULT = 50;
 var backedUp = /* @__PURE__ */ new Set();
+var iwdCache = /* @__PURE__ */ new Map();
+var IWD_CACHE_MAX = 10;
+function invalidateIwdCache(resolved) {
+  iwdCache.delete(resolved);
+}
+function getErrMsg(e) {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
 function isBinaryEntry(entryName) {
   const ext = path.extname(entryName).toLowerCase();
   return BINARY_EXTENSIONS.has(ext);
@@ -23610,16 +23619,36 @@ function buildDiffSnippet(original, patched, ctx = 3, hintLine) {
 }
 function openIwd(resolved) {
   if (!fs.existsSync(resolved)) {
-    return { error: `IWD file not found: ${resolved}
-Tip: verify the file path is correct and the file exists.` };
+    return {
+      error: `IWD file not found: ${resolved}
+Tip: verify the file path is correct and the file exists.`
+    };
+  }
+  let mtime;
+  try {
+    mtime = fs.statSync(resolved).mtimeMs;
+  } catch (e) {
+    return { error: `Failed to stat IWD file: ${resolved}
+Reason: ${getErrMsg(e)}` };
+  }
+  const cached2 = iwdCache.get(resolved);
+  if (cached2 && cached2.mtime === mtime) {
+    return { zip: cached2.zip };
   }
   try {
     const zip = new import_adm_zip.default(resolved);
+    if (iwdCache.size >= IWD_CACHE_MAX) {
+      const oldestKey = iwdCache.keys().next().value;
+      if (oldestKey !== void 0) {
+        iwdCache.delete(oldestKey);
+      }
+    }
+    iwdCache.set(resolved, { zip, mtime });
     return { zip };
   } catch (e) {
     return {
       error: `Failed to open IWD archive: ${resolved}
-Reason: ${e.message}
+Reason: ${getErrMsg(e)}
 Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
     };
   }
@@ -23636,769 +23665,871 @@ function entryNotFoundErr(normalized) {
 Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`
   );
 }
-function loadDvars() {
-  const candidates = [
-    path.resolve(__dirname, "..", "..", "knowledge", "dvars.json"),
-    path.resolve(__dirname, "..", "knowledge", "dvars.json")
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return fs.readFileSync(candidate, "utf-8");
-    }
-  }
-  return JSON.stringify({
-    error: "dvars.json not found",
-    searched: candidates
-  });
-}
-function loadGscBuiltins() {
-  const candidates = [
-    path.resolve(__dirname, "..", "..", "knowledge", "gsc-builtins.json"),
-    path.resolve(__dirname, "..", "knowledge", "gsc-builtins.json")
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return fs.readFileSync(candidate, "utf-8");
-    }
-  }
-  return JSON.stringify({
-    error: "gsc-builtins.json not found",
-    searched: candidates
-  });
-}
-var server = new McpServer({
-  name: "iw4x-toolkit",
-  version: "1.0.0"
-});
-server.tool(
-  "iwd_list",
-  "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). Pass names_only=false only when you need file sizes.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    pattern: external_exports.string().optional().describe(
-      "Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"
-    ),
-    summary_only: external_exports.boolean().optional().default(false).describe(
-      "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
-    ),
-    names_only: external_exports.boolean().optional().default(true).describe("If true (default), returns entry names only. Pass false to include file sizes.")
-  },
-  async ({ path: iwdPath, pattern, summary_only, names_only }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    let rows = zip.getEntries().filter((e) => !e.isDirectory).map((e) => ({
-      name: e.entryName,
-      size: e.header.size,
-      compressedSize: e.header.compressedSize
-    }));
-    const totalInArchive = rows.length;
-    if (summary_only) {
-      const counts = /* @__PURE__ */ new Map();
-      for (const row of rows) {
-        const ext = isBinaryEntry(row.name) ? "binary" : path.extname(row.name).toLowerCase() || "(no ext)";
-        counts.set(ext, (counts.get(ext) ?? 0) + 1);
-      }
-      const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([ext, n]) => `${n} ${ext}`);
-      return okResult(`${resolved}
-${totalInArchive} entries: ${parts.join(", ")}`);
-    }
-    if (pattern) {
-      const regex = globToRegex(pattern);
-      rows = rows.filter((r) => regex.test(r.name));
-    }
-    if (rows.length === 0) {
-      return okResult(
-        pattern ? `No entries match pattern '${pattern}' in ${resolved} (${totalInArchive} total entries).
-Tip: use iwd_list without a pattern to see all entries.` : `No entries found in ${resolved}.`
-      );
-    }
-    const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}
-${rows.length} of ${totalInArchive} entries:`;
-    const body = names_only ? rows.map((r) => r.name).join("\n") : rows.map((r) => `${r.name}  (${r.size} \u2192 ${r.compressedSize} bytes)`).join("\n");
-    return okResult(`${header}
 
-${body}`);
-  }
-);
-server.tool(
-  "iwd_read",
-  "Read a file from inside an IWD archive. Returns UTF-8 text for text files (.gsc, .menu, .cfg, .csv, etc.) and base64 for binary files (.iwi, .d3dbsp, etc.). Use limit and offset to read sections of large files without flooding context. Use iwd_info first to check file size and type before reading large files.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    entry: external_exports.string().describe(
-      "Path of the entry inside the IWD (e.g. maps/mp/gametypes/_globallogic.gsc). Use iwd_list to find the exact path."
-    ),
-    limit: external_exports.number().int().positive().optional().describe("Max lines to return (for text files). Omit to read the whole file."),
-    offset: external_exports.number().int().nonnegative().optional().describe("0-indexed line to start reading from (default: 0). Use with limit to page through large files.")
-  },
-  async ({ path: iwdPath, entry, limit, offset }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    const normalized = normalizeEntry(entry);
-    if (!normalized) return errResult("Error: entry path cannot be empty.");
-    const zipEntry = zip.getEntry(normalized);
-    if (!zipEntry) return entryNotFoundErr(normalized);
-    if (isBinaryEntry(normalized)) {
-      const buf = zip.readFile(zipEntry);
-      if (!buf) {
-        return errResult(`Error: Failed to read binary entry: ${normalized}
-Tip: the file may be corrupt.`);
+// src/iwd/tools.ts
+function registerIwdTools(server2) {
+  server2.registerTool(
+    "iwd_list",
+    {
+      title: "List Archive Entries",
+      description: "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). Pass names_only=false only when you need file sizes.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        pattern: external_exports.string().optional().describe(
+          "Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"
+        ),
+        summary_only: external_exports.boolean().optional().default(false).describe(
+          "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
+        ),
+        names_only: external_exports.boolean().optional().default(true).describe("If true (default), returns entry names only. Pass false to include file sizes.")
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
       }
-      return {
-        content: [
-          { type: "text", text: `[binary: ${normalized}, ${buf.length} bytes, base64-encoded below]` },
-          { type: "text", text: buf.toString("base64") }
-        ]
-      };
-    }
-    const text = zip.readAsText(zipEntry);
-    const lines = text.split(/\r?\n/);
-    const totalLines = lines.length;
-    if (offset !== void 0 || limit !== void 0) {
-      const start = offset ?? 0;
-      if (start >= totalLines && totalLines > 0) {
-        return errResult(
-          `Error: offset ${start} is beyond end of file (${totalLines} lines).
-Tip: use offset values between 0 and ${totalLines - 1}.`
+    },
+    async ({ path: iwdPath, pattern, summary_only, names_only }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      let rows = zip.getEntries().filter((e) => !e.isDirectory).map((e) => ({
+        name: e.entryName,
+        size: e.header.size,
+        compressedSize: e.header.compressedSize
+      }));
+      const totalInArchive = rows.length;
+      if (summary_only) {
+        const counts = /* @__PURE__ */ new Map();
+        for (const row of rows) {
+          const ext = isBinaryEntry(row.name) ? "binary" : path2.extname(row.name).toLowerCase() || "(no ext)";
+          counts.set(ext, (counts.get(ext) ?? 0) + 1);
+        }
+        const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([ext, n]) => `${n} ${ext}`);
+        return okResult(`${resolved}
+${totalInArchive} entries: ${parts.join(", ")}`);
+      }
+      if (pattern) {
+        const regex = globToRegex(pattern);
+        rows = rows.filter((r) => regex.test(r.name));
+      }
+      if (rows.length === 0) {
+        return okResult(
+          pattern ? `No entries match pattern '${pattern}' in ${resolved} (${totalInArchive} total entries).
+Tip: use iwd_list without a pattern to see all entries.` : `No entries found in ${resolved}.`
         );
       }
-      const end = limit !== void 0 ? start + limit : totalLines;
-      const slice = lines.slice(start, end);
-      const header = `[${normalized}: lines ${start + 1}-${Math.min(end, totalLines)} of ${totalLines}]`;
+      const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}
+${rows.length} of ${totalInArchive} entries:`;
+      const body = names_only ? rows.map((r) => r.name).join("\n") : rows.map((r) => `${r.name}  (${r.size} \u2192 ${r.compressedSize} bytes)`).join("\n");
       return okResult(`${header}
-${slice.join("\n")}`);
+
+${body}`);
     }
-    return okResult(`[${normalized}: ${totalLines} lines]
+  );
+  server2.registerTool(
+    "iwd_read",
+    {
+      title: "Read Archive Entry",
+      description: "Read a file from inside an IWD archive. Returns UTF-8 text for text files (.gsc, .menu, .cfg, .csv, etc.) and base64 for binary files (.iwi, .d3dbsp, etc.). Use limit and offset to read sections of large files without flooding context. Use iwd_info first to check file size and type before reading large files.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        entry: external_exports.string().describe(
+          "Path of the entry inside the IWD (e.g. maps/mp/gametypes/_globallogic.gsc). Use iwd_list to find the exact path."
+        ),
+        limit: external_exports.number().int().positive().optional().describe("Max lines to return (for text files). Omit to read the whole file."),
+        offset: external_exports.number().int().nonnegative().optional().describe("0-indexed line to start reading from (default: 0). Use with limit to page through large files.")
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
+      }
+    },
+    async ({ path: iwdPath, entry, limit, offset }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      const normalized = normalizeEntry(entry);
+      if (!normalized) return errResult("Error: entry path cannot be empty.");
+      const zipEntry = zip.getEntry(normalized);
+      if (!zipEntry) return entryNotFoundErr(normalized);
+      if (isBinaryEntry(normalized)) {
+        const buf = zip.readFile(zipEntry);
+        if (!buf) {
+          return errResult(`Error: Failed to read binary entry: ${normalized}
+Tip: the file may be corrupt.`);
+        }
+        return {
+          content: [
+            { type: "text", text: `[binary: ${normalized}, ${buf.length} bytes, base64-encoded below]` },
+            { type: "text", text: buf.toString("base64") }
+          ]
+        };
+      }
+      const text = zip.readAsText(zipEntry);
+      const lines = text.split(/\r?\n/);
+      const totalLines = lines.length;
+      if (offset !== void 0 || limit !== void 0) {
+        const start = offset ?? 0;
+        if (start >= totalLines && totalLines > 0) {
+          return errResult(
+            `Error: offset ${start} is beyond end of file (${totalLines} lines).
+Tip: use offset values between 0 and ${totalLines - 1}.`
+          );
+        }
+        const end = limit !== void 0 ? start + limit : totalLines;
+        const slice = lines.slice(start, end);
+        const header = `[${normalized}: lines ${start + 1}-${Math.min(end, totalLines)} of ${totalLines}]`;
+        return okResult(`${header}
+${slice.join("\n")}`);
+      }
+      return okResult(`[${normalized}: ${totalLines} lines]
 ${text}`);
-  }
-);
-server.tool(
-  "iwd_info",
-  "Get metadata for a single entry in an IWD archive without reading its content. Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    entry: external_exports.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths.")
-  },
-  async ({ path: iwdPath, entry }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    const normalized = normalizeEntry(entry);
-    if (!normalized) return errResult("Error: entry path cannot be empty.");
-    const zipEntry = zip.getEntry(normalized);
-    if (!zipEntry) return entryNotFoundErr(normalized);
-    const binary = isBinaryEntry(normalized);
-    const size = zipEntry.header.size;
-    const compressedSize = zipEntry.header.compressedSize;
-    const crc = zipEntry.header.crc.toString(16).toUpperCase();
-    const time3 = zipEntry.header.time.toISOString();
-    const readAdvice = binary ? `Note: Binary file \u2014 iwd_read will return base64 (${size} bytes).` : size > 5e4 ? `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.` : `Ready to read with iwd_read.`;
-    return okResult(
-      `Entry:     ${normalized}
+    }
+  );
+  server2.registerTool(
+    "iwd_info",
+    {
+      title: "Get Entry Metadata",
+      description: "Get metadata for a single entry in an IWD archive without reading its content. Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        entry: external_exports.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths.")
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
+      }
+    },
+    async ({ path: iwdPath, entry }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      const normalized = normalizeEntry(entry);
+      if (!normalized) return errResult("Error: entry path cannot be empty.");
+      const zipEntry = zip.getEntry(normalized);
+      if (!zipEntry) return entryNotFoundErr(normalized);
+      const binary = isBinaryEntry(normalized);
+      const size = zipEntry.header.size;
+      const compressedSize = zipEntry.header.compressedSize;
+      const crc = zipEntry.header.crc.toString(16).toUpperCase();
+      const time3 = zipEntry.header.time.toISOString();
+      const readAdvice = binary ? `Note: Binary file \u2014 iwd_read will return base64 (${size} bytes).` : size > 5e4 ? `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.` : `Ready to read with iwd_read.`;
+      return okResult(
+        `Entry:     ${normalized}
 Size:      ${size} bytes (compressed: ${compressedSize})
 CRC:       ${crc}
 Type:      ${binary ? "Binary" : "Text"}
 Modified:  ${time3}
 ${readAdvice}`
-    );
-  }
-);
-server.tool(
-  "iwd_write",
-  "Write or replace an entire file inside an IWD archive. For targeted edits to a small part of a large file, prefer iwd_patch instead (avoids re-sending full content). Creates a .bak backup on first modification per session. Content must be UTF-8 text. When replacing an existing text entry, returns a \xB13-line diff for verification. Set dry_run=true to validate the operation without committing it.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    entry: external_exports.string().describe("Entry path inside the IWD. New entries are created automatically."),
-    content: external_exports.string().describe("Full UTF-8 text content to write"),
-    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the write without actually modifying the archive (safe to use first)")
-  },
-  async ({ path: iwdPath, entry, content, dry_run }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    const normalized = normalizeEntry(entry);
-    if (!normalized) return errResult("Error: entry path cannot be empty.");
-    const existing = zip.getEntry(normalized);
-    const lineCount = content.split("\n").length;
-    const action = existing ? "Updated" : "Added";
-    if (dry_run) {
-      return okResult(
-        `[dry_run] Would ${action.toLowerCase()} ${normalized} in ${resolved}
-Content: ${lineCount} lines, ${content.length} chars`
       );
     }
-    let diffSection = "";
-    if (existing && !isBinaryEntry(normalized)) {
-      const oldText = zip.readAsText(existing);
-      const { snippet, changedLine } = buildDiffSnippet(oldText, content);
-      if (snippet) {
-        diffSection = `
+  );
+  server2.registerTool(
+    "iwd_write",
+    {
+      title: "Write Archive Entry",
+      description: "Write or replace an entire file inside an IWD archive. For targeted edits to a small part of a large file, prefer iwd_patch instead (avoids re-sending full content). Creates a .bak backup on first modification per session. Content must be UTF-8 text. When replacing an existing text entry, returns a \xB13-line diff for verification. Set dry_run=true to validate the operation without committing it.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        entry: external_exports.string().describe("Entry path inside the IWD. New entries are created automatically."),
+        content: external_exports.string().describe("Full UTF-8 text content to write"),
+        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the write without actually modifying the archive (safe to use first)")
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true
+      }
+    },
+    async ({ path: iwdPath, entry, content, dry_run }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      const normalized = normalizeEntry(entry);
+      if (!normalized) return errResult("Error: entry path cannot be empty.");
+      const existing = zip.getEntry(normalized);
+      const lineCount = content.split("\n").length;
+      const action = existing ? "Updated" : "Added";
+      if (dry_run) {
+        return okResult(
+          `[dry_run] Would ${action.toLowerCase()} ${normalized} in ${resolved}
+Content: ${lineCount} lines, ${content.length} chars`
+        );
+      }
+      let diffSection = "";
+      if (existing && !isBinaryEntry(normalized)) {
+        const oldText = zip.readAsText(existing);
+        const { snippet, changedLine } = buildDiffSnippet(oldText, content);
+        if (snippet) {
+          diffSection = `
 
 --- Diff (first change at line ${changedLine + 1}) ---
 ${snippet}`;
+        }
       }
-    }
-    ensureBackup(resolved);
-    if (existing) {
-      zip.updateFile(normalized, Buffer.from(content, "utf-8"));
-    } else {
-      zip.addFile(normalized, Buffer.from(content, "utf-8"));
-    }
-    atomicWrite(zip, resolved);
-    return okResult(
-      `${action} ${normalized} in ${resolved} (${lineCount} lines, ${content.length} chars)${diffSection}`
-    );
-  }
-);
-server.tool(
-  "iwd_patch",
-  "Perform a surgical string replacement inside a text entry in an IWD archive. Returns a \xB13-line diff snippet around the change so you can verify the edit without re-reading the file. Only replaces the first occurrence by default \u2014 use count=-1 to replace all. Prefer this over iwd_write when changing a small part of a large file. Set dry_run=true to preview what would change without modifying the archive.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    entry: external_exports.string().describe("Path of the entry inside the IWD (forward or backslashes accepted)"),
-    old: external_exports.string().min(1).describe("Exact string to find and replace (must appear in the file, case-sensitive)"),
-    new: external_exports.string().describe("Replacement string"),
-    count: external_exports.number().optional().default(1).describe("Number of occurrences to replace. 1 = first only (default), -1 = all occurrences"),
-    dry_run: external_exports.boolean().optional().default(false).describe("If true, returns the diff preview without modifying the archive")
-  },
-  async ({ path: iwdPath, entry, old: oldStr, new: newStr, count, dry_run }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    const normalized = normalizeEntry(entry);
-    if (!normalized) return errResult("Error: entry path cannot be empty.");
-    const zipEntry = zip.getEntry(normalized);
-    if (!zipEntry) {
-      return errResult(
-        `Error: Entry not found in archive: ${normalized}
-Tip: use iwd_list to check the exact entry path.`
-      );
-    }
-    if (isBinaryEntry(normalized)) {
-      return errResult(
-        `Error: Cannot patch binary entry: ${normalized}
-Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`
-      );
-    }
-    const original = zip.readAsText(zipEntry);
-    if (!original.includes(oldStr)) {
-      return errResult(
-        `Error: Search string not found in ${normalized}
-The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`
-      );
-    }
-    const occurrences = original.split(oldStr).length - 1;
-    let patched = original;
-    let replaced = 0;
-    let firstReplaceOffset = original.indexOf(oldStr);
-    const hintLine = firstReplaceOffset >= 0 ? original.slice(0, firstReplaceOffset).split(/\r?\n/).length - 1 : 0;
-    if (count === -1) {
-      patched = original.split(oldStr).join(newStr);
-      replaced = occurrences;
-    } else {
-      for (let i = 0; i < count && patched.includes(oldStr); i++) {
-        patched = patched.replace(oldStr, newStr);
-        replaced++;
+      ensureBackup(resolved);
+      if (existing) {
+        zip.updateFile(normalized, Buffer.from(content, "utf-8"));
+      } else {
+        zip.addFile(normalized, Buffer.from(content, "utf-8"));
       }
-    }
-    const { snippet, changedLine } = buildDiffSnippet(original, patched, 3, hintLine);
-    const remaining = occurrences - replaced;
-    const summary = remaining === 0 ? `Replaced ${replaced}/${occurrences} occurrence(s)` : `Replaced ${replaced} of ${occurrences} occurrence(s) (${remaining} remaining \u2014 use count=-1 to replace all)`;
-    const diffBlock = `--- Context around change (line ${changedLine + 1}) ---
-${snippet}`;
-    if (dry_run) {
+      atomicWrite(zip, resolved);
+      invalidateIwdCache(resolved);
       return okResult(
-        `[dry_run] ${normalized}: ${summary} (no changes written)
-
-${diffBlock}`
+        `${action} ${normalized} in ${resolved} (${lineCount} lines, ${content.length} chars)${diffSection}`
       );
     }
-    ensureBackup(resolved);
-    zip.updateFile(normalized, Buffer.from(patched, "utf-8"));
-    atomicWrite(zip, resolved);
-    return okResult(
-      `Patched: ${normalized}
+  );
+  server2.registerTool(
+    "iwd_patch",
+    {
+      title: "Patch Archive Entry",
+      description: "Perform a surgical string replacement inside a text entry in an IWD archive. Returns a \xB13-line diff snippet around the change so you can verify the edit without re-reading the file. Only replaces the first occurrence by default \u2014 use count=-1 to replace all. Prefer this over iwd_write when changing a small part of a large file. Set dry_run=true to preview what would change without modifying the archive.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        entry: external_exports.string().describe("Path of the entry inside the IWD (forward or backslashes accepted)"),
+        old: external_exports.string().min(1).describe("Exact string to find and replace (must appear in the file, case-sensitive)"),
+        new: external_exports.string().describe("Replacement string"),
+        count: external_exports.number().optional().default(1).describe("Number of occurrences to replace. 1 = first only (default), -1 = all occurrences"),
+        dry_run: external_exports.boolean().optional().default(false).describe("If true, returns the diff preview without modifying the archive")
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true
+      }
+    },
+    async ({ path: iwdPath, entry, old: oldStr, new: newStr, count, dry_run }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      const normalized = normalizeEntry(entry);
+      if (!normalized) return errResult("Error: entry path cannot be empty.");
+      const zipEntry = zip.getEntry(normalized);
+      if (!zipEntry) {
+        return errResult(
+          `Error: Entry not found in archive: ${normalized}
+Tip: use iwd_list to check the exact entry path.`
+        );
+      }
+      if (isBinaryEntry(normalized)) {
+        return errResult(
+          `Error: Cannot patch binary entry: ${normalized}
+Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`
+        );
+      }
+      const original = zip.readAsText(zipEntry);
+      if (!original.includes(oldStr)) {
+        return errResult(
+          `Error: Search string not found in ${normalized}
+The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`
+        );
+      }
+      const occurrences = original.split(oldStr).length - 1;
+      let patched = original;
+      let replaced = 0;
+      const firstReplaceOffset = original.indexOf(oldStr);
+      const hintLine = firstReplaceOffset >= 0 ? original.slice(0, firstReplaceOffset).split(/\r?\n/).length - 1 : 0;
+      if (count === -1) {
+        patched = original.split(oldStr).join(newStr);
+        replaced = occurrences;
+      } else {
+        for (let i = 0; i < count && patched.includes(oldStr); i++) {
+          patched = patched.replace(oldStr, newStr);
+          replaced++;
+        }
+      }
+      const { snippet, changedLine } = buildDiffSnippet(original, patched, 3, hintLine);
+      const remaining = occurrences - replaced;
+      const summary = remaining === 0 ? `Replaced ${replaced}/${occurrences} occurrence(s)` : `Replaced ${replaced} of ${occurrences} occurrence(s) (${remaining} remaining \u2014 use count=-1 to replace all)`;
+      const diffBlock = `--- Context around change (line ${changedLine + 1}) ---
+${snippet}`;
+      if (dry_run) {
+        return okResult(`[dry_run] ${normalized}: ${summary} (no changes written)
+
+${diffBlock}`);
+      }
+      ensureBackup(resolved);
+      zip.updateFile(normalized, Buffer.from(patched, "utf-8"));
+      atomicWrite(zip, resolved);
+      invalidateIwdCache(resolved);
+      return okResult(`Patched: ${normalized}
 ${summary}
 
-${diffBlock}`
-    );
-  }
-);
-server.tool(
-  "iwd_remove",
-  "Remove an entry from an IWD archive. Creates a .bak backup on first modification per session. Set dry_run=true to validate without actually removing the entry.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    entry: external_exports.string().describe("Path of the entry to remove. Use iwd_list to find the exact path."),
-    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the operation without modifying the archive")
-  },
-  async ({ path: iwdPath, entry, dry_run }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    const normalized = normalizeEntry(entry);
-    if (!normalized) return errResult("Error: entry path cannot be empty.");
-    const existing = zip.getEntry(normalized);
-    if (!existing) return entryNotFoundErr(normalized);
-    const size = existing.header.size;
-    const crc = existing.header.crc.toString(16).toUpperCase();
-    if (dry_run) {
-      return okResult(
-        `[dry_run] Would remove ${normalized} from ${resolved}
+${diffBlock}`);
+    }
+  );
+  server2.registerTool(
+    "iwd_remove",
+    {
+      title: "Remove Archive Entry",
+      description: "Remove an entry from an IWD archive. Creates a .bak backup on first modification per session. Set dry_run=true to validate without actually removing the entry.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        entry: external_exports.string().describe("Path of the entry to remove. Use iwd_list to find the exact path."),
+        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the operation without modifying the archive")
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true
+      }
+    },
+    async ({ path: iwdPath, entry, dry_run }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      const normalized = normalizeEntry(entry);
+      if (!normalized) return errResult("Error: entry path cannot be empty.");
+      const existing = zip.getEntry(normalized);
+      if (!existing) return entryNotFoundErr(normalized);
+      const size = existing.header.size;
+      const crc = existing.header.crc.toString(16).toUpperCase();
+      if (dry_run) {
+        return okResult(
+          `[dry_run] Would remove ${normalized} from ${resolved}
 Entry: ${size} bytes, CRC: ${crc}`
-      );
-    }
-    ensureBackup(resolved);
-    zip.deleteFile(normalized);
-    atomicWrite(zip, resolved);
-    return okResult(
-      `Removed ${normalized} from ${resolved}
-Entry was: ${size} bytes, CRC: ${crc}`
-    );
-  }
-);
-server.tool(
-  "iwd_diff",
-  "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include unified diffs for modified text entries.",
-  {
-    path1: external_exports.string().describe("Path to the first (base) IWD file"),
-    path2: external_exports.string().describe("Path to the second (modified) IWD file"),
-    entry_glob: external_exports.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
-    content_diff: external_exports.boolean().optional().default(false).describe("If true, includes a \xB13-line diff for each modified text entry (may be verbose)")
-  },
-  async ({ path1, path2, entry_glob, content_diff }) => {
-    const r1 = resolveIwdPath(path1);
-    const r2 = resolveIwdPath(path2);
-    const o1 = openIwd(r1);
-    if ("error" in o1) return errResult(`Error: ${o1.error}`);
-    const o2 = openIwd(r2);
-    if ("error" in o2) return errResult(`Error: ${o2.error}`);
-    const { zip: zip1 } = o1;
-    const { zip: zip2 } = o2;
-    const globRe = entry_glob ? globToRegex(entry_glob) : null;
-    const map1 = /* @__PURE__ */ new Map();
-    for (const e of zip1.getEntries()) {
-      if (!e.isDirectory && (!globRe || globRe.test(e.entryName))) {
-        map1.set(e.entryName, e.header.crc);
+        );
       }
+      ensureBackup(resolved);
+      zip.deleteFile(normalized);
+      atomicWrite(zip, resolved);
+      invalidateIwdCache(resolved);
+      return okResult(`Removed ${normalized} from ${resolved}
+Entry was: ${size} bytes, CRC: ${crc}`);
     }
-    const map2 = /* @__PURE__ */ new Map();
-    for (const e of zip2.getEntries()) {
-      if (!e.isDirectory && (!globRe || globRe.test(e.entryName))) {
-        map2.set(e.entryName, e.header.crc);
+  );
+  server2.registerTool(
+    "iwd_diff",
+    {
+      title: "Diff Two Archives",
+      description: "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include unified diffs for modified text entries.",
+      inputSchema: {
+        path1: external_exports.string().describe("Path to the first (base) IWD file"),
+        path2: external_exports.string().describe("Path to the second (modified) IWD file"),
+        entry_glob: external_exports.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+        content_diff: external_exports.boolean().optional().default(false).describe("If true, includes a \xB13-line diff for each modified text entry (may be verbose)")
+      },
+      annotations: {
+        readOnlyHint: true
       }
-    }
-    const added = [];
-    const removed = [];
-    const modified = [];
-    let identical = 0;
-    for (const [name, crc2] of map2) {
-      const crc1 = map1.get(name);
-      if (crc1 === void 0) {
-        added.push(name);
-      } else if (crc1 !== crc2) {
-        modified.push(name);
-      } else {
-        identical++;
+    },
+    async ({ path1, path2: path22, entry_glob, content_diff }) => {
+      const r1 = resolveIwdPath(path1);
+      const r2 = resolveIwdPath(path22);
+      const o1 = openIwd(r1);
+      if ("error" in o1) return errResult(`Error: ${o1.error}`);
+      const o2 = openIwd(r2);
+      if ("error" in o2) return errResult(`Error: ${o2.error}`);
+      const { zip: zip1 } = o1;
+      const { zip: zip2 } = o2;
+      const globRe = entry_glob ? globToRegex(entry_glob) : null;
+      const map1 = /* @__PURE__ */ new Map();
+      for (const e of zip1.getEntries()) {
+        if (!e.isDirectory && (!globRe || globRe.test(e.entryName))) {
+          map1.set(e.entryName, e.header.crc);
+        }
       }
-    }
-    for (const name of map1.keys()) {
-      if (!map2.has(name)) {
-        removed.push(name);
+      const map2 = /* @__PURE__ */ new Map();
+      for (const e of zip2.getEntries()) {
+        if (!e.isDirectory && (!globRe || globRe.test(e.entryName))) {
+          map2.set(e.entryName, e.header.crc);
+        }
       }
-    }
-    const globNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
-    const lines = [
-      `Comparing${globNote}:`,
-      `  A: ${r1} (${map1.size} files)`,
-      `  B: ${r2} (${map2.size} files)`,
-      ``,
-      `Summary: ${added.length} added, ${removed.length} removed, ${modified.length} modified, ${identical} identical`
-    ];
-    if (added.length > 0) {
-      lines.push(``, `Added (in B, not in A):`);
-      added.forEach((n) => lines.push(`  + ${n}`));
-    }
-    if (removed.length > 0) {
-      lines.push(``, `Removed (in A, not in B):`);
-      removed.forEach((n) => lines.push(`  - ${n}`));
-    }
-    if (modified.length > 0) {
-      lines.push(``, `Modified (CRC differs):`);
-      modified.forEach((n) => lines.push(`  ~ ${n}`));
-      if (content_diff) {
-        lines.push(``, `--- Content diffs for modified text entries ---`);
-        for (const name of modified) {
-          if (isBinaryEntry(name)) {
-            const e12 = zip1.getEntry(name);
-            const e22 = zip2.getEntry(name);
-            if (e12 && e22) {
-              lines.push(``, `[binary] ${name}: ${e12.header.size} \u2192 ${e22.header.size} bytes`);
+      const added = [];
+      const removed = [];
+      const modified = [];
+      let identical = 0;
+      for (const [name, crc2] of map2) {
+        const crc1 = map1.get(name);
+        if (crc1 === void 0) {
+          added.push(name);
+        } else if (crc1 !== crc2) {
+          modified.push(name);
+        } else {
+          identical++;
+        }
+      }
+      for (const name of map1.keys()) {
+        if (!map2.has(name)) removed.push(name);
+      }
+      const globNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
+      const lines = [
+        `Comparing${globNote}:`,
+        `  A: ${r1} (${map1.size} files)`,
+        `  B: ${r2} (${map2.size} files)`,
+        ``,
+        `Summary: ${added.length} added, ${removed.length} removed, ${modified.length} modified, ${identical} identical`
+      ];
+      if (added.length > 0) {
+        lines.push(``, `Added (in B, not in A):`);
+        added.forEach((n) => lines.push(`  + ${n}`));
+      }
+      if (removed.length > 0) {
+        lines.push(``, `Removed (in A, not in B):`);
+        removed.forEach((n) => lines.push(`  - ${n}`));
+      }
+      if (modified.length > 0) {
+        lines.push(``, `Modified (CRC differs):`);
+        modified.forEach((n) => lines.push(`  ~ ${n}`));
+        if (content_diff) {
+          lines.push(``, `--- Content diffs for modified text entries ---`);
+          for (const name of modified) {
+            if (isBinaryEntry(name)) {
+              const e12 = zip1.getEntry(name);
+              const e22 = zip2.getEntry(name);
+              if (e12 && e22) {
+                lines.push(``, `[binary] ${name}: ${e12.header.size} \u2192 ${e22.header.size} bytes`);
+              }
+              continue;
             }
-            continue;
+            const e1 = zip1.getEntry(name);
+            const e2 = zip2.getEntry(name);
+            if (!e1 || !e2) continue;
+            const t1 = zip1.readAsText(e1);
+            const t2 = zip2.readAsText(e2);
+            const { snippet, changedLine } = buildDiffSnippet(t1, t2);
+            lines.push(``, `[diff] ${name} (first change at line ${changedLine + 1}):`, snippet);
           }
-          const e1 = zip1.getEntry(name);
-          const e2 = zip2.getEntry(name);
-          if (!e1 || !e2) continue;
-          const t1 = zip1.readAsText(e1);
-          const t2 = zip2.readAsText(e2);
-          const { snippet, changedLine } = buildDiffSnippet(t1, t2);
-          lines.push(``, `[diff] ${name} (first change at line ${changedLine + 1}):`, snippet);
         }
       }
+      return okResult(lines.join("\n"));
     }
-    return okResult(lines.join("\n"));
-  }
-);
-server.tool(
-  "iwd_grep",
-  "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    pattern: external_exports.string().describe(
-      "String or regex pattern to search for. Literal string by default; set is_regex=true for regex."
-    ),
-    entry_glob: external_exports.string().optional().describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
-    is_regex: external_exports.boolean().optional().default(false).describe("Treat pattern as a regex (default: false \u2014 plain case-insensitive string search)"),
-    max_matches: external_exports.number().int().positive().optional().default(GREP_MAX_MATCHES_DEFAULT).describe(`Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`)
-  },
-  async ({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    if (is_regex) {
-      try {
-        new RegExp(pattern);
-      } catch (e) {
-        return errResult(
-          `Error: Invalid regex pattern: ${pattern}
-${e.message}
-Tip: set is_regex=false to search for the literal string instead.`
+  );
+  server2.registerTool(
+    "iwd_grep",
+    {
+      title: "Search Inside Archive",
+      description: "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        pattern: external_exports.string().describe(
+          "String or regex pattern to search for. Literal string by default; set is_regex=true for regex."
+        ),
+        entry_glob: external_exports.string().optional().describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
+        is_regex: external_exports.boolean().optional().default(false).describe("Treat pattern as a regex (default: false \u2014 plain case-insensitive string search)"),
+        max_matches: external_exports.number().int().positive().optional().default(GREP_MAX_MATCHES_DEFAULT).describe(`Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`)
+      },
+      annotations: {
+        readOnlyHint: true
+      }
+    },
+    async ({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      let searchRe;
+      if (is_regex) {
+        try {
+          searchRe = new RegExp(pattern, "i");
+        } catch {
+          return errResult(`Error: Invalid regex pattern: ${pattern}
+Tip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=false for a literal search.`);
+        }
+      } else {
+        const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        searchRe = new RegExp(escaped, "i");
+      }
+      const globRe = entry_glob ? globToRegex(entry_glob) : null;
+      const entries = zip.getEntries().filter(
+        (e) => !e.isDirectory && !isBinaryEntry(e.entryName) && (!globRe || globRe.test(e.entryName))
+      );
+      const resultLines = [];
+      let totalMatches = 0;
+      let truncated = false;
+      for (const e of entries) {
+        if (truncated) break;
+        const text = zip.readAsText(e);
+        const fileLines = text.split(/\r?\n/);
+        for (let i = 0; i < fileLines.length; i++) {
+          if (searchRe.test(fileLines[i] ?? "")) {
+            if (totalMatches >= max_matches) {
+              truncated = true;
+              break;
+            }
+            resultLines.push(`${e.entryName}:${i + 1}: ${(fileLines[i] ?? "").trim()}`);
+            totalMatches++;
+          }
+        }
+      }
+      if (totalMatches === 0) {
+        const globNoMatchMsg = entry_glob ? `No text entries match glob '${entry_glob}' in ${resolved}.
+Tip: use iwd_list to see all entries.` : `No matches for '${pattern}' in ${resolved}`;
+        return okResult(globNoMatchMsg);
+      }
+      const footer = truncated ? `
+
+... truncated at ${max_matches} matches. Use entry_glob or a more specific pattern to narrow results.` : "";
+      return okResult(
+        `Found ${totalMatches}${truncated ? "+" : ""} match(es) in ${resolved}` + (entry_glob ? ` [filter: ${entry_glob}]` : "") + `:
+
+` + resultLines.join("\n") + footer
+      );
+    }
+  );
+  server2.registerTool(
+    "iwd_extract",
+    {
+      title: "Extract Archive Entries",
+      description: "Extract entries from an IWD archive to a directory on disk. Once extracted, standard shell tools (rg, fd, bat) work natively. Use entry_glob to extract only a subset of files. Returns the destination path and list of extracted files.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        dest: external_exports.string().describe("Destination directory path. Created if it does not exist."),
+        entry_glob: external_exports.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+        dry_run: external_exports.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files")
+      },
+      annotations: {
+        readOnlyHint: true
+      }
+    },
+    async ({ path: iwdPath, dest, entry_glob, dry_run }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const resolvedDest = path2.resolve(dest);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      const globRe = entry_glob ? globToRegex(entry_glob) : null;
+      const entries = zip.getEntries().filter(
+        (e) => !e.isDirectory && (!globRe || globRe.test(e.entryName))
+      );
+      if (entries.length === 0) {
+        return okResult(
+          entry_glob ? `No entries match glob '${entry_glob}' in ${resolved}.
+Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`
         );
       }
-    }
-    let searchEntries = zip.getEntries().filter((e) => !e.isDirectory && !isBinaryEntry(e.entryName));
-    if (entry_glob) {
-      const globRe = globToRegex(entry_glob);
-      searchEntries = searchEntries.filter((e) => globRe.test(e.entryName));
-    }
-    if (searchEntries.length === 0) {
-      return okResult(
-        entry_glob ? `No text entries match glob '${entry_glob}' in ${resolved}.
-Tip: use iwd_list to check available entry names.` : `No text entries found in ${resolved}.`
-      );
-    }
-    const searcher = is_regex ? new RegExp(pattern, "i") : pattern.toLowerCase();
-    const results = [];
-    let totalMatches = 0;
-    let fileCount = 0;
-    let truncated = false;
-    outer: for (const entry of searchEntries) {
-      const text = zip.readAsText(entry);
-      const lines = text.split(/\r?\n/);
-      const matchesInFile = [];
-      for (let idx = 0; idx < lines.length; idx++) {
-        const line = lines[idx];
-        const matched = is_regex ? searcher.test(line) : line.toLowerCase().includes(searcher);
-        if (matched) {
-          matchesInFile.push(`  ${idx + 1}: ${line.trim()}`);
-          totalMatches++;
-          if (totalMatches >= max_matches) {
-            truncated = true;
-            break;
-          }
-        }
-      }
-      if (matchesInFile.length > 0) {
-        results.push(`--- ${entry.entryName} (${matchesInFile.length} match${matchesInFile.length === 1 ? "" : "es"}) ---`);
-        results.push(...matchesInFile);
-        results.push("");
-        fileCount++;
-      }
-      if (truncated) break outer;
-    }
-    if (fileCount > 0) {
-      let summary = `Found ${totalMatches} match${totalMatches === 1 ? "" : "es"} in ${fileCount} file${fileCount === 1 ? "" : "s"} (searched ${searchEntries.length} text entries)`;
-      if (truncated) {
-        summary += `
-Note: results truncated at ${max_matches} matches. Use a narrower entry_glob or increase max_matches to see more.`;
-      }
-      return okResult(`${summary}:
+      if (dry_run) {
+        const names = entries.map((e) => e.entryName);
+        return okResult(
+          `[dry_run] Would extract ${entries.length} file(s) to ${resolvedDest}:
 
-${results.join("\n")}`);
-    }
-    return okResult(
-      `No matches for "${pattern}" in ${resolved}` + (entry_glob ? ` (filtered to '${entry_glob}', ${searchEntries.length} entries searched)` : ` (${searchEntries.length} text entries searched)`)
-    );
-  }
-);
-server.tool(
-  "iwd_extract",
-  "Extract entries from an IWD archive to a directory on disk. Once extracted, standard shell tools (rg, fd, bat) work natively. Use entry_glob to extract only a subset of files. Returns the destination path and list of extracted files.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    dest: external_exports.string().describe("Destination directory path. Created if it does not exist."),
-    entry_glob: external_exports.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
-    dry_run: external_exports.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files")
-  },
-  async ({ path: iwdPath, dest, entry_glob, dry_run }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const destResolved = path.resolve(dest);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    let entries = zip.getEntries().filter((e) => !e.isDirectory);
-    if (entry_glob) {
-      const globRe = globToRegex(entry_glob);
-      entries = entries.filter((e) => globRe.test(e.entryName));
-    }
-    if (entries.length === 0) {
-      return okResult(
-        entry_glob ? `No entries match glob '${entry_glob}' in ${resolved}.
-Tip: use iwd_list to check available entries.` : `No entries found in ${resolved}.`
-      );
-    }
-    if (dry_run) {
-      const fileList = entries.map((e) => `  ${e.entryName}  (${e.header.size} bytes)`).join("\n");
-      return okResult(
-        `[dry_run] Would extract ${entries.length} file${entries.length === 1 ? "" : "s"} to ${destResolved}:
-${fileList}`
-      );
-    }
-    try {
-      fs.mkdirSync(destResolved, { recursive: true });
-    } catch (e) {
-      return errResult(
-        `Error: Could not create destination directory: ${destResolved}
-Reason: ${e.message}`
-      );
-    }
-    const extracted = [];
-    for (const entry of entries) {
-      const outPath = path.join(destResolved, entry.entryName);
-      try {
-        fs.mkdirSync(path.dirname(outPath), { recursive: true });
-        const buf = zip.readFile(entry);
+` + names.join("\n")
+        );
+      }
+      const { mkdirSync, writeFileSync } = await import("node:fs");
+      const extracted = [];
+      for (const e of entries) {
+        const outPath = path2.join(resolvedDest, e.entryName);
+        const outDir = path2.dirname(outPath);
+        mkdirSync(outDir, { recursive: true });
+        const buf = zip.readFile(e);
         if (buf) {
-          fs.writeFileSync(outPath, buf);
-          extracted.push(entry.entryName);
+          writeFileSync(outPath, buf);
+          extracted.push(e.entryName);
         }
-      } catch (e) {
-        for (const written of extracted) {
-          try {
-            fs.unlinkSync(path.join(destResolved, written));
-          } catch {
-          }
-        }
+      }
+      return okResult(
+        `Extracted ${extracted.length} file(s) to ${resolvedDest}:
+
+` + extracted.join("\n")
+      );
+    }
+  );
+  server2.registerTool(
+    "iwd_rename",
+    {
+      title: "Rename Archive Entry",
+      description: "Rename or move an entry within an IWD archive in a single operation. Equivalent to iwd_read + iwd_write + iwd_remove, but faster and atomic. Set dry_run=true to validate without modifying the archive.",
+      inputSchema: {
+        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+        entry: external_exports.string().describe("Current path of the entry inside the IWD. Use iwd_list to find exact path."),
+        new_entry: external_exports.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
+        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the rename without modifying the archive")
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false
+      }
+    },
+    async ({ path: iwdPath, entry, new_entry, dry_run }) => {
+      const resolved = resolveIwdPath(iwdPath);
+      const opened = openIwd(resolved);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+      const normalized = normalizeEntry(entry);
+      const normalizedNew = normalizeEntry(new_entry);
+      if (!normalized) return errResult("Error: entry path cannot be empty.");
+      if (!normalizedNew) return errResult("Error: new_entry path cannot be empty.");
+      if (normalized === normalizedNew) {
         return errResult(
-          `Error: Failed to extract ${entry.entryName}
-Reason: ${e.message}
-Note: ${extracted.length} previously written file(s) have been cleaned up.`
+          `Error: Source and destination are the same path: ${normalized}
+Tip: choose a different new_entry path.`
         );
       }
-    }
-    return okResult(
-      `Extracted ${extracted.length} file${extracted.length === 1 ? "" : "s"} to ${destResolved}
-
-` + extracted.map((n) => `  ${n}`).join("\n")
-    );
-  }
-);
-server.tool(
-  "iwd_rename",
-  "Rename or move an entry within an IWD archive in a single operation. Equivalent to iwd_read + iwd_write + iwd_remove, but faster and atomic. Set dry_run=true to validate without modifying the archive.",
-  {
-    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    entry: external_exports.string().describe("Current path of the entry inside the IWD. Use iwd_list to find exact path."),
-    new_entry: external_exports.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
-    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the rename without modifying the archive")
-  },
-  async ({ path: iwdPath, entry, new_entry, dry_run }) => {
-    const resolved = resolveIwdPath(iwdPath);
-    const opened = openIwd(resolved);
-    if ("error" in opened) return errResult(`Error: ${opened.error}`);
-    const { zip } = opened;
-    const normalized = normalizeEntry(entry);
-    const normalizedNew = normalizeEntry(new_entry);
-    if (!normalized) return errResult("Error: entry path cannot be empty.");
-    if (!normalizedNew) return errResult("Error: new_entry path cannot be empty.");
-    if (normalized === normalizedNew) return errResult("Error: entry and new_entry are the same path \u2014 nothing to rename.");
-    const zipEntry = zip.getEntry(normalized);
-    if (!zipEntry) return entryNotFoundErr(normalized);
-    if (zip.getEntry(normalizedNew)) {
-      return errResult(
-        `Error: An entry already exists at the new path: ${normalizedNew}
+      const zipEntry = zip.getEntry(normalized);
+      if (!zipEntry) return entryNotFoundErr(normalized);
+      const existingNew = zip.getEntry(normalizedNew);
+      if (existingNew) {
+        return errResult(
+          `Error: An entry already exists at the new path: ${normalizedNew}
 Tip: remove it first with iwd_remove, or choose a different new_entry path.`
-      );
-    }
-    if (dry_run) {
-      return okResult(
-        `[dry_run] Would rename ${normalized} \u2192 ${normalizedNew} in ${resolved}`
-      );
-    }
-    ensureBackup(resolved);
-    const buf = zip.readFile(zipEntry);
-    if (!buf) {
-      return errResult(`Error: Failed to read entry content: ${normalized}
+        );
+      }
+      if (dry_run) {
+        return okResult(`[dry_run] Would rename ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
+      }
+      ensureBackup(resolved);
+      const buf = zip.readFile(zipEntry);
+      if (!buf) {
+        return errResult(`Error: Failed to read entry content: ${normalized}
 Tip: the file may be corrupt.`);
+      }
+      zip.deleteFile(normalized);
+      zip.addFile(normalizedNew, buf);
+      atomicWrite(zip, resolved);
+      invalidateIwdCache(resolved);
+      return okResult(`Renamed ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
     }
-    zip.deleteFile(normalized);
-    zip.addFile(normalizedNew, buf);
-    atomicWrite(zip, resolved);
-    return okResult(`Renamed ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
-  }
-);
-server.tool(
-  "iwd_copy",
-  "Copy an entry from one IWD archive to another (or within the same archive). Useful for duplicating entries or moving files between mod packages. Set dry_run=true to validate without modifying anything.",
-  {
-    src_path: external_exports.string().describe("Path to the source IWD file"),
-    src_entry: external_exports.string().describe("Entry path inside the source IWD. Use iwd_list to find exact path."),
-    dst_path: external_exports.string().describe("Path to the destination IWD file (can be the same as src_path)"),
-    dst_entry: external_exports.string().describe("Entry path to write in the destination IWD"),
-    overwrite: external_exports.boolean().optional().default(false).describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
-    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the copy without modifying any file")
-  },
-  async ({ src_path, src_entry, dst_path, dst_entry, overwrite, dry_run }) => {
-    const rSrc = resolveIwdPath(src_path);
-    const rDst = resolveIwdPath(dst_path);
-    const oSrc = openIwd(rSrc);
-    if ("error" in oSrc) return errResult(`Error: ${oSrc.error}`);
-    const normSrc = normalizeEntry(src_entry);
-    const normDst = normalizeEntry(dst_entry);
-    if (!normSrc) return errResult("Error: src_entry path cannot be empty.");
-    if (!normDst) return errResult("Error: dst_entry path cannot be empty.");
-    const srcZipEntry = oSrc.zip.getEntry(normSrc);
-    if (!srcZipEntry) return entryNotFoundErr(normSrc);
-    const isSameFile = path.resolve(rSrc) === path.resolve(rDst);
-    const oDst = isSameFile ? oSrc : openIwd(rDst);
-    if ("error" in oDst) return errResult(`Error: ${oDst.error}`);
-    const dstZip = oDst.zip;
-    const existingDst = dstZip.getEntry(normDst);
-    if (existingDst && !overwrite) {
-      return errResult(
-        `Error: Destination entry already exists: ${normDst} in ${rDst}
+  );
+  server2.registerTool(
+    "iwd_copy",
+    {
+      title: "Copy Archive Entry",
+      description: "Copy an entry from one IWD archive to another (or within the same archive). Useful for duplicating entries or moving files between mod packages. Set dry_run=true to validate without modifying anything.",
+      inputSchema: {
+        src_path: external_exports.string().describe("Path to the source IWD file"),
+        src_entry: external_exports.string().describe("Entry path inside the source IWD. Use iwd_list to find exact path."),
+        dst_path: external_exports.string().describe("Path to the destination IWD file (can be the same as src_path)"),
+        dst_entry: external_exports.string().describe("Entry path to write in the destination IWD"),
+        overwrite: external_exports.boolean().optional().default(false).describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
+        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the copy without modifying any file")
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false
+      }
+    },
+    async ({ src_path, src_entry, dst_path, dst_entry, overwrite, dry_run }) => {
+      const rSrc = resolveIwdPath(src_path);
+      const rDst = resolveIwdPath(dst_path);
+      const oSrc = openIwd(rSrc);
+      if ("error" in oSrc) return errResult(`Error: ${oSrc.error}`);
+      const normSrc = normalizeEntry(src_entry);
+      const normDst = normalizeEntry(dst_entry);
+      if (!normSrc) return errResult("Error: src_entry path cannot be empty.");
+      if (!normDst) return errResult("Error: dst_entry path cannot be empty.");
+      const srcZipEntry = oSrc.zip.getEntry(normSrc);
+      if (!srcZipEntry) return entryNotFoundErr(normSrc);
+      const isSameFile = path2.resolve(rSrc) === path2.resolve(rDst);
+      const oDst = isSameFile ? oSrc : openIwd(rDst);
+      if ("error" in oDst) return errResult(`Error: ${oDst.error}`);
+      const dstZip = oDst.zip;
+      const existingDst = dstZip.getEntry(normDst);
+      if (existingDst && !overwrite) {
+        return errResult(
+          `Error: Destination entry already exists: ${normDst} in ${rDst}
 Tip: set overwrite=true to replace it.`
-      );
-    }
-    if (dry_run) {
-      return okResult(
-        `[dry_run] Would copy ${normSrc} (${rSrc}) \u2192 ${normDst} (${rDst})` + (existingDst && overwrite ? ` [will overwrite existing]` : "")
-      );
-    }
-    const buf = oSrc.zip.readFile(srcZipEntry);
-    if (!buf) {
-      return errResult(`Error: Failed to read source entry: ${normSrc}
+        );
+      }
+      if (dry_run) {
+        return okResult(
+          `[dry_run] Would copy ${normSrc} (${rSrc}) \u2192 ${normDst} (${rDst})` + (existingDst && overwrite ? ` [will overwrite existing]` : "")
+        );
+      }
+      const buf = oSrc.zip.readFile(srcZipEntry);
+      if (!buf) {
+        return errResult(`Error: Failed to read source entry: ${normSrc}
 Tip: the file may be corrupt.`);
-    }
-    ensureBackup(rDst);
-    if (existingDst) {
-      dstZip.updateFile(normDst, buf);
-    } else {
-      dstZip.addFile(normDst, buf);
-    }
-    atomicWrite(dstZip, rDst);
-    return okResult(
-      `Copied ${normSrc} (${rSrc})
+      }
+      ensureBackup(rDst);
+      if (existingDst) {
+        dstZip.updateFile(normDst, buf);
+      } else {
+        dstZip.addFile(normDst, buf);
+      }
+      atomicWrite(dstZip, rDst);
+      invalidateIwdCache(rDst);
+      return okResult(
+        `Copied ${normSrc} (${rSrc})
     \u2192 ${normDst} (${rDst})
 ${srcZipEntry.header.size} bytes${existingDst ? " [overwrote existing]" : ""}`
-    );
+      );
+    }
+  );
+}
+
+// src/knowledge/tools.ts
+import * as fs2 from "node:fs";
+import * as path3 from "node:path";
+import { fileURLToPath } from "node:url";
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = path3.dirname(__filename);
+var dvarsRawCache = null;
+var dvarsCache = null;
+var gscRawCache = null;
+function resolveKnowledgePath(filename) {
+  const candidates = [
+    // src/knowledge/ → ../../.. → iw4x-toolkit/knowledge/
+    path3.resolve(__dirname, "..", "..", "..", "knowledge", filename),
+    // dist/          → ../..   → iw4x-toolkit/knowledge/
+    path3.resolve(__dirname, "..", "..", "knowledge", filename),
+    // fallback: sibling knowledge/ dir
+    path3.resolve(__dirname, "..", "knowledge", filename)
+  ];
+  for (const candidate of candidates) {
+    if (fs2.existsSync(candidate)) return candidate;
   }
-);
-server.resource(
-  "DVAR Reference",
-  "iw4x://dvars",
-  {
-    description: "MW2/IW4X DVAR knowledge base \u2014 1,731 DVARs with types, defaults, flags, categories, and FPS impact"
-  },
-  async () => ({
-    contents: [
-      {
-        uri: "iw4x://dvars",
-        mimeType: "application/json",
-        text: loadDvars()
+  return null;
+}
+function loadDvars() {
+  const filePath = resolveKnowledgePath("dvars.json");
+  if (!filePath) {
+    return JSON.stringify({ error: "dvars.json not found" });
+  }
+  try {
+    const mtime = fs2.statSync(filePath).mtimeMs;
+    if (dvarsRawCache && dvarsRawCache.mtime === mtime) {
+      return dvarsRawCache.raw;
+    }
+    const raw = fs2.readFileSync(filePath, "utf-8");
+    dvarsRawCache = { raw, mtime };
+    dvarsCache = null;
+    return raw;
+  } catch (e) {
+    return JSON.stringify({ error: `Failed to load dvars.json: ${getErrMsg(e)}` });
+  }
+}
+function loadGscBuiltins() {
+  const filePath = resolveKnowledgePath("gsc-builtins.json");
+  if (!filePath) {
+    return JSON.stringify({ error: "gsc-builtins.json not found" });
+  }
+  try {
+    const mtime = fs2.statSync(filePath).mtimeMs;
+    if (gscRawCache && gscRawCache.mtime === mtime) {
+      return gscRawCache.raw;
+    }
+    const raw = fs2.readFileSync(filePath, "utf-8");
+    gscRawCache = { raw, mtime };
+    return raw;
+  } catch (e) {
+    return JSON.stringify({ error: `Failed to load gsc-builtins.json: ${getErrMsg(e)}` });
+  }
+}
+function getParsedDvars() {
+  const filePath = resolveKnowledgePath("dvars.json");
+  if (!filePath) return { error: "dvars.json not found" };
+  try {
+    const mtime = fs2.statSync(filePath).mtimeMs;
+    if (dvarsCache && dvarsCache.mtime === mtime) {
+      return dvarsCache.data;
+    }
+    const raw = loadDvars();
+    const data = JSON.parse(raw);
+    dvarsCache = { data, mtime };
+    return data;
+  } catch (e) {
+    return { error: `Failed to parse dvars.json: ${getErrMsg(e)}` };
+  }
+}
+function registerKnowledgeTools(server2) {
+  server2.resource(
+    "DVAR Reference",
+    "iw4x://dvars",
+    {
+      title: "MW2/IW4X DVAR Reference",
+      description: "MW2/IW4X DVAR knowledge base \u2014 1,731 DVARs with types, defaults, flags, categories, and FPS impact"
+    },
+    async () => ({
+      contents: [
+        {
+          uri: "iw4x://dvars",
+          mimeType: "application/json",
+          text: loadDvars()
+        }
+      ]
+    })
+  );
+  server2.resource(
+    "GSC Built-ins Reference",
+    "iw4x://gsc-builtins",
+    {
+      title: "GSC Built-in Functions Reference",
+      description: "GSC built-in functions for CoD4, IW4, IW4x, and CoD4x. Used for autocomplete and validation."
+    },
+    async () => ({
+      contents: [
+        {
+          uri: "iw4x://gsc-builtins",
+          mimeType: "application/json",
+          text: loadGscBuiltins()
+        }
+      ]
+    })
+  );
+  server2.registerTool(
+    "dvar_search",
+    {
+      title: "Search DVAR Knowledge Base",
+      description: "Search the MW2 DVAR knowledge base without loading the full file. Filters by name or description. Returns top 20 results to save context.",
+      inputSchema: {
+        query: external_exports.string().describe("Search term (e.g. 'fov', 'shadow', 'network')"),
+        category: external_exports.string().optional().describe("Optional category filter (e.g. 'graphic', 'sound', 'network')")
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
       }
-    ]
-  })
-);
-server.resource(
-  "GSC Built-ins Reference",
-  "iw4x://gsc-builtins",
-  {
-    description: "GSC built-in functions for CoD4, IW4, IW4x, and CoD4x. Used for autocomplete and validation."
-  },
-  async () => ({
-    contents: [
-      {
-        uri: "iw4x://gsc-builtins",
-        mimeType: "application/json",
-        text: loadGscBuiltins()
+    },
+    async ({ query, category }) => {
+      const result = getParsedDvars();
+      if ("error" in result) {
+        return errResult(result.error);
       }
-    ]
-  })
-);
-server.tool(
-  "dvar_search",
-  "Search the MW2 DVAR knowledge base without loading the full file. Filters by name or description. Returns top 20 results to save context.",
-  {
-    query: external_exports.string().describe("Search term (e.g. 'fov', 'shadow', 'network')"),
-    category: external_exports.string().optional().describe("Optional category filter (e.g. 'graphic', 'sound', 'network')")
-  },
-  async ({ query, category }) => {
-    const jsonStr = loadDvars();
-    let data;
-    try {
-      data = JSON.parse(jsonStr);
-    } catch (e) {
-      return errResult("Failed to parse dvars.json knowledge base.");
-    }
-    if (!data.dvars || !Array.isArray(data.dvars)) {
-      return errResult("Invalid dvars.json structure: missing 'dvars' array.");
-    }
-    const q = query.toLowerCase();
-    const cat = category?.toLowerCase();
-    const matches = data.dvars.filter((d) => {
-      const nameMatch = d.name.toLowerCase().includes(q);
-      const descMatch = d.description?.toLowerCase().includes(q);
-      const catMatch = cat ? d.category?.toLowerCase() === cat : true;
-      return (nameMatch || descMatch) && catMatch;
-    });
-    const count = matches.length;
-    if (count === 0) {
-      return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
-    }
-    const limited = matches.slice(0, 20);
-    const output = limited.map((d) => {
-      const desc = d.description ? `
+      if (!Array.isArray(result.dvars)) {
+        return errResult("Invalid dvars.json structure: missing 'dvars' array.");
+      }
+      const q = query.toLowerCase();
+      const cat = category?.toLowerCase();
+      const matches = result.dvars.filter((d) => {
+        const nameMatch = d.name.toLowerCase().includes(q);
+        const descMatch = d.description?.toLowerCase().includes(q) ?? false;
+        const catMatch = cat !== void 0 ? d.category?.toLowerCase() === cat : true;
+        return (nameMatch || descMatch) && catMatch;
+      });
+      const count = matches.length;
+      if (count === 0) {
+        return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
+      }
+      const limited = matches.slice(0, 20);
+      const output = limited.map((d) => {
+        const desc = d.description ? `
   ${d.description}` : "";
-      const meta = `[${d.type}, default: ${d.default}]`;
-      const catInfo = `(${d.category}/${d.subcategory})`;
-      return `- ${d.name} ${meta} ${catInfo}${desc}`;
-    }).join("\n");
-    const footer = count > 20 ? `
+        const meta = `[${d.type}, default: ${d.default}]`;
+        const catInfo = `(${d.category}/${d.subcategory ?? ""})`;
+        return `- ${d.name} ${meta} ${catInfo}${desc}`;
+      }).join("\n");
+      const footer = count > 20 ? `
 
 ... and ${count - 20} more. Refine your search.` : "";
-    return okResult(
-      `Found ${count} DVARs matching '${query}':
+      return okResult(`Found ${count} DVARs matching '${query}':
 
-${output}${footer}`
-    );
-  }
-);
+${output}${footer}`);
+    }
+  );
+}
+
+// src/index.ts
+var server = new McpServer({
+  name: "iw4x-toolkit",
+  version: "1.0.0"
+});
+registerIwdTools(server);
+registerKnowledgeTools(server);
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
-var isDirectRun = process.argv[1] && import.meta.url === `file:///${process.argv[1].replace(/\\/g, "/")}`;
+var isDirectRun = (() => {
+  if (!process.argv[1]) return false;
+  const metaPath = decodeURIComponent(import.meta.url).replace(/^file:\/\/\//, "").replace(/\\/g, "/").toLowerCase();
+  const argPath = process.argv[1].replace(/\\/g, "/").replace(/^\//, "").toLowerCase();
+  return metaPath === argPath;
+})();
 if (isDirectRun) {
   main().catch((err) => {
     console.error("Fatal:", err);
@@ -24407,6 +24538,7 @@ if (isDirectRun) {
 }
 export {
   atomicWrite,
+  backedUp,
   buildDiffSnippet,
   ensureBackup,
   globToRegex,
