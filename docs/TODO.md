@@ -35,7 +35,7 @@
 - [x] `iwd_remove` — reports CRC and size of removed entry in success message
 - [x] `iwd_diff` — added `entry_glob` filter and `content_diff=true` option for line-level diffs on modified entries
 - [x] `iwd_extract(path, dest, [entry_glob], [dry_run])` — extract entries to disk for use with native shell tools (rg, fd, etc.)
-- [x] `iwd_rename(path, entry, new_entry, [dry_run])` — atomic rename/move of an entry within an archive
+- [x] `iwd_rename(path, entry, নতুন_entry, [dry_run])` — atomic rename/move of an entry within an archive
 - [x] `iwd_copy(src_path, src_entry, dst_path, dst_entry, [overwrite], [dry_run])` — copy entries between archives or within the same archive
 - [x] Test suite expanded from 48 → 75 tests
 
@@ -53,15 +53,10 @@
 - [x] True E2E "Prompt" Testing — successful simulation of LLM context boundaries solving a real promod modding puzzle (Allow Famas)
 - [x] Test suite expanded from 75 → 99 tests
 
-### Remaining
+### Remaining (Phase 1 Finish Line)
+*Before moving to advanced tools, we must finish enriching the foundational data.*
 
-- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference
-  - Sources: Zeroy Wiki scripting reference, X Labs GSC functions, leafized/GSC-Functions, iw4x-rawfiles, xensik/gsc-tool grammars
-  - Use GitHub MCP to pull real function signatures from repos
-  - Schema per function: name, calledOn (level/player/entity/global), params, returnType, description, category
-  - Expose as `iw4x://gsc-builtins` MCP resource, add `gsc-lookup` skill
-- [ ] Build `knowledge/weapon-defs.json` — weapon property reference from IW4 rawfiles
-- [ ] Build `knowledge/fastfile-assets.json` — asset type index from Zeroy Wiki
+- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference. Primary source: CoD4/WaW official docs.
 - [ ] Build `knowledge/menu-properties.json` — valid menuDef/itemDef properties
 - [ ] Enrich more DVARs — currently 89/1,731 have manual descriptions. Priority targets:
   - [ ] All `sm_*` shadow map DVARs (12 total, only 6 enriched)
@@ -69,89 +64,60 @@
   - [ ] Network DVARs (`rate`, `cl_maxpackets`, `snaps`, `sv_maxRate`) with competitive tuning notes
   - [ ] Gametype script DVARs (`scr_sd_*`, `scr_dom_*`, etc.) with promod-relevant values
 - [ ] **DVAR Search Tool** — Server-side filtering (`dvar_search`) to avoid token limits.
-- [ ] **Knowledge Mining (Engine Heritage)** — Build `knowledge/gsc-builtins.json` using CoD4/WaW official docs as primary sources.
-- [ ] **GSC Linter** — Static analysis tool for syntax/logic checks (Priority: Critical).
-    - [ ] Feature: Check for engine hard limits (DVARs < 4096, Entities < 1024).
-- [ ] **Userraw Workspace Tools** — `setup_workspace`/`deploy_mod` for loose-file development.
-- [ ] **OpenWarfare Analysis** — Study OpenWarfare source to extract "lost" admin/gameplay scripts for IW4x.
-- [ ] **ZoneBuilder Integration** — Investigate wrapping `ZoneBuilder.exe` for automated FastFile generation (Long term).
-- [ ] Test on larger IWD files (iw_00.iwd through iw_23.iwd are 50-200MB each)
 
 ---
 
-## Phase 2 — GSC Formatter
+## Phase 2 — Language Tooling (The Enabler)
 
-A tokenizer and pretty-printer for GSC (Game Script Code) files.
+*We cannot build LLM Agentic workflows without static analysis to catch syntax errors. This phase provides the building blocks.*
 
-### Goals
+### 2A: GSC Tokenizer & Formatter
+- [ ] Build a tokenizer (lexer) for GSC (References: `Muhlex/vscode-gsc`, `xensik/gsc-tool`)
+- [ ] Build a simple formatter operating on token streams
+- [ ] Expose as `gsc_format` MCP tool
 
-- Format minified/compressed GSC into readable, indented code
-- Preserve comments and string literals
-- Handle GSC-specific syntax: `/#`, `#include`, `#using_animtree`, `waittill`, `notify`, `endon`, `thread`, `[[ ]]` function pointers
-- Configurable indent style (tabs vs spaces, size)
-
-### References
-
-- `Muhlex/vscode-gsc` — TypeScript tokenizer for IW3/IW4 GSC
-- `xensik/gsc-tool` — Bison grammar (most complete formal spec)
-
-### Approach
-
-1. Build a tokenizer (lexer) for GSC
-2. Build a simple formatter that operates on token streams (no full AST needed)
-3. Expose as `gsc_format` MCP tool
-
----
-
-## Phase 2 — GSC Linter
-
-Static analysis rules for GSC scripts.
-
-### Planned rules
-
-- [ ] Undefined variable usage (variable used before assignment in scope)
-- [ ] Missing `#include` for built-in function calls
+### 2B: GSC Linter
+*Uses the Tokenizer from 2A.*
+- [ ] Undefined variable usage (used before assignment)
+- [ ] Missing `#include` for built-in calls (References `knowledge/gsc-builtins.json` from Phase 1)
 - [ ] Unreachable code after `return`/`break`/`continue`
-- [ ] `wait` / `waittill` in potentially infinite loops without `endon`
-- [ ] String literal issues (missing closing quote, invalid escape)
-- [ ] Brace/parenthesis mismatch
-- [ ] Duplicate function definitions in same file
-- [ ] `self` usage outside of entity context
+- [ ] Infinite loops without `endon` or `wait`
+- [ ] Brace/parentheses mismatched scope
+- [ ] Expose as `gsc_lint` MCP tool
 
-### Approach
-
-1. Build a recursive descent parser from the GSC grammar
-2. Implement lint rules as AST visitors
-3. Expose as `gsc_lint` MCP tool returning diagnostics with line numbers
-
----
-
-## Phase 2 — Menu File Validator
-
-Validate `.menu` files used for IW4 UI definitions.
-
-### Planned checks
-
-- [ ] Brace matching (most common error in menu editing)
-- [ ] Required property validation per item type (`itemDef`, `menuDef`)
-- [ ] Unknown property warnings
-- [ ] Duplicate `name` detection within a menu
-- [ ] `rect` value validation (x y w h align-h align-v)
+### 2C: Menu File Validator
+- [ ] Brace matching (most common error)
+- [ ] Required property validation per item type (`itemDef`, `menuDef`) using `knowledge/menu-properties.json` from Phase 1.
 - [ ] `exp` expression syntax validation
 - [ ] `dvar` references cross-checked against DVAR knowledge base
 
-### References
+---
 
-- `aerosoul94/IWMenuDumper` — C struct definitions for menu format
-- IW4 menu files in `ui_mp/` — real-world examples
+## Phase 3 — Agentic Workflows ("Vibe Code" & "Pro" Personas)
+
+*Leverages the strong analysis foundation built in Phase 2 to create true autonomous LLM modification workflows.*
+
+### The "Vibe Coding" Enthusiast
+Built for LLMs driving development with minimal user expertise.
+- [ ] **Dynamic Context Loader Tool** — (`gsc_context <topic>`) that fetches relevant syntax examples from `iw4x-rawfiles` based on semantic search, reducing hallucination.
+- [ ] **"God Prompt" Templates** — Actionable CLI templates that standardize the "explore first, then execute" vibe coding pattern.
+- [ ] **Sandbox Auto-Setup** — Automatically bootstrap a `fs_game/userraw` environment when starting a new mod.
+
+### The Experienced Modder
+Built to turbo-charge developers who know what they want.
+- [ ] **Loose-File Toolkit** — MCP tools for the `userraw/` loose-file system (`userraw_read`, `userraw_write`).
+- [ ] **GSC Linter CI Pipeline** (Requires Phase 2B) — Allow the LLM to run a continuous loop: Write Code -> Run `gsc_lint` -> Read Errors -> Fix Syntax -> Repeat, autonomously.
+- [ ] **DVAR Constraints Validator** — Warn the LLM immediately if it assigns a string to a numeric DVAR using Phase 1 knowledge base.
 
 ---
 
-## Phase 3 — Ideas
+## Phase 4 — Long-Term / Pipeline Ideas
 
-- [ ] **IWD Creator** — `iwd_create` tool to build a new IWD from a directory
-- [ ] **Fastfile Inspector** — Read zone files (.ff) to list assets (would need custom parser, complex)
-- [ ] **GSC Decompiler Integration** — Wrap `xensik/gsc-tool` decompiler for reading compiled GSC from fastfiles
-- [ ] **Server Config Generator** — Generate `server.cfg` from structured input using DVAR knowledge base
-- [ ] **Mod Packager** — Package a mod directory into the correct IWD/folder structure with validation
-- [ ] **Weapon File Editor** — Parse and edit weapon definition files with type-safe validation
+*Features that automate the final leg of deployment or require complex external executables.*
+
+- [ ] **Mod Packager** — Package a `userraw/` directory into the correct `.iwd` folder structure with validation.
+- [ ] **IWD Creator** — `iwd_create` tool to build a new IWD from an arbitrary directory
+- [ ] **OpenWarfare Analysis** — Study OpenWarfare source to extract "lost" admin/gameplay scripts for modern IW4x.
+- [ ] **ZoneBuilder Integration** — Investigate wrapping `ZoneBuilder.exe` for automated `.ff` (FastFile) compilation.
+- [ ] **Server Config Generator** — Generate `server.cfg` from structured input using DVAR knowledge base.
+- [ ] **Weapon File Editor** — Parse and edit weapon definition files with type-safe validation using a compiled `knowledge/weapon-defs.json`.
