@@ -10,9 +10,9 @@
 > **Every tool defaults to the cheapest output. Verbose details are opt-in.**
 
 | Need | Default call | Add this for more detail |
-|------|-------------|--------------------------|
+|------|--------------|--------------------------|
 | What files are in this IWD? | `iwd_list summary_only=true` | `iwd_list pattern="*.gsc"` |
-| See a list of .gsc scripts | `iwd_list pattern="*.gsc"` | `names_only=false` for sizes |
+| See a list of .gsc scripts | `iwd_list pattern="*.gsc"` | `names_only=false` for sizes, `limit=N` for many files |
 | Read a file | `iwd_info` first, then `iwd_read limit=50` | remove `limit` for full file |
 | Find something | `iwd_grep pattern="X" entry_glob="*.gsc"` | increase `max_matches` if needed |
 | Edit something | `iwd_patch dry_run=true` first | remove `dry_run` to commit |
@@ -26,7 +26,7 @@
 
 > **Pro Tip**: If you are making many changes, consider extracting the file to `userraw/` first!
 
-```
+```text
 1. iwd_grep  path="mod.iwd"  pattern="X"  entry_glob="*.gsc"  max_matches=5
    → tells you which file and line number
 
@@ -38,11 +38,11 @@
 
 4. iwd_patch  path="mod.iwd"  entry="<file>"  old="X"  new="Y"
    → commit
-```
+```text
 
 ### 🗺️ Path 2: Explore ("what's in this IWD?")
 
-```
+```text
 1. iwd_list  path="mod.iwd"  summary_only=true
    → "127 entries: 45 .gsc, 12 .menu, 8 .csv, 62 binary"
 
@@ -54,11 +54,11 @@
 
 4. iwd_read  path="mod.iwd"  entry="<file>"  limit=50
    → first 50 lines
-```
+```text
 
 ### ➕ Path 3: Add a New File
 
-```
+```text
 1. iwd_list  path="mod.iwd"  pattern="scripts/*"
    → confirm path doesn't clash
 
@@ -67,18 +67,18 @@
 
 3. iwd_write  path="mod.iwd"  entry="scripts/myscript.gsc"  content="..."
    → commit
-```
+```text
 
 ### 📊 Path 4: Compare Two IWDs ("what changed?")
 
-```
+```text
 1. iwd_diff  path1="original.iwd"  path2="modded.iwd"
    → summary: N added, N removed, N modified
 
 2. iwd_read  path="modded.iwd"  entry="<specific changed file>"  limit=40
    → read just the changed file if needed
    (or use content_diff=true on iwd_diff for inline diffs of all changed files)
-```
+```text
 
 ---
 
@@ -106,7 +106,7 @@
 
 > Paste this at the top of a new chat:
 
-```
+```text
 I'm working with IWD files using the iw4x-toolkit MCP server.
 Rules for this session:
 - Start all IWD exploration with iwd_list summary_only=true
@@ -115,4 +115,4 @@ Rules for this session:
 - Use dry_run=true before any destructive operation
 - Keep entry_glob set on all iwd_grep calls
 - Use limit= on iwd_read — never read a whole file if we only need part of it
-```
+```text

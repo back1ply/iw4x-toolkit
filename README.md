@@ -12,13 +12,13 @@ A Claude Code plugin for IW4X/MW2 modding. Provides direct IWD archive manipulat
 
 From inside Claude Code:
 
-```
+```bash
 /plugin marketplace add back1ply/iw4x-toolkit
 ```
 
 Then install the plugin:
 
-```
+```bash
 /plugin install iw4x-toolkit
 ```
 
@@ -47,14 +47,15 @@ Requires Node.js 18+ and TypeScript 5.7+.
 - [**SOURCES.md**](docs/SOURCES.md): References and research.
 
 ## Quick Start
-
 ### Check IWD contents
-```
+
+```text
 iwd_list path="mods/promod.iwd" summary_only=true
 ```
 
 ### Search for a script
-```
+
+```text
 iwd_grep path="mods/promod.iwd" pattern="onPlayerConnect" entry_glob="*.gsc"
 ```
 
@@ -68,18 +69,18 @@ For more examples, see [WORKFLOW.md](docs/WORKFLOW.md).
 - **Binary detection**: Known binary extensions (.iwi, .d3dbsp, etc.) are returned as base64 instead of UTF-8.
 - **CRC diff**: `iwd_diff` compares CRC32 values from the ZIP central directory — no decompression needed, very fast even on large archives.
 - **DVAR categorization**: DVARs are auto-categorized from their prefix (e.g. `r_` = renderer, `cg_` = client game, `sv_` = server) with subcategories for renderer DVARs (lighting, bloom, shadows, etc.).
-- **Corrupt archive detection**: All zip operations are wrapped with clear error messages if the file is not a valid ZIP/IWD archive.
+- **Corrupt archive detection**: All zip operations are wrapped with clear error messages if the file is not a valid ZIP/IWD archive. Safe handling for missing files, empty files, non-zips, and missing headers.
 - **dry_run support**: Destructive/write operations support `dry_run=true` for safe previewing before committing.
-- **Context efficiency**: `iwd_grep` utilizes a pre-test regex fast-path to avoid string allocation GC spikes on large files, and caps output at `max_matches` (default: 50); `iwd_list` defaults to compact names-only output (`names_only=true`) with an optional `summary_only` one-liner; `iwd_read` supports `limit`/`offset` pagination; `iwd_patch` diff is centred on the actual replacement line via `hintLine`.
+- **Context efficiency**: `iwd_grep` utilizes a pre-test regex fast-path to avoid string allocation GC spikes on large files, truncates excessively long minified lines, and caps output at `max_matches` (default: 50); `iwd_list` defaults to compact names-only output (`names_only=true`) with optional `summary_only` and `limit` parameters; `iwd_read` supports `limit`/`offset` pagination safely with friendly out-of-bounds errors; `iwd_info` provides a quick type-and-size breakdown via `summary_only`; `iwd_patch` diff is centred on the actual replacement line via `hintLine`.
 
 ## Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `@modelcontextprotocol/sdk` | ^1.12.1 | MCP server framework |
-| `adm-zip` | ^0.5.16 | ZIP/IWD archive operations |
-| `zod` | ^3.23.0 | Schema validation for tool parameters |
-| `vitest` | ^3.0.0 | Test framework (dev) |
+| Package                     | Version | Purpose                               |
+|-----------------------------|---------|---------------------------------------|
+| `@modelcontextprotocol/sdk` | ^1.12.1 | MCP server framework                  |
+| `adm-zip`                   | ^0.5.16 | ZIP/IWD archive operations            |
+| `zod`                       | ^3.23.0 | Schema validation for tool parameters |
+| `vitest`                    | ^3.0.0  | Test framework (dev)                  |
 
 ## License
 

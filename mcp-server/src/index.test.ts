@@ -199,6 +199,48 @@ describe("ensureBackup", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Unit tests — openIwd (Fuzzing/Corruption tests)
+// ---------------------------------------------------------------------------
+
+describe("openIwd (Fuzzing)", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "iw4x-test-fuzz-"));
+  });
+
+  it("handles a non-existent file gracefully (returns error object)", () => {
+    const result = openIwd(path.join(tmpDir, "missing.iwd"));
+    expect("error" in result).toBe(true);
+    expect((result as { error: string }).error).toContain("not found");
+  });
+
+  it("handles a completely empty file gracefully", () => {
+    const emptyPath = path.join(tmpDir, "empty.iwd");
+    fs.writeFileSync(emptyPath, "");
+    const result = openIwd(emptyPath);
+    expect("error" in result).toBe(true);
+    expect((result as { error: string }).error).toContain("Failed to open IWD archive");
+  });
+
+  it("handles a plain text file disguised as a zip gracefully", () => {
+    const textPath = path.join(tmpDir, "text.iwd");
+    fs.writeFileSync(textPath, "this is definitely not a zip file");
+    const result = openIwd(textPath);
+    expect("error" in result).toBe(true);
+    expect((result as { error: string }).error).toContain("Failed to open IWD archive");
+  });
+
+  it("handles a header-truncated corrupt zip file gracefully", () => {
+    const corruptPath = path.join(tmpDir, "corrupt.iwd");
+    fs.writeFileSync(corruptPath, Buffer.from([0x50, 0x4B, 0x03])); // Incomplete PKZip header
+    const result = openIwd(corruptPath);
+    expect("error" in result).toBe(true);
+    expect((result as { error: string }).error).toContain("Failed to open IWD archive");
+  });
+});
+
 describe("atomicWrite", () => {
   let tmpDir: string;
 
@@ -320,6 +362,19 @@ describe("MCP tool handlers", () => {
       expect(text).toContain("binary");     // .iwi classified as binary
       // must NOT list individual file names
       expect(text).not.toContain(TEXT_ENTRY);
+    });
+
+    it("respects the limit argument to truncate output", async () => {
+      const result = await client.callTool({
+        name: "iwd_list",
+        arguments: { path: iwdPath, limit: 1 },
+      });
+      const text = (result.content as Array<{ type: string; text: string }>)[0]
+        .text;
+      // It should still know there are 2 total, but only show 1
+      expect(text).toContain("2 of 2 entries");
+      expect(text).toContain("showing first 1");
+      expect(text).toContain("... truncated");
     });
 
     it("returns descriptive message when pattern matches nothing", async () => {
@@ -448,6 +503,8 @@ describe("MCP tool handlers", () => {
         .text;
       expect(text).toContain("offset");
       expect(text).toContain("beyond end of file");
+      // Since it's not minified, it should not have the hint
+      expect(text).not.toContain("likely minified");
     });
   });
 
@@ -480,6 +537,21 @@ describe("MCP tool handlers", () => {
       expect(text).toContain(BINARY_ENTRY);
       expect(text).toContain("Type:      Binary");
       expect(text).toContain("iwd_read will return base64");
+    });
+
+    it("returns a single-line string when summary_only is true", async () => {
+      const result = await client.callTool({
+        name: "iwd_info",
+        arguments: { path: iwdPath, entry: TEXT_ENTRY, summary_only: true },
+      });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as Array<{ type: string; text: string }>)[0]
+        .text;
+      expect(text).toContain("Entry:");
+      expect(text).toContain("Type: Text");
+      expect(text).toContain("Size:");
+      expect(text).not.toContain("CRC:"); // Should be missing in the summary
+      expect(text.split("\n").length).toBe(1); // Should be exactly one line
     });
   });
 

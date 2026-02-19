@@ -49,7 +49,9 @@
 - [x] `buildDiffSnippet` unit tests (4 tests: identical, last-line, EOF addition, hintLine centering)
 - [x] `mcp-server/evals/evaluation.xml` — mcp-builder Phase 4 evaluation harness (10 read-only Q&A pairs)
 - [x] `docs/WORKFLOW.md` — vibe-coder workflow guide: 4 golden paths, anti-pattern table, copy-paste LLM session primer
-- [x] Test suite expanded from 75 → 81 tests
+- [x] Fuzzing Unit Tests — robust corrupt/invalid archive rejection directly against `openIwd`
+- [x] True E2E "Prompt" Testing — successful simulation of LLM context boundaries solving a real promod modding puzzle (Allow Famas)
+- [x] Test suite expanded from 75 → 99 tests
 
 ### Remaining
 
