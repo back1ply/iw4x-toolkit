@@ -9,11 +9,14 @@ import {
   isBinaryEntry,
   normalizeEntry,
   loadDvars,
+  loadGscBuiltins,
   resolveIwdPath,
   ensureBackup,
   atomicWrite,
   globToRegex,
   buildDiffSnippet,
+  openIwd,
+  invalidateIwdCache,
   server,
 } from "./index.js";
 
@@ -1213,6 +1216,222 @@ describe("MCP tool handlers", () => {
       expect(text).toContain("Entry not found");
       expect(text).toContain("does/not/exist.gsc");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests — loadGscBuiltins
+// ---------------------------------------------------------------------------
+
+describe("loadGscBuiltins", () => {
+  it("returns valid JSON", () => {
+    const raw = loadGscBuiltins();
+    const parsed = JSON.parse(raw);
+    expect(parsed).toBeDefined();
+    expect(parsed.error).toBeUndefined();
+  });
+
+  it("returns a non-empty object or array", () => {
+    const parsed = JSON.parse(loadGscBuiltins());
+    // Could be an array of functions or an object keyed by name/category
+    const hasContent =
+      (Array.isArray(parsed) && parsed.length > 0) ||
+      (typeof parsed === "object" && Object.keys(parsed).length > 0);
+    expect(hasContent).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration tests — iwd_info missing entry (error path)
+// ---------------------------------------------------------------------------
+
+describe("iwd_info error paths", () => {
+  let client2: Client;
+  let tmpDir2: string;
+  let iwdPath2: string;
+
+  const TEXT_ENTRY2 = "maps/mp/gametypes/_test.gsc";
+  const TEXT_CONTENT2 = '// test\nmain() { iprintln("hi"); }';
+
+  beforeAll(async () => {
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    client2 = new Client({ name: "test-client-info", version: "1.0.0" });
+    await server.server.connect(st);
+    await client2.connect(ct);
+  });
+
+  afterAll(async () => {
+    await client2.close();
+  });
+
+  beforeEach(() => {
+    tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), "iw4x-info-test-"));
+    iwdPath2 = path.join(tmpDir2, "test.iwd");
+    const zip = new AdmZip();
+    zip.addFile(TEXT_ENTRY2, Buffer.from(TEXT_CONTENT2, "utf-8"));
+    zip.writeZip(iwdPath2);
+  });
+
+  it("returns error when entry does not exist", async () => {
+    const result = await client2.callTool({
+      name: "iwd_info",
+      arguments: { path: iwdPath2, entry: "does/not/exist.gsc" },
+    });
+    expect(result.isError).toBe(true);
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("Entry not found");
+    expect(text).toContain("does/not/exist.gsc");
+  });
+
+  it("returns error when archive does not exist", async () => {
+    const result = await client2.callTool({
+      name: "iwd_info",
+      arguments: { path: path.join(tmpDir2, "missing.iwd"), entry: TEXT_ENTRY2 },
+    });
+    expect(result.isError).toBe(true);
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("IWD file not found");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration tests — dvar_search
+// ---------------------------------------------------------------------------
+
+describe("dvar_search", () => {
+  let clientDs: Client;
+
+  beforeAll(async () => {
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    clientDs = new Client({ name: "test-client-dvar", version: "1.0.0" });
+    await server.server.connect(st);
+    await clientDs.connect(ct);
+  });
+
+  afterAll(async () => {
+    await clientDs.close();
+  });
+
+  it("returns matching DVARs for a known query", async () => {
+    const result = await clientDs.callTool({
+      name: "dvar_search",
+      arguments: { query: "fov" },
+    });
+    expect(result.isError).toBeFalsy();
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("fov");
+    expect(text).toContain("Found");
+  });
+
+  it("filters by category when category is provided (fewer results than no filter)", async () => {
+    // Without category: 'shadow' matches 14 DVARs across multiple categories
+    const unfiltered = await clientDs.callTool({
+      name: "dvar_search",
+      arguments: { query: "shadow" },
+    });
+    const unfilteredText = (unfiltered.content as Array<{ type: string; text: string }>)[0].text;
+    const unfilteredCount = parseInt(unfilteredText.match(/Found (\d+) DVARs/)?.[1] ?? "0");
+
+    // With category 'shadow_map': only shadow_map/* DVARs should be returned (11)
+    const filtered = await clientDs.callTool({
+      name: "dvar_search",
+      arguments: { query: "shadow", category: "shadow_map" },
+    });
+    expect(filtered.isError).toBeFalsy();
+    const filteredText = (filtered.content as Array<{ type: string; text: string }>)[0].text;
+    const filteredCount = parseInt(filteredText.match(/Found (\d+) DVARs/)?.[1] ?? "0");
+
+    // Category filter must reduce the result set
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(unfilteredCount);
+    // Results should all belong to the shadow_map category
+    expect(filteredText).toContain("shadow_map");
+  });
+
+  it("returns a clear message when no results match", async () => {
+    const result = await clientDs.callTool({
+      name: "dvar_search",
+      arguments: { query: "xyzzy_this_does_not_exist_ever" },
+    });
+    expect(result.isError).toBeFalsy();
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("No DVARs found");
+  });
+
+  it("truncates at 20 results when many matches exist", async () => {
+    // "r_" prefix matches a large set of rendering DVARs — over 20
+    const result = await clientDs.callTool({
+      name: "dvar_search",
+      arguments: { query: "r_" },
+    });
+    expect(result.isError).toBeFalsy();
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    // When count > 20, the footer shows "and N more"
+    expect(text).toContain("more");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests — IWD cache (openIwd + invalidateIwdCache)
+// ---------------------------------------------------------------------------
+
+describe("IWD cache", () => {
+  let cacheDir: string;
+  let iwdFile: string;
+
+  beforeEach(() => {
+    cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "iw4x-cache-test-"));
+    iwdFile = path.join(cacheDir, "cache.iwd");
+    const z = new AdmZip();
+    z.addFile("scripts/test.gsc", Buffer.from("// original"));
+    z.writeZip(iwdFile);
+  });
+
+  it("returns the same AdmZip instance on a cache hit (no disk re-read)", () => {
+    const r1 = openIwd(iwdFile);
+    const r2 = openIwd(iwdFile);
+    expect("error" in r1).toBe(false);
+    expect("error" in r2).toBe(false);
+    if ("zip" in r1 && "zip" in r2) {
+      // Referential equality — same object means cache was hit
+      expect(r1.zip).toBe(r2.zip);
+    }
+  });
+
+  it("returns a fresh instance after invalidateIwdCache (stale-read prevention)", () => {
+    const r1 = openIwd(iwdFile);
+    expect("error" in r1).toBe(false);
+
+    invalidateIwdCache(iwdFile);
+
+    const r2 = openIwd(iwdFile);
+    expect("error" in r2).toBe(false);
+    if ("zip" in r1 && "zip" in r2) {
+      // After invalidation, a new AdmZip is created — not the same reference
+      expect(r1.zip).not.toBe(r2.zip);
+    }
+  });
+
+  it("picks up new content after a write + invalidation", () => {
+    // First read
+    const r1 = openIwd(iwdFile);
+    expect("zip" in r1).toBe(true);
+
+    // Write new content and invalidate
+    if ("zip" in r1) {
+      r1.zip.updateFile("scripts/test.gsc", Buffer.from("// updated"));
+      atomicWrite(r1.zip, iwdFile);
+    }
+    invalidateIwdCache(iwdFile);
+
+    // Second read should see the updated content
+    const r2 = openIwd(iwdFile);
+    expect("zip" in r2).toBe(true);
+    if ("zip" in r2) {
+      const entry = r2.zip.getEntry("scripts/test.gsc");
+      expect(entry).not.toBeNull();
+      expect(r2.zip.readAsText(entry!)).toBe("// updated");
+    }
   });
 });
 

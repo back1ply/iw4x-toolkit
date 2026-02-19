@@ -28,6 +28,8 @@ export {
   globToRegex,
   buildDiffSnippet,
   backedUp,
+  openIwd,
+  invalidateIwdCache,
 } from "./utils.js";
 
 export { loadDvars, loadGscBuiltins } from "./knowledge/tools.js";

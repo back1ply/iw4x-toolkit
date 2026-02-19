@@ -24542,10 +24542,12 @@ export {
   buildDiffSnippet,
   ensureBackup,
   globToRegex,
+  invalidateIwdCache,
   isBinaryEntry,
   loadDvars,
   loadGscBuiltins,
   normalizeEntry,
+  openIwd,
   resolveIwdPath,
   server
 };
