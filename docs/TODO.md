@@ -116,8 +116,6 @@ Built to turbo-charge developers who know what they want.
 *Features that automate the final leg of deployment or require complex external executables.*
 
 - [ ] **Mod Packager** — Package a `userraw/` directory into the correct `.iwd` folder structure with validation.
-- [ ] **IWD Creator** — `iwd_create` tool to build a new IWD from an arbitrary directory
 - [ ] **OpenWarfare Analysis** — Study OpenWarfare source to extract "lost" admin/gameplay scripts for modern IW4x.
-- [ ] **ZoneBuilder Integration** — Investigate wrapping `ZoneBuilder.exe` for automated `.ff` (FastFile) compilation.
 - [ ] **Server Config Generator** — Generate `server.cfg` from structured input using DVAR knowledge base.
 - [ ] **Weapon File Editor** — Parse and edit weapon definition files with type-safe validation using a compiled `knowledge/weapon-defs.json`.

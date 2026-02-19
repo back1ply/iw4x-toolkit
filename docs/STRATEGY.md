@@ -19,7 +19,12 @@ The IW Engine is iterative. MW2 (IW4) is built directly on CoD4 (IW3).
     -   FastFile asset structures (MenuDefs, WeaponFiles).
     -   *New*: Common error patterns (leaks, syntax errors) are identical. We can use CoD4 troubleshooting guides for MW2.
 
-### 2. The "Userraw" Workflow (Local-First Development)
+### 2. Scripting & UI Supremacy (The "Logic" Layer)
+LLMs are essentially advanced text-processing engines. Because of this, the `iw4x-toolkit` makes them incredibly powerful at scripting but fundamentally incapable of visual design (mapping, modeling, texturing).
+-   **Strategy**: Focus the toolkit on what Text-AI does best: GSC Scripting (gametypes, zombies, bots), UI Menu design (`.menu`), weapon tweaking, and DVAR manipulation.
+-   **Tactic**: Do not attempt to build MCP tools for `Radiant` (mapping) or `Maya` (animations). Let human artists build the visual assets, while the LLM acts as the Lead Programmer executing the logic.
+
+### 3. The "Userraw" Workflow (Local-First Development)
 Directly editing `.iwd` files is risky and slow ("Production Mode"). Active development should utilize the engine's built-in override system ("Development Mode").
 -   **Old Pattern**: `Read IWD -> Edit -> Write IWD`.
 -   **New Pattern**: Extract assets to `fs_game/userraw`. The game loads these "loose files" with higher priority.
