@@ -27,7 +27,7 @@ LLMs are essentially advanced text-processing engines. Because of this, the `iw4
 ### 3. Open Source Synergy & Cross-Title Reach
 The IW engine lineage is a shared resource. We shouldn't reinvent the wheel if the community has already solved a format parsing problem.
 -   **Strategy**: Actively integrate, wrap, or "borrow" from existing open-source C++/C# tools (like `ZoneTool` or `OpenAssetTools`) rather than rewriting complex parsers from scratch in TypeScript. 
--   **Tactic**: Maintain a dream of cross-title support (CoD4, WaW, MW2, MW3). Because the engine iterations share so much DNA, a GSC Linter or FastFile parser designed for IW4 will inevitably provide massive value to the broader modding ecosystem, including Spec Ops (`so/`) and Single Player (`sp/`) communities.
+-   **Tactic**: Make no mistake: **this tool is built for MW2 (IW4x)**. However, because the engine iterations share so much DNA, we should design our IW4 tools (like the GSC Linter or FastFile parser) with enough architectural flexibility that they could eventually be extended to CoD4, WaW, or MW3 by the community. We solve for IW4x first.
 
 ### 4. The "Userraw" Workflow (Local-First Development)
 Directly editing `.iwd` files is risky and slow ("Production Mode"). Active development should utilize the engine's built-in override system ("Development Mode").

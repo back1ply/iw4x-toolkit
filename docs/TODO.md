@@ -117,9 +117,9 @@ Built to turbo-charge developers who know what they want.
 
 ## Phase 4 — Long-Term / Pipeline Ideas
 
-*Cross-title functionality and complex external executables.*
+*Features that automate the final leg of deployment or require complex external executables.*
 
-- [ ] **Cross-Title Linter Support** — Adapt the Phase 2 Linter to officially support CoD4 (IW3) and WaW (T4) GSC dialects.
+- [ ] **Cross-Title Linter Architecture** — Ensure the Phase 2 IW4 Linter architecture is modular enough that the community could later adapt it to officially support CoD4 (IW3) and WaW (T4) GSC dialects.
 - [ ] **Spec-Ops / Campaign Expansion** — Expand `gsc-builtins.json` to include single-player (`sp/`) and Spec-Ops (`so/`) specific entity functions.
 - [ ] **Mod Packager** — Package a `userraw/` directory into the correct `.iwd` folder structure with validation.
 - [ ] **OpenWarfare Analysis** — Study OpenWarfare source to extract "lost" admin/gameplay scripts for modern IW4x.
