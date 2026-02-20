@@ -91,6 +91,10 @@
 - [ ] `exp` expression syntax validation
 - [ ] `dvar` references cross-checked against DVAR knowledge base
 
+### 2D: FastFile (.ff) Asset Scanner
+*Borrow from open-source to give LLMs read-access to compiled assets.*
+- [ ] Investigate wrapping/integrating C# `OpenAssetTools` or `ZoneTool` to extract data from `.ff` and `.d3dbsp` files (e.g. reading map spawn coordinates).
+
 ---
 
 ## Phase 3 — Agentic Workflows ("Vibe Code" & "Pro" Personas)
@@ -113,9 +117,12 @@ Built to turbo-charge developers who know what they want.
 
 ## Phase 4 — Long-Term / Pipeline Ideas
 
-*Features that automate the final leg of deployment or require complex external executables.*
+*Cross-title functionality and complex external executables.*
 
+- [ ] **Cross-Title Linter Support** — Adapt the Phase 2 Linter to officially support CoD4 (IW3) and WaW (T4) GSC dialects.
+- [ ] **Spec-Ops / Campaign Expansion** — Expand `gsc-builtins.json` to include single-player (`sp/`) and Spec-Ops (`so/`) specific entity functions.
 - [ ] **Mod Packager** — Package a `userraw/` directory into the correct `.iwd` folder structure with validation.
 - [ ] **OpenWarfare Analysis** — Study OpenWarfare source to extract "lost" admin/gameplay scripts for modern IW4x.
+- [ ] **ZoneBuilder Integration** — "Borrow" open-source tools to enable automated `.ff` (FastFile) compilation directly through the LLM.
 - [ ] **Server Config Generator** — Generate `server.cfg` from structured input using DVAR knowledge base.
 - [ ] **Weapon File Editor** — Parse and edit weapon definition files with type-safe validation using a compiled `knowledge/weapon-defs.json`.

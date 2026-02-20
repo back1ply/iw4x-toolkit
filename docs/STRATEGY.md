@@ -22,9 +22,14 @@ The IW Engine is iterative. MW2 (IW4) is built directly on CoD4 (IW3).
 ### 2. Scripting & UI Supremacy (The "Logic" Layer)
 LLMs are essentially advanced text-processing engines. Because of this, the `iw4x-toolkit` makes them incredibly powerful at scripting but fundamentally incapable of visual design (mapping, modeling, texturing).
 -   **Strategy**: Focus the toolkit on what Text-AI does best: GSC Scripting (gametypes, zombies, bots), UI Menu design (`.menu`), weapon tweaking, and DVAR manipulation.
--   **Tactic**: Do not attempt to build MCP tools for `Radiant` (mapping) or `Maya` (animations). Let human artists build the visual assets, while the LLM acts as the Lead Programmer executing the logic.
+-   **Tactic**: Do not attempt to build GUI MCP tools for `Radiant` (mapping). Let human artists build the visual assets, while the LLM acts as the Lead Programmer executing the logic. However, developing headless/CLI tools to **read** compiled assets (like extracting spawn coordinates from a `.d3dbsp`) is a high-value, long-term goal.
 
-### 3. The "Userraw" Workflow (Local-First Development)
+### 3. Open Source Synergy & Cross-Title Reach
+The IW engine lineage is a shared resource. We shouldn't reinvent the wheel if the community has already solved a format parsing problem.
+-   **Strategy**: Actively integrate, wrap, or "borrow" from existing open-source C++/C# tools (like `ZoneTool` or `OpenAssetTools`) rather than rewriting complex parsers from scratch in TypeScript. 
+-   **Tactic**: Maintain a dream of cross-title support (CoD4, WaW, MW2, MW3). Because the engine iterations share so much DNA, a GSC Linter or FastFile parser designed for IW4 will inevitably provide massive value to the broader modding ecosystem, including Spec Ops (`so/`) and Single Player (`sp/`) communities.
+
+### 4. The "Userraw" Workflow (Local-First Development)
 Directly editing `.iwd` files is risky and slow ("Production Mode"). Active development should utilize the engine's built-in override system ("Development Mode").
 -   **Old Pattern**: `Read IWD -> Edit -> Write IWD`.
 -   **New Pattern**: Extract assets to `fs_game/userraw`. The game loads these "loose files" with higher priority.
