@@ -20,11 +20,44 @@
 
 ---
 
-## 4 Golden Paths
+## 6 Golden Paths
 
-### 🔍 Path 1: Find & Fix ("change X to Y in this mod")
+### 🏗️ Path 1: Workspace Workflow (The "Dual Pathway" A - Extract & Sync)
 
-> **Pro Tip**: If you are making many changes, consider extracting the file to `userraw/` first!
+> **Pro Tip**: This is the preferred way for large overhauls or when you want to use standard AI filesystem tools.
+
+```text
+1. iwd_extract  path="mod.iwd"  dest="./workspace"
+   → unpack the archive to plain files locally
+
+2. (Use standard tools: replace_file_content, run_command, etc.)
+   → edit the loose files in ./workspace
+
+3. mods_sync  source_dir="./workspace"  mod_dir="C:/path/to/game/mods/my_mod"
+   → copy loose files to the engine's mod override directory for instant live testing
+
+4. iwd_sync  source_dir="./workspace"  dest_path="mod.iwd"
+   → finally, inject the updated files back into the IWD archive without rebuilding it from scratch
+```
+
+### � Path 2: Full Rebuild (The "Dual Pathway" A - Pack New Archive)
+
+> **Pro Tip**: Use this if you extracted a small mod, modified multiple files, and want to completely rebuild the `.iwd` from scratch instead of syncing.
+
+```text
+1. iwd_extract  path="mod.iwd"  dest="./workspace"
+   → unpack the archive to plain files locally
+
+2. (Use standard tools: replace_file_content, run_command, etc.)
+   → edit the raw loose files in ./workspace
+
+3. iwd_pack  source_dir="./workspace"  dest_path="new_mod.iwd"
+   → packs the entire directory into a brand new archive, overwriting if it exists
+```
+
+### �💉 Path 3: Surgical Fix (The "Dual Pathway" B - Find & Fix In-Place)
+
+> **Pro Tip**: Use this for quick, targeted edits inside an IWD without the overhead of extraction.
 
 ```text
 1. iwd_grep  path="mod.iwd"  pattern="X"  entry_glob="*.gsc"  max_matches=5
@@ -38,9 +71,9 @@
 
 4. iwd_patch  path="mod.iwd"  entry="<file>"  old="X"  new="Y"
    → commit
-```text
+```
 
-### 🗺️ Path 2: Explore ("what's in this IWD?")
+### 🗺️ Path 4: Explore ("what's in this IWD?")
 
 ```text
 1. iwd_list  path="mod.iwd"  summary_only=true
@@ -54,9 +87,9 @@
 
 4. iwd_read  path="mod.iwd"  entry="<file>"  limit=50
    → first 50 lines
-```text
+```
 
-### ➕ Path 3: Add a New File
+### ➕ Path 5: Add a New File
 
 ```text
 1. iwd_list  path="mod.iwd"  pattern="scripts/*"
@@ -67,9 +100,9 @@
 
 3. iwd_write  path="mod.iwd"  entry="scripts/myscript.gsc"  content="..."
    → commit
-```text
+```
 
-### 📊 Path 4: Compare Two IWDs ("what changed?")
+### 📊 Path 6: Compare Two IWDs ("what changed?")
 
 ```text
 1. iwd_diff  path1="original.iwd"  path2="modded.iwd"

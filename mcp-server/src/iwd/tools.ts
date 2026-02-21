@@ -29,7 +29,6 @@ import {
  * Call this once during server bootstrap.
  */
 export function registerIwdTools(server: McpServer): void {
-
   // --- Tool: iwd_list ---
   server.registerTool(
     "iwd_list",
@@ -55,19 +54,21 @@ export function registerIwdTools(server: McpServer): void {
           .default(false)
           .describe(
             "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). " +
-            "Cheapest possible overview — use this first when exploring an unfamiliar IWD.",
+              "Cheapest possible overview — use this first when exploring an unfamiliar IWD.",
           ),
         names_only: z
           .boolean()
           .optional()
           .default(true)
-          .describe("If true (default), returns entry names only. Pass false to include file sizes."),
+          .describe(
+            "If true (default), returns entry names only. Pass false to include file sizes.",
+          ),
         limit: z
           .number()
           .int()
           .positive()
           .optional()
-          .describe("Max number of entries to return. Omit to return all.")
+          .describe("Max number of entries to return. Omit to return all."),
       },
       annotations: {
         readOnlyHint: true,
@@ -80,7 +81,8 @@ export function registerIwdTools(server: McpServer): void {
       if ("error" in opened) return errResult(`Error: ${opened.error}`);
       const { zip } = opened;
 
-      let rows = zip.getEntries()
+      let rows = zip
+        .getEntries()
         .filter((e) => !e.isDirectory)
         .map((e) => ({
           name: e.entryName,
@@ -95,13 +97,15 @@ export function registerIwdTools(server: McpServer): void {
         for (const row of rows) {
           const ext = isBinaryEntry(row.name)
             ? "binary"
-            : (path.extname(row.name).toLowerCase() || "(no ext)");
+            : path.extname(row.name).toLowerCase() || "(no ext)";
           counts.set(ext, (counts.get(ext) ?? 0) + 1);
         }
         const parts = [...counts.entries()]
           .sort((a, b) => b[1] - a[1])
           .map(([ext, n]) => `${n} ${ext}`);
-        return okResult(`${resolved}\n${totalInArchive} entries: ${parts.join(", ")}`);
+        return okResult(
+          `${resolved}\n${totalInArchive} entries: ${parts.join(", ")}`,
+        );
       }
 
       if (pattern) {
@@ -127,9 +131,13 @@ export function registerIwdTools(server: McpServer): void {
       const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}\n${matchedCount} of ${totalInArchive} entries${truncated ? ` (showing first ${limit})` : ""}:`;
       const body = names_only
         ? rows.map((r) => r.name).join("\n")
-        : rows.map((r) => `${r.name}  (${r.size} → ${r.compressedSize} bytes)`).join("\n");
+        : rows
+            .map((r) => `${r.name}  (${r.size} → ${r.compressedSize} bytes)`)
+            .join("\n");
 
-      return okResult(`${header}\n\n${body}${truncated ? `\n... truncated. Use pattern or increase limit to see more.` : ""}`);
+      return okResult(
+        `${header}\n\n${body}${truncated ? `\n... truncated. Use pattern or increase limit to see more.` : ""}`,
+      );
     },
   );
 
@@ -155,13 +163,17 @@ export function registerIwdTools(server: McpServer): void {
           .int()
           .positive()
           .optional()
-          .describe("Max lines to return (for text files). Omit to read the whole file."),
+          .describe(
+            "Max lines to return (for text files). Omit to read the whole file.",
+          ),
         offset: z
           .number()
           .int()
           .nonnegative()
           .optional()
-          .describe("0-indexed line to start reading from (default: 0). Use with limit to page through large files."),
+          .describe(
+            "0-indexed line to start reading from (default: 0). Use with limit to page through large files.",
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -183,11 +195,16 @@ export function registerIwdTools(server: McpServer): void {
       if (isBinaryEntry(normalized)) {
         const buf = zip.readFile(zipEntry);
         if (!buf) {
-          return errResult(`Error: Failed to read binary entry: ${normalized}\nTip: the file may be corrupt.`);
+          return errResult(
+            `Error: Failed to read binary entry: ${normalized}\nTip: the file may be corrupt.`,
+          );
         }
         return {
           content: [
-            { type: "text" as const, text: `[binary: ${normalized}, ${buf.length} bytes, base64-encoded below]` },
+            {
+              type: "text" as const,
+              text: `[binary: ${normalized}, ${buf.length} bytes, base64-encoded below]`,
+            },
             { type: "text" as const, text: buf.toString("base64") },
           ],
         };
@@ -203,7 +220,7 @@ export function registerIwdTools(server: McpServer): void {
           const isMinified = text.length / totalLines > 200;
           return errResult(
             `Error: offset ${start} is beyond end of file (${totalLines} lines).\n` +
-            `Tip: use offset values between 0 and ${totalLines - 1}.${isMinified ? "\nNote: This file averages over 200 chars per line and is likely minified. Use iwd_grep to search for specific terms if needed." : ""}`
+              `Tip: use offset values between 0 and ${totalLines - 1}.${isMinified ? "\nNote: This file averages over 200 chars per line and is likely minified. Use iwd_grep to search for specific terms if needed." : ""}`,
           );
         }
         const end = limit !== undefined ? start + limit : totalLines;
@@ -226,8 +243,18 @@ export function registerIwdTools(server: McpServer): void {
         "Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
-        entry: z.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths."),
-        summary_only: z.boolean().optional().default(false).describe("If true, returns a compact single-line type-and-size string."),
+        entry: z
+          .string()
+          .describe(
+            "Path of the entry inside the IWD. Use iwd_list to find exact paths.",
+          ),
+        summary_only: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            "If true, returns a compact single-line type-and-size string.",
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -255,20 +282,22 @@ export function registerIwdTools(server: McpServer): void {
       const readAdvice = binary
         ? `Note: Binary file — iwd_read will return base64 (${size} bytes).`
         : size > 50_000
-        ? `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.`
-        : `Ready to read with iwd_read.`;
+          ? `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.`
+          : `Ready to read with iwd_read.`;
 
       if (summary_only) {
-        return okResult(`Entry: ${normalized} | Type: ${binary ? "Binary" : "Text"} | Size: ${size} bytes`);
+        return okResult(
+          `Entry: ${normalized} | Type: ${binary ? "Binary" : "Text"} | Size: ${size} bytes`,
+        );
       }
 
       return okResult(
         `Entry:     ${normalized}\n` +
-        `Size:      ${size} bytes (compressed: ${compressedSize})\n` +
-        `CRC:       ${crc}\n` +
-        `Type:      ${binary ? "Binary" : "Text"}\n` +
-        `Modified:  ${time}\n` +
-        `${readAdvice}`,
+          `Size:      ${size} bytes (compressed: ${compressedSize})\n` +
+          `CRC:       ${crc}\n` +
+          `Type:      ${binary ? "Binary" : "Text"}\n` +
+          `Modified:  ${time}\n` +
+          `${readAdvice}`,
       );
     },
   );
@@ -277,22 +306,29 @@ export function registerIwdTools(server: McpServer): void {
   server.registerTool(
     "iwd_write",
     {
-      title: "Write Archive Entry",
+      title: "Write Archive Entry (Surgical Fix Only)",
       description:
-        "Write or replace an entire file inside an IWD archive. " +
+        "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. " +
+        "Write or replace an entire single file inside an IWD archive. " +
         "For targeted edits to a small part of a large file, prefer iwd_patch instead (avoids re-sending full content). " +
         "Creates a .bak backup on first modification per session. Content must be UTF-8 text. " +
         "When replacing an existing text entry, returns a ±3-line diff for verification. " +
         "Set dry_run=true to validate the operation without committing it.",
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
-        entry: z.string().describe("Entry path inside the IWD. New entries are created automatically."),
+        entry: z
+          .string()
+          .describe(
+            "Entry path inside the IWD. New entries are created automatically.",
+          ),
         content: z.string().describe("Full UTF-8 text content to write"),
         dry_run: z
           .boolean()
           .optional()
           .default(false)
-          .describe("If true, validates the write without actually modifying the archive (safe to use first)"),
+          .describe(
+            "If true, validates the write without actually modifying the archive (safe to use first)",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -315,7 +351,7 @@ export function registerIwdTools(server: McpServer): void {
       if (dry_run) {
         return okResult(
           `[dry_run] Would ${action.toLowerCase()} ${normalized} in ${resolved}\n` +
-          `Content: ${lineCount} lines, ${content.length} chars`,
+            `Content: ${lineCount} lines, ${content.length} chars`,
         );
       }
 
@@ -347,35 +383,55 @@ export function registerIwdTools(server: McpServer): void {
   server.registerTool(
     "iwd_patch",
     {
-      title: "Patch Archive Entry",
+      title: "Patch Archive Entry (Surgical Fix Only)",
       description:
-        "Perform a surgical string replacement inside a text entry in an IWD archive. " +
+        "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. " +
+        "Perform a surgical string replacement inside a single text entry in an IWD archive. " +
         "Returns a ±3-line diff snippet around the change so you can verify the edit without re-reading the file. " +
         "Only replaces the first occurrence by default — use count=-1 to replace all. " +
-        "Prefer this over iwd_write when changing a small part of a large file. " +
         "Set dry_run=true to preview what would change without modifying the archive.",
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
-        entry: z.string().describe("Path of the entry inside the IWD (forward or backslashes accepted)"),
-        old: z.string().min(1).describe("Exact string to find and replace (must appear in the file, case-sensitive)"),
+        entry: z
+          .string()
+          .describe(
+            "Path of the entry inside the IWD (forward or backslashes accepted)",
+          ),
+        old: z
+          .string()
+          .min(1)
+          .describe(
+            "Exact string to find and replace (must appear in the file, case-sensitive)",
+          ),
         new: z.string().describe("Replacement string"),
         count: z
           .number()
           .optional()
           .default(1)
-          .describe("Number of occurrences to replace. 1 = first only (default), -1 = all occurrences"),
+          .describe(
+            "Number of occurrences to replace. 1 = first only (default), -1 = all occurrences",
+          ),
         dry_run: z
           .boolean()
           .optional()
           .default(false)
-          .describe("If true, returns the diff preview without modifying the archive"),
+          .describe(
+            "If true, returns the diff preview without modifying the archive",
+          ),
       },
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
       },
     },
-    async ({ path: iwdPath, entry, old: oldStr, new: newStr, count, dry_run }) => {
+    async ({
+      path: iwdPath,
+      entry,
+      old: oldStr,
+      new: newStr,
+      count,
+      dry_run,
+    }) => {
       const resolved = resolveIwdPath(iwdPath);
       const opened = openIwd(resolved);
       if ("error" in opened) return errResult(`Error: ${opened.error}`);
@@ -388,13 +444,13 @@ export function registerIwdTools(server: McpServer): void {
       if (!zipEntry) {
         return errResult(
           `Error: Entry not found in archive: ${normalized}\n` +
-          `Tip: use iwd_list to check the exact entry path.`,
+            `Tip: use iwd_list to check the exact entry path.`,
         );
       }
       if (isBinaryEntry(normalized)) {
         return errResult(
           `Error: Cannot patch binary entry: ${normalized}\n` +
-          `Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`,
+            `Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`,
         );
       }
 
@@ -402,7 +458,7 @@ export function registerIwdTools(server: McpServer): void {
       if (!original.includes(oldStr)) {
         return errResult(
           `Error: Search string not found in ${normalized}\n` +
-          `The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`,
+            `The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`,
         );
       }
 
@@ -410,9 +466,10 @@ export function registerIwdTools(server: McpServer): void {
       let patched = original;
       let replaced = 0;
       const firstReplaceOffset = original.indexOf(oldStr);
-      const hintLine = firstReplaceOffset >= 0
-        ? original.slice(0, firstReplaceOffset).split(/\r?\n/).length - 1
-        : 0;
+      const hintLine =
+        firstReplaceOffset >= 0
+          ? original.slice(0, firstReplaceOffset).split(/\r?\n/).length - 1
+          : 0;
 
       if (count === -1) {
         patched = original.split(oldStr).join(newStr);
@@ -424,7 +481,12 @@ export function registerIwdTools(server: McpServer): void {
         }
       }
 
-      const { snippet, changedLine } = buildDiffSnippet(original, patched, 3, hintLine);
+      const { snippet, changedLine } = buildDiffSnippet(
+        original,
+        patched,
+        3,
+        hintLine,
+      );
 
       const remaining = occurrences - replaced;
       const summary =
@@ -435,7 +497,9 @@ export function registerIwdTools(server: McpServer): void {
       const diffBlock = `--- Context around change (line ${changedLine + 1}) ---\n${snippet}`;
 
       if (dry_run) {
-        return okResult(`[dry_run] ${normalized}: ${summary} (no changes written)\n\n${diffBlock}`);
+        return okResult(
+          `[dry_run] ${normalized}: ${summary} (no changes written)\n\n${diffBlock}`,
+        );
       }
 
       await ensureBackup(resolved);
@@ -457,12 +521,18 @@ export function registerIwdTools(server: McpServer): void {
         "Set dry_run=true to validate without actually removing the entry.",
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
-        entry: z.string().describe("Path of the entry to remove. Use iwd_list to find the exact path."),
+        entry: z
+          .string()
+          .describe(
+            "Path of the entry to remove. Use iwd_list to find the exact path.",
+          ),
         dry_run: z
           .boolean()
           .optional()
           .default(false)
-          .describe("If true, validates the operation without modifying the archive"),
+          .describe(
+            "If true, validates the operation without modifying the archive",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -487,7 +557,7 @@ export function registerIwdTools(server: McpServer): void {
       if (dry_run) {
         return okResult(
           `[dry_run] Would remove ${normalized} from ${resolved}\n` +
-          `Entry: ${size} bytes, CRC: ${crc}`,
+            `Entry: ${size} bytes, CRC: ${crc}`,
         );
       }
 
@@ -496,7 +566,9 @@ export function registerIwdTools(server: McpServer): void {
       await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
 
-      return okResult(`Removed ${normalized} from ${resolved}\nEntry was: ${size} bytes, CRC: ${crc}`);
+      return okResult(
+        `Removed ${normalized} from ${resolved}\nEntry was: ${size} bytes, CRC: ${crc}`,
+      );
     },
   );
 
@@ -515,12 +587,16 @@ export function registerIwdTools(server: McpServer): void {
         entry_glob: z
           .string()
           .optional()
-          .describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+          .describe(
+            "Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')",
+          ),
         content_diff: z
           .boolean()
           .optional()
           .default(false)
-          .describe("If true, includes a ±3-line diff for each modified text entry (may be verbose)"),
+          .describe(
+            "If true, includes a ±3-line diff for each modified text entry (may be verbose)",
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -600,7 +676,10 @@ export function registerIwdTools(server: McpServer): void {
               const e1 = zip1.getEntry(name);
               const e2 = zip2.getEntry(name);
               if (e1 && e2) {
-                lines.push(``, `[binary] ${name}: ${e1.header.size} → ${e2.header.size} bytes`);
+                lines.push(
+                  ``,
+                  `[binary] ${name}: ${e1.header.size} → ${e2.header.size} bytes`,
+                );
               }
               continue;
             }
@@ -610,7 +689,11 @@ export function registerIwdTools(server: McpServer): void {
             const t1 = zip1.readAsText(e1);
             const t2 = zip2.readAsText(e2);
             const { snippet, changedLine } = buildDiffSnippet(t1, t2);
-            lines.push(``, `[diff] ${name} (first change at line ${changedLine + 1}):`, snippet);
+            lines.push(
+              ``,
+              `[diff] ${name} (first change at line ${changedLine + 1}):`,
+              snippet,
+            );
           }
         }
       }
@@ -633,25 +716,33 @@ export function registerIwdTools(server: McpServer): void {
         "Use max_matches to control output size (default: 50).",
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
-        pattern: z.string().describe(
-          "String or regex pattern to search for. Literal string by default; set is_regex=true for regex.",
-        ),
+        pattern: z
+          .string()
+          .describe(
+            "String or regex pattern to search for. Literal string by default; set is_regex=true for regex.",
+          ),
         entry_glob: z
           .string()
           .optional()
-          .describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
+          .describe(
+            "Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')",
+          ),
         is_regex: z
           .boolean()
           .optional()
           .default(false)
-          .describe("Treat pattern as a regex (default: false — plain case-insensitive string search)"),
+          .describe(
+            "Treat pattern as a regex (default: false — plain case-insensitive string search)",
+          ),
         max_matches: z
           .number()
           .int()
           .positive()
           .optional()
           .default(GREP_MAX_MATCHES_DEFAULT)
-          .describe(`Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`),
+          .describe(
+            `Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`,
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -668,7 +759,9 @@ export function registerIwdTools(server: McpServer): void {
         try {
           searchRe = new RegExp(pattern, "i");
         } catch {
-          return errResult(`Error: Invalid regex pattern: ${pattern}\nTip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=false for a literal search.`);
+          return errResult(
+            `Error: Invalid regex pattern: ${pattern}\nTip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=false for a literal search.`,
+          );
         }
       } else {
         const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -676,9 +769,14 @@ export function registerIwdTools(server: McpServer): void {
       }
 
       const globRe = entry_glob ? globToRegex(entry_glob) : null;
-      const entries = zip.getEntries().filter(
-        (e) => !e.isDirectory && !isBinaryEntry(e.entryName) && (!globRe || globRe.test(e.entryName)),
-      );
+      const entries = zip
+        .getEntries()
+        .filter(
+          (e) =>
+            !e.isDirectory &&
+            !isBinaryEntry(e.entryName) &&
+            (!globRe || globRe.test(e.entryName)),
+        );
 
       const resultLines: string[] = [];
       let totalMatches = 0;
@@ -704,7 +802,10 @@ export function registerIwdTools(server: McpServer): void {
               const matchIdx = match.index;
               const start = Math.max(0, matchIdx - 100);
               const end = Math.min(line.length, matchIdx + 100);
-              displayLine = (start > 0 ? "... " : "") + line.slice(start, end) + (end < line.length ? " ..." : "");
+              displayLine =
+                (start > 0 ? "... " : "") +
+                line.slice(start, end) +
+                (end < line.length ? " ..." : "");
             }
             resultLines.push(`${e.entryName}:${i + 1}: ${displayLine}`);
             totalMatches++;
@@ -725,10 +826,10 @@ export function registerIwdTools(server: McpServer): void {
 
       return okResult(
         `Found ${totalMatches}${truncated ? "+" : ""} match(es) in ${resolved}` +
-        (entry_glob ? ` [filter: ${entry_glob}]` : "") +
-        `:\n\n` +
-        resultLines.join("\n") +
-        footer,
+          (entry_glob ? ` [filter: ${entry_glob}]` : "") +
+          `:\n\n` +
+          resultLines.join("\n") +
+          footer,
       );
     },
   );
@@ -745,19 +846,28 @@ export function registerIwdTools(server: McpServer): void {
         "Returns the destination path and list of extracted files.",
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
-        dest: z.string().describe("Destination directory path. Created if it does not exist."),
+        dest: z
+          .string()
+          .describe(
+            "Destination directory path. Created if it does not exist.",
+          ),
         entry_glob: z
           .string()
           .optional()
-          .describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+          .describe(
+            "Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')",
+          ),
         dry_run: z
           .boolean()
           .optional()
           .default(false)
-          .describe("If true, lists what would be extracted without writing any files"),
+          .describe(
+            "If true, lists what would be extracted without writing any files",
+          ),
       },
       annotations: {
-        readOnlyHint: true,
+        readOnlyHint: false,
+        destructiveHint: false,
       },
     },
     async ({ path: iwdPath, dest, entry_glob, dry_run }) => {
@@ -768,9 +878,9 @@ export function registerIwdTools(server: McpServer): void {
       const { zip } = opened;
 
       const globRe = entry_glob ? globToRegex(entry_glob) : null;
-      const entries = zip.getEntries().filter(
-        (e) => !e.isDirectory && (!globRe || globRe.test(e.entryName)),
-      );
+      const entries = zip
+        .getEntries()
+        .filter((e) => !e.isDirectory && (!globRe || globRe.test(e.entryName)));
 
       if (entries.length === 0) {
         return okResult(
@@ -784,7 +894,7 @@ export function registerIwdTools(server: McpServer): void {
         const names = entries.map((e) => e.entryName);
         return okResult(
           `[dry_run] Would extract ${entries.length} file(s) to ${resolvedDest}:\n\n` +
-          names.join("\n"),
+            names.join("\n"),
         );
       }
 
@@ -804,7 +914,7 @@ export function registerIwdTools(server: McpServer): void {
 
       return okResult(
         `Extracted ${extracted.length} file(s) to ${resolvedDest}:\n\n` +
-        extracted.join("\n"),
+          extracted.join("\n"),
       );
     },
   );
@@ -820,13 +930,23 @@ export function registerIwdTools(server: McpServer): void {
         "Set dry_run=true to validate without modifying the archive.",
       inputSchema: {
         path: z.string().describe("Absolute or relative path to the IWD file"),
-        entry: z.string().describe("Current path of the entry inside the IWD. Use iwd_list to find exact path."),
-        new_entry: z.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
+        entry: z
+          .string()
+          .describe(
+            "Current path of the entry inside the IWD. Use iwd_list to find exact path.",
+          ),
+        new_entry: z
+          .string()
+          .describe(
+            "New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')",
+          ),
         dry_run: z
           .boolean()
           .optional()
           .default(false)
-          .describe("If true, validates the rename without modifying the archive"),
+          .describe(
+            "If true, validates the rename without modifying the archive",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -843,12 +963,13 @@ export function registerIwdTools(server: McpServer): void {
       const normalizedNew = normalizeEntry(new_entry);
 
       if (!normalized) return errResult("Error: entry path cannot be empty.");
-      if (!normalizedNew) return errResult("Error: new_entry path cannot be empty.");
+      if (!normalizedNew)
+        return errResult("Error: new_entry path cannot be empty.");
 
       if (normalized === normalizedNew) {
         return errResult(
           `Error: Source and destination are the same path: ${normalized}\n` +
-          `Tip: choose a different new_entry path.`,
+            `Tip: choose a different new_entry path.`,
         );
       }
 
@@ -859,25 +980,31 @@ export function registerIwdTools(server: McpServer): void {
       if (existingNew) {
         return errResult(
           `Error: An entry already exists at the new path: ${normalizedNew}\n` +
-          `Tip: remove it first with iwd_remove, or choose a different new_entry path.`,
+            `Tip: remove it first with iwd_remove, or choose a different new_entry path.`,
         );
       }
 
       if (dry_run) {
-        return okResult(`[dry_run] Would rename ${normalized} → ${normalizedNew} in ${resolved}`);
+        return okResult(
+          `[dry_run] Would rename ${normalized} → ${normalizedNew} in ${resolved}`,
+        );
       }
 
       await ensureBackup(resolved);
       const buf = zip.readFile(zipEntry);
       if (!buf) {
-        return errResult(`Error: Failed to read entry content: ${normalized}\nTip: the file may be corrupt.`);
+        return errResult(
+          `Error: Failed to read entry content: ${normalized}\nTip: the file may be corrupt.`,
+        );
       }
       zip.deleteFile(normalized);
       zip.addFile(normalizedNew, buf);
       await atomicWrite(zip, resolved);
       invalidateIwdCache(resolved);
 
-      return okResult(`Renamed ${normalized} → ${normalizedNew} in ${resolved}`);
+      return okResult(
+        `Renamed ${normalized} → ${normalizedNew} in ${resolved}`,
+      );
     },
   );
 
@@ -892,14 +1019,26 @@ export function registerIwdTools(server: McpServer): void {
         "Set dry_run=true to validate without modifying anything.",
       inputSchema: {
         src_path: z.string().describe("Path to the source IWD file"),
-        src_entry: z.string().describe("Entry path inside the source IWD. Use iwd_list to find exact path."),
-        dst_path: z.string().describe("Path to the destination IWD file (can be the same as src_path)"),
-        dst_entry: z.string().describe("Entry path to write in the destination IWD"),
+        src_entry: z
+          .string()
+          .describe(
+            "Entry path inside the source IWD. Use iwd_list to find exact path.",
+          ),
+        dst_path: z
+          .string()
+          .describe(
+            "Path to the destination IWD file (can be the same as src_path)",
+          ),
+        dst_entry: z
+          .string()
+          .describe("Entry path to write in the destination IWD"),
         overwrite: z
           .boolean()
           .optional()
           .default(false)
-          .describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
+          .describe(
+            "If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists).",
+          ),
         dry_run: z
           .boolean()
           .optional()
@@ -911,7 +1050,14 @@ export function registerIwdTools(server: McpServer): void {
         destructiveHint: false,
       },
     },
-    async ({ src_path, src_entry, dst_path, dst_entry, overwrite, dry_run }) => {
+    async ({
+      src_path,
+      src_entry,
+      dst_path,
+      dst_entry,
+      overwrite,
+      dry_run,
+    }) => {
       const rSrc = resolveIwdPath(src_path);
       const rDst = resolveIwdPath(dst_path);
 
@@ -935,20 +1081,22 @@ export function registerIwdTools(server: McpServer): void {
       if (existingDst && !overwrite) {
         return errResult(
           `Error: Destination entry already exists: ${normDst} in ${rDst}\n` +
-          `Tip: set overwrite=true to replace it.`,
+            `Tip: set overwrite=true to replace it.`,
         );
       }
 
       if (dry_run) {
         return okResult(
           `[dry_run] Would copy ${normSrc} (${rSrc}) → ${normDst} (${rDst})` +
-          (existingDst && overwrite ? ` [will overwrite existing]` : ""),
+            (existingDst && overwrite ? ` [will overwrite existing]` : ""),
         );
       }
 
       const buf = oSrc.zip.readFile(srcZipEntry);
       if (!buf) {
-        return errResult(`Error: Failed to read source entry: ${normSrc}\nTip: the file may be corrupt.`);
+        return errResult(
+          `Error: Failed to read source entry: ${normSrc}\nTip: the file may be corrupt.`,
+        );
       }
 
       await ensureBackup(rDst);
@@ -962,9 +1110,251 @@ export function registerIwdTools(server: McpServer): void {
 
       return okResult(
         `Copied ${normSrc} (${rSrc})\n    → ${normDst} (${rDst})\n` +
-        `${srcZipEntry.header.size} bytes${existingDst ? " [overwrote existing]" : ""}`,
+          `${srcZipEntry.header.size} bytes${existingDst ? " [overwrote existing]" : ""}`,
       );
     },
   );
 
+  // --- Tool: iwd_pack ---
+  server.registerTool(
+    "iwd_pack",
+    {
+      title: "Pack Workspace to Archive (Full Rebuild)",
+      description:
+        "Zips the entire contents of a workspace directory into a BRAND NEW IWD archive. " +
+        "WARNING: If the destination file already exists, it is completely overwritten and replaced. " +
+        "If you want to inject a few changed files into an existing archive without deleting everything else, use iwd_sync instead.",
+      inputSchema: {
+        source_dir: z
+          .string()
+          .describe("The folder containing loose files to pack"),
+        dest_path: z.string().describe("The .iwd file to create/overwrite"),
+        dry_run: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe("If true, validates without writing the archive"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+      },
+    },
+    async ({ source_dir, dest_path, dry_run }) => {
+      const resolvedSrc = path.resolve(source_dir);
+      const fs = await import("node:fs/promises");
+
+      try {
+        const stat = await fs.stat(resolvedSrc);
+        if (!stat.isDirectory()) {
+          return errResult(
+            `Error: source_dir is not a directory: ${resolvedSrc}`,
+          );
+        }
+      } catch {
+        return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
+      }
+
+      const resolvedDst = resolveIwdPath(dest_path);
+
+      if (dry_run) {
+        return okResult(
+          `[dry_run] Would pack directory ${resolvedSrc} into new archive ${resolvedDst}`,
+        );
+      }
+
+      const { existsSync } = await import("node:fs");
+      if (existsSync(resolvedDst)) {
+        await ensureBackup(resolvedDst);
+      }
+
+      const { default: AdmZip } = await import("adm-zip");
+      const zip = new AdmZip();
+      zip.addLocalFolder(resolvedSrc, "");
+
+      await atomicWrite(zip, resolvedDst);
+      invalidateIwdCache(resolvedDst);
+
+      return okResult(`Packed ${resolvedSrc}\n    → ${resolvedDst}`);
+    },
+  );
+
+  // --- Tool: iwd_sync ---
+  server.registerTool(
+    "iwd_sync",
+    {
+      title: "Sync Workspace to Existing Archive (Partial Update)",
+      description:
+        "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. " +
+        "crucial: It leaves all other files in the archive untouched. " +
+        "Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
+      inputSchema: {
+        source_dir: z.string().describe("Folder with modified loose files"),
+        dest_path: z.string().describe("The existing .iwd file to update"),
+        dry_run: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe("If true, validates without modifying the archive"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+      },
+    },
+    async ({ source_dir, dest_path, dry_run }) => {
+      const resolvedSrc = path.resolve(source_dir);
+      const fs = await import("node:fs/promises");
+
+      try {
+        const stat = await fs.stat(resolvedSrc);
+        if (!stat.isDirectory()) {
+          return errResult(
+            `Error: source_dir is not a directory: ${resolvedSrc}`,
+          );
+        }
+      } catch {
+        return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
+      }
+
+      const resolvedDst = resolveIwdPath(dest_path);
+      const opened = openIwd(resolvedDst);
+      if ("error" in opened) return errResult(`Error: ${opened.error}`);
+      const { zip } = opened;
+
+      if (dry_run) {
+        return okResult(
+          `[dry_run] Would sync files from ${resolvedSrc} into existing archive ${resolvedDst}`,
+        );
+      }
+
+      await ensureBackup(resolvedDst);
+      zip.addLocalFolder(resolvedSrc, "");
+
+      await atomicWrite(zip, resolvedDst);
+      invalidateIwdCache(resolvedDst);
+
+      return okResult(`Synced files from ${resolvedSrc}\n    → ${resolvedDst}`);
+    },
+  );
+
+  // --- Tool: mods_sync ---
+  server.registerTool(
+    "mods_sync",
+    {
+      title: "Sync to Mod Directory",
+      description:
+        "Copies modified loose files from your workspace directly into a specific mods/<modname> folder. " +
+        "The engine prioritizes loose files over packed .iwd files, enabling rapid live testing.",
+      inputSchema: {
+        source_dir: z.string().describe("Folder with modified files"),
+        mod_dir: z
+          .string()
+          .describe(
+            "The target mods/<modname> folder in the MW2 game directory",
+          ),
+        dry_run: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe("If true, validates without copying"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+      },
+    },
+    async ({ source_dir, mod_dir, dry_run }) => {
+      const resolvedSrc = path.resolve(source_dir);
+      const resolvedDst = path.resolve(mod_dir);
+      const fs = await import("node:fs/promises");
+
+      try {
+        const stat = await fs.stat(resolvedSrc);
+        if (!stat.isDirectory()) {
+          return errResult(
+            `Error: source_dir is not a directory: ${resolvedSrc}`,
+          );
+        }
+      } catch {
+        return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
+      }
+
+      if (dry_run) {
+        return okResult(
+          `[dry_run] Would copy files from ${resolvedSrc} to ${resolvedDst}`,
+        );
+      }
+
+      try {
+        await fs.cp(resolvedSrc, resolvedDst, { recursive: true, force: true });
+        return okResult(
+          `Synced loose files from ${resolvedSrc}\n    → ${resolvedDst}`,
+        );
+      } catch (e) {
+        return errResult(
+          `Error syncing files: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    },
+  );
+
+  // --- Tool: userraw_sync ---
+  server.registerTool(
+    "userraw_sync",
+    {
+      title: "Sync to Userraw Directory",
+      description:
+        "Copies modified loose files from your workspace into the MW2 userraw installation folder. " +
+        "Files placed here are loaded globally by the engine, overriding everything else.",
+      inputSchema: {
+        source_dir: z.string().describe("Folder with modified files"),
+        userraw_dir: z
+          .string()
+          .describe("The absolute path to the MW2 userraw folder"),
+        dry_run: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe("If true, validates without copying"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+      },
+    },
+    async ({ source_dir, userraw_dir, dry_run }) => {
+      const resolvedSrc = path.resolve(source_dir);
+      const resolvedDst = path.resolve(userraw_dir);
+      const fs = await import("node:fs/promises");
+
+      try {
+        const stat = await fs.stat(resolvedSrc);
+        if (!stat.isDirectory()) {
+          return errResult(
+            `Error: source_dir is not a directory: ${resolvedSrc}`,
+          );
+        }
+      } catch {
+        return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
+      }
+
+      if (dry_run) {
+        return okResult(
+          `[dry_run] Would copy files from ${resolvedSrc} to global userraw directory ${resolvedDst}`,
+        );
+      }
+
+      try {
+        await fs.cp(resolvedSrc, resolvedDst, { recursive: true, force: true });
+        return okResult(
+          `Synced loose files from ${resolvedSrc}\n    → ${resolvedDst}`,
+        );
+      } catch (e) {
+        return errResult(
+          `Error syncing files: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    },
+  );
 } // end registerIwdTools

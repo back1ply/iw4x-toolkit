@@ -1,10 +1,10 @@
 # iw4x-toolkit
 
-A Claude Code plugin for IW4X/MW2 modding. Provides direct IWD archive manipulation and a searchable DVAR knowledge base — no more manual extract/edit/repack workflows.
+A Claude Code plugin for IW4X/MW2 modding. Supports both an efficient "Dual Workflow" for IWD manipulation and a searchable DVAR knowledge base.
 
 ## What it does
 
-**IWD Tools** — Read, write, diff, search, and manage files inside IWD archives (renamed ZIPs used by the IW engine) without extracting them first.
+**Dual Workflow IWD Tools** — Support for both rapid in-place surgical edits inside IWD archives and a robust "Workspace" approach (extract-edit-pack) that leverages the engine's `userraw` and `mods` directory loose-file overrides.
 
 **DVAR Reference** — 1,731 MW2 DVARs catalogued with types, defaults, categories, and FPS impact ratings. 89 key DVARs manually enriched with descriptions.
 
@@ -47,6 +47,7 @@ Requires Node.js 18+ and TypeScript 5.7+.
 - [**SOURCES.md**](docs/SOURCES.md): References and research.
 
 ## Quick Start
+
 ### Check IWD contents
 
 ```text

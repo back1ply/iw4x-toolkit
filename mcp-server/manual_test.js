@@ -31,6 +31,8 @@ async function run() {
   
   const targetIwd = await copyTestArchive(baseTarget, path.join(testDir, "promod_test.iwd"));
   const extractDest = path.join(testDir, "extracted");
+  const dummyModsDir = path.join(testDir, "mods_dummy");
+  const dummyUserrawDir = path.join(testDir, "userraw_dummy");
 
   console.log(`\nStarting Integration Automation on: ${targetIwd}\n`);
 
@@ -123,7 +125,37 @@ async function run() {
     // Print first two lines
     console.log(res.content[0].text.split("\\n").slice(0, 5).join("\\n"));
 
-    console.log("\n✅ All 12 operations tested successfully on the integration suite.");
+    console.log("\n=== 13. Testing iwd_pack (Repacking workspace into packed.iwd) ===");
+    res = await client.callTool({
+      name: "iwd_pack",
+      arguments: { source_dir: extractDest, dest_path: path.join(testDir, "packed.iwd") }
+    });
+    console.log(res.content[0].text);
+
+    console.log("\n=== 14. Testing iwd_sync (Syncing workspace update to packed.iwd) ===");
+    // Create a dummy file in the workspace to sync
+    await fs.writeFile(path.join(extractDest, "sync_test.txt"), "sync me!");
+    res = await client.callTool({
+      name: "iwd_sync",
+      arguments: { source_dir: extractDest, dest_path: path.join(testDir, "packed.iwd") }
+    });
+    console.log(res.content[0].text);
+
+    console.log("\n=== 15. Testing mods_sync (Workspace -> mods_dummy) ===");
+    res = await client.callTool({
+      name: "mods_sync",
+      arguments: { source_dir: extractDest, mod_dir: dummyModsDir }
+    });
+    console.log(res.content[0].text);
+
+    console.log("\n=== 16. Testing userraw_sync (Workspace -> userraw_dummy) ===");
+    res = await client.callTool({
+      name: "userraw_sync",
+      arguments: { source_dir: extractDest, userraw_dir: dummyUserrawDir }
+    });
+    console.log(res.content[0].text);
+
+    console.log("\n✅ All 16 operations tested successfully on the integration suite.");
 
   } catch (err) {
     console.error("Test failed:", err);

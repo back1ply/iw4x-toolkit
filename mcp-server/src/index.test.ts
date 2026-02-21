@@ -1289,6 +1289,222 @@ describe("MCP tool handlers", () => {
       expect(text).toContain("does/not/exist.gsc");
     });
   });
+
+  // --- iwd_pack ---
+
+  describe("iwd_pack", () => {
+    let sourceDir: string;
+    
+    beforeEach(() => {
+      sourceDir = path.join(tmpDir, "pack-source");
+      fs.mkdirSync(sourceDir);
+      fs.mkdirSync(path.join(sourceDir, "scripts"));
+      fs.writeFileSync(path.join(sourceDir, "scripts/test.gsc"), "// loose file");
+    });
+
+    it("packs a directory into a new archive", async () => {
+      const destPath = path.join(tmpDir, "packed.iwd");
+      const result = await client.callTool({
+        name: "iwd_pack",
+        arguments: { source_dir: sourceDir, dest_path: destPath },
+      });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("Packed");
+
+      const zip = new AdmZip(destPath);
+      const entry = zip.getEntry("scripts/test.gsc");
+      expect(entry).not.toBeNull();
+      expect(zip.readAsText(entry!)).toBe("// loose file");
+    });
+
+    it("overwrites an existing archive and creates a backup", async () => {
+      const destPath = path.join(tmpDir, "packed2.iwd");
+      const z = new AdmZip();
+      z.addFile("old.txt", Buffer.from("old"));
+      z.writeZip(destPath);
+
+      const result = await client.callTool({
+        name: "iwd_pack",
+        arguments: { source_dir: sourceDir, dest_path: destPath },
+      });
+      expect(result.isError).toBeFalsy();
+
+      // Original should be backed up
+      expect(fs.existsSync(destPath + ".bak")).toBe(true);
+      const bakZip = new AdmZip(destPath + ".bak");
+      expect(bakZip.getEntry("old.txt")).not.toBeNull();
+
+      // New archive should only contain the packed files
+      const newZip = new AdmZip(destPath);
+      expect(newZip.getEntry("old.txt")).toBeNull();
+      expect(newZip.getEntry("scripts/test.gsc")).not.toBeNull();
+    });
+
+    it("returns error if source_dir does not exist", async () => {
+      const result = await client.callTool({
+        name: "iwd_pack",
+        arguments: { source_dir: "invalid-dir-that-doesnt-exist", dest_path: "out.iwd" },
+      });
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("does not exist");
+    });
+
+    it("returns error if source_dir is not a directory", async () => {
+      const filePath = path.join(tmpDir, "just-a-file.txt");
+      fs.writeFileSync(filePath, "data");
+      const result = await client.callTool({
+        name: "iwd_pack",
+        arguments: { source_dir: filePath, dest_path: "out.iwd" },
+      });
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("not a directory");
+    });
+
+    it("dry_run validates without writing the archive", async () => {
+      const destPath = path.join(tmpDir, "dry-pack.iwd");
+      const result = await client.callTool({
+        name: "iwd_pack",
+        arguments: { source_dir: sourceDir, dest_path: destPath, dry_run: true },
+      });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("[dry_run]");
+      expect(fs.existsSync(destPath)).toBe(false);
+    });
+  });
+
+  // --- iwd_sync ---
+
+  describe("iwd_sync", () => {
+    let sourceDir: string;
+    let syncIwd: string;
+    
+    beforeEach(() => {
+      sourceDir = path.join(tmpDir, "sync-source");
+      fs.mkdirSync(sourceDir);
+      fs.mkdirSync(path.join(sourceDir, "scripts"));
+      fs.writeFileSync(path.join(sourceDir, "scripts/sync.gsc"), "// synced");
+
+      syncIwd = path.join(tmpDir, "sync.iwd");
+      const z = new AdmZip();
+      z.addFile("untouched.txt", Buffer.from("leave me alone"));
+      z.writeZip(syncIwd);
+    });
+
+    it("injects files into an existing archive without deleting other files", async () => {
+      const result = await client.callTool({
+        name: "iwd_sync",
+        arguments: { source_dir: sourceDir, dest_path: syncIwd },
+      });
+      expect(result.isError).toBeFalsy();
+
+      const zip = new AdmZip(syncIwd);
+      expect(zip.getEntry("untouched.txt")).not.toBeNull(); // Still there!
+      expect(zip.getEntry("scripts/sync.gsc")).not.toBeNull();
+    });
+
+    it("returns error if dest_path archive is invalid or missing", async () => {
+      const result = await client.callTool({
+        name: "iwd_sync",
+        arguments: { source_dir: sourceDir, dest_path: "does-not-exist.iwd" },
+      });
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("not found");
+    });
+
+    it("dry_run validates without modifying the archive", async () => {
+      const result = await client.callTool({
+        name: "iwd_sync",
+        arguments: { source_dir: sourceDir, dest_path: syncIwd, dry_run: true },
+      });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("[dry_run]");
+      
+      const zip = new AdmZip(syncIwd);
+      expect(zip.getEntry("scripts/sync.gsc")).toBeNull();
+    });
+  });
+
+  // --- mods_sync ---
+
+  describe("mods_sync", () => {
+    let sourceDir: string;
+    let modDir: string;
+
+    beforeEach(() => {
+      sourceDir = path.join(tmpDir, "mods-source");
+      fs.mkdirSync(sourceDir);
+      fs.writeFileSync(path.join(sourceDir, "fast.gsc"), "// fast");
+
+      modDir = path.join(tmpDir, "mods", "promod");
+    });
+
+    it("copies loose files to the target mod directory", async () => {
+      const result = await client.callTool({
+        name: "mods_sync",
+        arguments: { source_dir: sourceDir, mod_dir: modDir },
+      });
+      expect(result.isError).toBeFalsy();
+
+      const outPath = path.join(modDir, "fast.gsc");
+      expect(fs.existsSync(outPath)).toBe(true);
+      expect(fs.readFileSync(outPath, "utf-8")).toBe("// fast");
+    });
+
+    it("dry_run validates without copying anything", async () => {
+      const result = await client.callTool({
+        name: "mods_sync",
+        arguments: { source_dir: sourceDir, mod_dir: modDir, dry_run: true },
+      });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("[dry_run]");
+      expect(fs.existsSync(modDir)).toBe(false);
+    });
+  });
+
+  // --- userraw_sync ---
+
+  describe("userraw_sync", () => {
+    let sourceDir: string;
+    let userrawDir: string;
+
+    beforeEach(() => {
+      sourceDir = path.join(tmpDir, "userraw-source");
+      fs.mkdirSync(sourceDir);
+      fs.writeFileSync(path.join(sourceDir, "global.gsc"), "// global");
+
+      userrawDir = path.join(tmpDir, "userraw");
+    });
+
+    it("copies loose files to the userraw directory", async () => {
+      const result = await client.callTool({
+        name: "userraw_sync",
+        arguments: { source_dir: sourceDir, userraw_dir: userrawDir },
+      });
+      expect(result.isError).toBeFalsy();
+
+      const outPath = path.join(userrawDir, "global.gsc");
+      expect(fs.existsSync(outPath)).toBe(true);
+      expect(fs.readFileSync(outPath, "utf-8")).toBe("// global");
+    });
+
+    it("dry_run validates without copying anything", async () => {
+      const result = await client.callTool({
+        name: "userraw_sync",
+        arguments: { source_dir: sourceDir, userraw_dir: userrawDir, dry_run: true },
+      });
+      expect(result.isError).toBeFalsy();
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("[dry_run]");
+      expect(fs.existsSync(userrawDir)).toBe(false);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
