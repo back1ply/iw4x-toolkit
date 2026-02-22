@@ -1,0 +1,32 @@
+{
+  "player_connect": {
+    "description": "Standard player connection callback",
+    "category": "callbacks",
+    "code": "init()\n{\n    level.onPlayerConnect = ::onPlayerConnect;\n}\n\nonPlayerConnect(player)\n{\n    player endon(\"disconnect\");\n    player thread onSpawn;\n}\n\nonSpawn()\n{\n    self waittill(\"spawned\");\n    \n    // Player spawned - add your code here\n    // {{custom_setup}}\n}"
+  },
+  "killstreak": {
+    "description": "Basic killstreak reward system",
+    "category": "gameplay",
+    "code": "init()\n{\n    level.killstreaks = [];\n    level thread watchKillstreaks();\n}\n\nwatchKillstreaks()\n{\n    for(;;)\n    {\n        level waittill(\"player_killed\", eAttacker, sWeapon, iDamage, sMeansOfDeath, eInflictor);\n        \n        if(isdefined(eAttacker) && isdefined(eAttacker.pers[\"kills\"]))\n        {\n            eAttacker.pers[\"kills\"]++;\n            eAttacker.kills = eAttacker.pers[\"kills\"];\n            \n            // Check for killstreaks\n            if(eAttacker.kills >= 3 && eAttacker.kills < 5)\n            {\n                // UAV\n            }\n            else if(eAttacker.kills >= 5 && eAttacker.kills < 7)\n            {\n                // Care Package\n            }\n            else if(eAttacker.kills >= 7)\n            {\n                // EMP\n            }\n        }\n    }\n}"
+  },
+  "weapon_pickup": {
+    "description": "Weapon pickup handler",
+    "category": "gameplay",
+    "code": "init()\n{\n    level.weaponPickups = [];\n    level thread watchWeaponPickups();\n}\n\nwatchWeaponPickups()\n{\n    for(;;)\n    {\n        level waittill(\"weapon_pickup\", player, weapon);\n        player thread onWeaponPickup(weapon);\n    }\n}\n\nonWeaponPickup(weapon)\n{\n    self endon(\"disconnect\");\n    self endon(\"death\");\n    \n    // Weapon pickup logic\n    // {{custom_setup}}\n}"
+  },
+  "menu_response": {
+    "description": "Menu response handler",
+    "category": "ui",
+    "code": "init()\n{\n    // Register menu\n    level.menuResponses = [];\n    level thread watchMenuResponse();\n}\n\nwatchMenuResponse()\n{\n    for(;;)\n    {\n        level waittill(\"menuresponse\", menu, response, player);\n        player thread onMenuResponse(menu, response);\n    }\n}\n\nonMenuResponse(menu, response)\n{\n    self endon(\"disconnect\");\n    \n    // Handle menu responses\n    if(menu == \"{{menu_name}}\")\n    {\n        switch(response)\n        {\n            case \"{{option_1}}\":\n                // Handle option 1\n                break;\n            case \"{{option_2}}\":\n                // Handle option 2\n                break;\n        }\n    }\n}"
+  },
+  "simple_gametype": {
+    "description": "Basic gametype template",
+    "category": "gametype",
+    "code": "main()\n{\n    levelgametype = \"{{gametype_name}}\";\n    \n    // Set up game rules\n    level.teamBased = {{is_team_based}}; // true or false\n    level.overrideTeamScore = true;\n    level.endGameOnScoreLimit = true;\n    \n    // Initialize gametype\n    maps\\mp\\gametypes\\{{gametype_name}}::init();\n    maps\\mp\\gametypes\\globallogic::init();\n    maps\\mp\\gametypes\\globallogicui::init();\n    \n    // Set score limit\n    if(isdefined(game[\"PROMOD\"]) && game[\"PROMOD\"] == \"classic\")\n    {\n        level.scoreLimit = 7500;\n    }\n    else\n    {\n        level.scoreLimit = 15000;\n    }\n    \n    level thread onPlayerConnect();\n    level thread onPlayerDisconnect();\n}\n\nonPlayerConnect()\n{\n    for(;;)\n    {\n        level waittill(\"connected\", player);\n        player thread onSpawn();\n    }\n}\n\nonPlayerDisconnect()\n{\n    for(;;)\n    {\n        level waittill(\"disconnected\", player);\n    }\n}\n\nonSpawn()\n{\n    self endon(\"disconnect\");\n    \n    for(;;)\n    {\n        self waittill(\"spawned\");\n        \n        // Spawn logic\n        self spawnPlayer();\n    }\n}\n\nspawnPlayer()\n{\n    // Custom spawn logic\n}"
+  },
+  "array_utils": {
+    "description": "Common array utility functions",
+    "category": "utilities",
+    "code": "getArraySize(array)\n{\n    if(!isdefined(array))\n        return 0;\n    \n    return array.size;\n}\n\nrandomizeArray(array)\n{\n    newArray = [];\n    \n    for(i = 0; i < array.size; i++)\n    {\n        newArray[newArray.size] = array[i];\n    }\n    \n    for(i = 0; i < newArray.size; i++)\n    {\n        j = randomint(newArray.size);\n        temp = newArray[i];\n        newArray[i] = newArray[j];\n        newArray[j] = temp;\n    }\n    \n    return newArray;\n}\n\nremoveFromArray(array, item)\n{\n    newArray = [];\n    \n    for(i = 0; i < array.size; i++)\n    {\n        if(array[i] != item)\n            newArray[newArray.size] = array[i];\n    }\n    \n    return newArray;\n}\n\ngetArrayKeys(array)\n{\n    keys = [];\n    \n    foreach(key, value in array)\n    {\n        keys[keys.size] = key;\n    }\n    \n    return keys;\n}"
+  }
+}

@@ -343,6 +343,9 @@ export function registerIwdTools(server: McpServer): void {
 
       const normalized = normalizeEntry(entry);
       if (!normalized) return errResult("Error: entry path cannot be empty.");
+      if (normalized.includes("../")) {
+        return errResult("Error: entry path cannot contain '../' sequences (path traversal not allowed).");
+      }
 
       const existing = zip.getEntry(normalized);
       const lineCount = content.split("\n").length;
@@ -439,6 +442,9 @@ export function registerIwdTools(server: McpServer): void {
 
       const normalized = normalizeEntry(entry);
       if (!normalized) return errResult("Error: entry path cannot be empty.");
+      if (normalized.includes("../")) {
+        return errResult("Error: entry path cannot contain '../' sequences (path traversal not allowed).");
+      }
 
       const zipEntry = zip.getEntry(normalized);
       if (!zipEntry) {
@@ -547,6 +553,9 @@ export function registerIwdTools(server: McpServer): void {
 
       const normalized = normalizeEntry(entry);
       if (!normalized) return errResult("Error: entry path cannot be empty.");
+      if (normalized.includes("../")) {
+        return errResult("Error: entry path cannot contain '../' sequences (path traversal not allowed).");
+      }
 
       const existing = zip.getEntry(normalized);
       if (!existing) return entryNotFoundErr(normalized);

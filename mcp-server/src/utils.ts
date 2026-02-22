@@ -63,8 +63,8 @@ interface IwdCacheEntry {
 /** In-memory cache of parsed IWD zip files, keyed by resolved absolute path. */
 const iwdCache = new Map<string, IwdCacheEntry>();
 
-/** Maximum number of IWD zips to keep open in memory simultaneously. changed to 3 to lower RAM usage */
-const IWD_CACHE_MAX = 3;
+/** Maximum number of IWD zips to keep open in memory simultaneously. changed to 10 to improve performance */
+const IWD_CACHE_MAX = 10;
 
 /**
  * Evict the cache entry for the given resolved IWD path.
