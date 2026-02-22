@@ -5,3 +5,4 @@ node_modules/
 
 testiwd/
 mcp-server/dist/
+.mcp.json
