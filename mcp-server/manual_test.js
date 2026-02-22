@@ -25,7 +25,7 @@ async function cleanup(dirPath) {
 async function run() {
   await client.connect(transport);
   
-  const baseTarget = path.resolve("../testiwd/promod_v3.3/promodlive_v3.3.iwd");
+  const baseTarget = path.resolve("F:\\Shehab Projects\\iw4x-toolkit\\testiwd\\promod_v3.3\\promodlive_v3.3.iwd");
   const testDir = path.resolve("../testiwd/manual_test_env");
   await fs.mkdir(testDir, { recursive: true });
   
