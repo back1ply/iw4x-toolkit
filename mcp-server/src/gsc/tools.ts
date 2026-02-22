@@ -10,18 +10,35 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { lint, LintResult, LintError } from "./linter.js";
 
 /**
  * Resolve path to knowledge files
  */
 function resolveKnowledgePath(filename: string): string | null {
-  const __dirname = path.dirname(path.dirname(new URL(import.meta.url).pathname));
+  // Use import.meta.url for ESM, but also support running from dist
+  let baseDir: string;
+  try {
+    baseDir = path.dirname(fileURLToPath(import.meta.url));
+  } catch {
+    // Fallback for bundled code
+    baseDir = path.dirname(process.execPath);
+  }
+  
   const candidates = [
-    path.resolve(__dirname, "..", "..", "knowledge", filename),
-    path.resolve(__dirname, "..", "knowledge", filename),
-    path.resolve(__dirname, "..", "..", "..", "knowledge", filename),
+    // From dist/index.js -> project root
+    path.resolve(baseDir, "..", "..", "knowledge", filename),
+    // From dist/ -> mcp-server/ -> project root
+    path.resolve(baseDir, "..", "knowledge", filename),
+    // From dist/index.js -> mcp-server -> project root
+    path.resolve(baseDir, "..", "..", "..", "knowledge", filename),
+    // Direct from project root (for when running from mcp-server folder)
+    path.resolve("knowledge", filename),
+    // Absolute path for development
+    path.resolve("f:/Shehab Projects/iw4x-toolkit/knowledge", filename),
   ];
+  
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
@@ -281,7 +298,10 @@ export function registerGscTools(server: McpServer): void {
         "Use this to quickly scaffold common patterns like callbacks, " +
         "gametypes, menus, etc. Reduces boilerplate errors.",
       inputSchema: {
-        template: z.string().describe("Template name (e.g., 'player_connect', 'killstreak')"),
+        template: z.string().optional().describe(
+          "Template name (e.g., 'player_connect', 'killstreak'). " +
+          "Not required if list=true"
+        ),
         variables: z.record(z.string()).optional().describe(
           "Variables to substitute in template (e.g., {player: 'self'})"
         ),

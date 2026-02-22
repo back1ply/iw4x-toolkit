@@ -157,6 +157,61 @@ async function run() {
 
     console.log("\n✅ All 16 operations tested successfully on the integration suite.");
 
+    // ========== GSC TOOLS TESTS ==========
+    console.log("\n\n=== GSC TOOLS TESTS ===");
+
+    console.log("\n=== 17. Testing gsc_lint (valid code) ===");
+    res = await client.callTool({
+      name: "gsc_lint",
+      arguments: { content: `init()\n{\n    level thread onPlayerConnect();\n}\n\nonPlayerConnect(player)\n{\n    player endon("disconnect");\n    player thread onSpawn();\n}\n\nonSpawn()\n{\n    self waittill("spawned");\n    self iprintln("Welcome!");\n}` }
+    });
+    console.log(res.content[0].text);
+
+    console.log("\n=== 18. Testing gsc_lint (code with issues) ===");
+    res = await client.callTool({
+      name: "gsc_lint",
+      arguments: { content: `init()\n{\n    undefinedFunction();\n    println(myUndefVar);\n}` }
+    });
+    console.log(res.content[0].text);
+
+    console.log("\n=== 19. Testing gsc_lookup (search: println) ===");
+    res = await client.callTool({
+      name: "gsc_lookup",
+      arguments: { query: "println" }
+    });
+    console.log(res.content[0].text.substring(0, 500) + "...");
+
+    console.log("\n=== 20. Testing gsc_template (list templates) ===");
+    res = await client.callTool({
+      name: "gsc_template",
+      arguments: { list: true }
+    });
+    console.log(res.content[0].text);
+
+    console.log("\n=== 21. Testing gsc_template (generate: player_connect) ===");
+    res = await client.callTool({
+      name: "gsc_template",
+      arguments: { template: "player_connect", variables: { custom_setup: "self iprintln(\"Hello!\");" } }
+    });
+    console.log(res.content[0].text.substring(0, 800) + "...");
+
+    console.log("\n=== 22. Testing gsc_template (generate: array_utils) ===");
+    res = await client.callTool({
+      name: "gsc_template",
+      arguments: { template: "array_utils" }
+    });
+    console.log(res.content[0].text.substring(0, 500) + "...");
+
+    console.log("\n=== 23. Testing gsc_template (template with regex chars in variable key) ===");
+    // This tests the regex escaping fix - variables with . * etc should work
+    res = await client.callTool({
+      name: "gsc_template",
+      arguments: { template: "player_connect", variables: { "custom.setup": "test value" } }
+    });
+    console.log(res.content[0].text.substring(0, 500) + "...");
+
+    console.log("\n✅ All GSC tools tested successfully!");
+
   } catch (err) {
     console.error("Test failed:", err);
   } finally {

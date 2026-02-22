@@ -590,6 +590,16 @@ describe("MCP tool handlers", () => {
       expect(zip.readAsText(newEntry)).toBe(content);
     });
 
+    it("rejects path traversal attempts", async () => {
+      const result = await client.callTool({
+        name: "iwd_write",
+        arguments: { path: iwdPath, entry: "../../../etc/passwd", content: "malicious" },
+      });
+      expect(result.isError).toBe(true);
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("path traversal");
+    });
+
     it("creates a .bak backup on first write", async () => {
       await client.callTool({
         name: "iwd_write",
