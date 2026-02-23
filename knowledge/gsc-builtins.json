@@ -1,10 +1,20 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "meta": {
     "source": "Manual Compilation + Community Wikis (X-Labs, Zeroy, CoD4x)",
-    "last_updated": "2026-02-19"
+    "last_updated": "2026-02-23"
   },
   "functions": [
+    {
+      "name": "isDefined",
+      "returnType": "boolean",
+      "parameters": [
+        { "name": "variable", "type": "any", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Checks if a variable is defined (not undefined). Essential for null safety in GSC.",
+      "category": "utility"
+    },
     {
       "name": "iprintln",
       "returnType": "void",
@@ -26,14 +36,296 @@
       "category": "io"
     },
     {
+      "name": "println",
+      "returnType": "void",
+      "parameters": [
+        { "name": "message", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Prints a message to the console (server console or game console).",
+      "category": "io"
+    },
+    {
+      "name": "SetClientDvar",
+      "returnType": "void",
+      "parameters": [
+        { "name": "dvar", "type": "string", "optional": false },
+        { "name": "value", "type": "string", "optional": false }
+      ],
+      "engines": ["iw4", "iw4x"],
+      "description": "Sets a client-side dvar (graphics, sound, etc.) for a specific player. Used for per-player settings like r_fullbright.",
+      "category": "client"
+    },
+    {
+      "name": "SetClientDvars",
+      "returnType": "void",
+      "parameters": [
+        { "name": "dvar1", "type": "string", "optional": false },
+        { "name": "value1", "type": "string", "optional": false },
+        { "name": "dvar2", "type": "string", "optional": true },
+        { "name": "value2", "type": "string", "optional": true }
+      ],
+      "engines": ["iw4", "iw4x"],
+      "description": "Sets multiple client-side dvars at once. More efficient than calling SetClientDvar multiple times.",
+      "category": "client"
+    },
+    {
+      "name": "playLocalSound",
+      "returnType": "void",
+      "parameters": [
+        { "name": "alias", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Plays a sound locally (only heard by the player).",
+      "category": "audio"
+    },
+    {
+      "name": "notifyOnPlayerCommand",
+      "returnType": "void",
+      "parameters": [
+        { "name": "notifyName", "type": "string", "optional": false },
+        { "name": "command", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Binds a console command to a notify event. Used for keybind handling in GSC.",
+      "category": "input"
+    },
+    {
+      "name": "_SetActionSlot",
+      "returnType": "void",
+      "parameters": [
+        { "name": "slot", "type": "int", "optional": false },
+        { "name": "action", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sets an action slot (like D-pad buttons) to a specific action or empty.",
+      "category": "input"
+    },
+    {
+      "name": "getGuid",
+      "returnType": "string",
+      "parameters": [],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the player's unique GUID (CD key hash).",
+      "category": "player"
+    },
+    {
+      "name": "getEntityNumber",
+      "returnType": "int",
+      "parameters": [],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the entity's index number in the game's entity list.",
+      "category": "entity"
+    },
+    {
+      "name": "isAlive",
+      "returnType": "boolean",
+      "parameters": [],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Checks if the entity (player) is alive.",
+      "category": "entity"
+    },
+    {
+      "name": "getOrigin",
+      "returnType": "vector",
+      "parameters": [],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the entity's position as a vector [x, y, z].",
+      "category": "entity"
+    },
+    {
+      "name": "setOrigin",
+      "returnType": "void",
+      "parameters": [
+        { "name": "origin", "type": "vector", "optional": false }
+      ],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sets the entity's position.",
+      "category": "entity"
+    },
+    {
+      "name": "getAngles",
+      "returnType": "vector",
+      "parameters": [],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the entity's rotation as a vector [pitch, yaw, roll].",
+      "category": "entity"
+    },
+    {
+      "name": "setAngles",
+      "returnType": "void",
+      "parameters": [
+        { "name": "angles", "type": "vector", "optional": false }
+      ],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sets the entity's rotation.",
+      "category": "entity"
+    },
+    {
+      "name": "getVelocity",
+      "returnType": "vector",
+      "parameters": [],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the entity's current velocity vector.",
+      "category": "entity"
+    },
+    {
+      "name": "setVelocity",
+      "returnType": "void",
+      "parameters": [
+        { "name": "velocity", "type": "vector", "optional": false }
+      ],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sets the entity's velocity (movement direction and speed).",
+      "category": "entity"
+    },
+    {
+      "name": "getPlayerAngles",
+      "returnType": "vector",
+      "parameters": [],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the player's view angles as [pitch, yaw, roll].",
+      "category": "player"
+    },
+    {
+      "name": "getModel",
+      "returnType": "string",
+      "parameters": [],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the entity's model name.",
+      "category": "entity"
+    },
+    {
+      "name": "setModel",
+      "returnType": "void",
+      "parameters": [
+        { "name": "model", "type": "string", "optional": false }
+      ],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sets the entity's model.",
+      "category": "entity"
+    },
+    {
+      "name": "getTeam",
+      "returnType": "string",
+      "parameters": [],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the player's team ('allies', 'axis', or 'spectator').",
+      "category": "player"
+    },
+    {
+      "name": "sayTeam",
+      "returnType": "void",
+      "parameters": [
+        { "name": "message", "type": "string", "optional": false }
+      ],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sends a message to the player's team.",
+      "category": "chat"
+    },
+    {
+      "name": "sayAll",
+      "returnType": "void",
+      "parameters": [
+        { "name": "message", "type": "string", "optional": false }
+      ],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sends a message to all players.",
+      "category": "chat"
+    },
+    {
+      "name": "suicide",
+      "returnType": "void",
+      "parameters": [],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Kills the player (self).",
+      "category": "player"
+    },
+    {
+      "name": "getTime",
+      "returnType": "int",
+      "parameters": [],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the time in milliseconds since the game/server started.",
+      "category": "system"
+    },
+    {
+      "name": "getDvarInt",
+      "returnType": "int",
+      "parameters": [
+        { "name": "dvar", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Gets a dvar value as an integer.",
+      "category": "dvar"
+    },
+    {
+      "name": "getDvarFloat",
+      "returnType": "float",
+      "parameters": [
+        { "name": "dvar", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Gets a dvar value as a float.",
+      "category": "dvar"
+    },
+    {
+      "name": "getDvar",
+      "returnType": "string",
+      "parameters": [
+        { "name": "dvar", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Gets a dvar value as a string.",
+      "category": "dvar"
+    },
+    {
+      "name": "setDvar",
+      "returnType": "void",
+      "parameters": [
+        { "name": "dvar", "type": "string", "optional": false },
+        { "name": "value", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sets a server dvar value.",
+      "category": "dvar"
+    },
+    {
+      "name": "setDvarIfUninitialized",
+      "returnType": "void",
+      "parameters": [
+        { "name": "dvar", "type": "string", "optional": false },
+        { "name": "value", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Sets a dvar only if it hasn't been initialized yet. Useful for default config values.",
+      "category": "dvar"
+    },
+    {
       "name": "getent",
       "returnType": "entity",
       "parameters": [
         { "name": "targetname", "type": "string", "optional": false },
-        { "name": "key", "type": "string", "optional": false }
+        { "name": "key", "type": "string", "optional": true }
       ],
       "engines": ["cod4", "iw4", "cod4x", "iw4x"],
-      "description": "Returns the first entity found matching the key/value pair.",
+      "description": "Returns the first entity found matching the targetname.",
       "category": "entity"
     },
     {
@@ -41,11 +333,131 @@
       "returnType": "array",
       "parameters": [
         { "name": "targetname", "type": "string", "optional": false },
-        { "name": "key", "type": "string", "optional": false }
+        { "name": "key", "type": "string", "optional": true }
       ],
       "engines": ["cod4", "iw4", "cod4x", "iw4x"],
-      "description": "Returns an array of all entities matching the key/value pair.",
+      "description": "Returns an array of all entities matching the targetname.",
       "category": "entity"
+    },
+    {
+      "name": "spawn",
+      "returnType": "entity",
+      "parameters": [
+        { "name": "classname", "type": "string", "optional": false },
+        { "name": "origin", "type": "vector", "optional": true }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Spawns a new entity of the specified classname.",
+      "category": "entity"
+    },
+    {
+      "name": "spawnstruct",
+      "returnType": "entity",
+      "parameters": [],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Creates a new empty struct (container) entity.",
+      "category": "entity"
+    },
+    {
+      "name": "distance",
+      "returnType": "float",
+      "parameters": [
+        { "name": "v1", "type": "vector", "optional": false },
+        { "name": "v2", "type": "vector", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the 3D distance between two points.",
+      "category": "math"
+    },
+    {
+      "name": "distance2d",
+      "returnType": "float",
+      "parameters": [
+        { "name": "v1", "type": "vector", "optional": false },
+        { "name": "v2", "type": "vector", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the 2D distance (x,y) between two points, ignoring height.",
+      "category": "math"
+    },
+    {
+      "name": "bullettrace",
+      "returnType": "trace",
+      "parameters": [
+        { "name": "start", "type": "vector", "optional": false },
+        { "name": "end", "type": "vector", "optional": false },
+        { "name": "passThrough", "type": "boolean", "optional": true },
+        { "name": "entity", "type": "entity", "optional": true }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Performs a bullet trace and returns trace information.",
+      "category": "physics"
+    },
+    {
+      "name": "bullettracepassed",
+      "returnType": "boolean",
+      "parameters": [
+        { "name": "start", "type": "vector", "optional": false },
+        { "name": "end", "type": "vector", "optional": false },
+        { "name": "passThrough", "type": "boolean", "optional": true },
+        { "name": "entity", "type": "entity", "optional": true }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns true if a bullet trace doesn't hit anything.",
+      "category": "physics"
+    },
+    {
+      "name": "sighttracepassed",
+      "returnType": "boolean",
+      "parameters": [
+        { "name": "start", "type": "vector", "optional": false },
+        { "name": "end", "type": "vector", "optional": false },
+        { "name": "passThrough", "type": "boolean", "optional": true },
+        { "name": "entity", "type": "entity", "optional": true }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns true if there's a line of sight between two points.",
+      "category": "physics"
+    },
+    {
+      "name": "openPopupMenu",
+      "returnType": "void",
+      "parameters": [
+        { "name": "menu", "type": "string", "optional": false }
+      ],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Opens a popup menu for the player.",
+      "category": "ui"
+    },
+    {
+      "name": "openPopupMenuGamepad",
+      "returnType": "void",
+      "parameters": [
+        { "name": "menu", "type": "string", "optional": false }
+      ],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Opens a gamepad-specific popup menu.",
+      "category": "ui"
+    },
+    {
+      "name": "closePopupMenu",
+      "returnType": "void",
+      "parameters": [],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Closes the current popup menu.",
+      "category": "ui"
+    },
+    {
+      "name": "pingPlayer",
+      "returnType": "void",
+      "parameters": [],
+      "calledOn": "player",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Pings the player's location (shows a indicator on minimap for teammates).",
+      "category": "player"
     },
     {
       "name": "json_encode",
@@ -90,7 +502,7 @@
     },
     {
       "name": "fileexists",
-      "returnType": "bool",
+      "returnType": "boolean",
       "parameters": [
         { "name": "filepath", "type": "string", "optional": false }
       ],
@@ -124,6 +536,294 @@
       "engines": ["iw4x", "cod4x"],
       "description": "Returns the current system time (timestamp).",
       "category": "system"
+    },
+    {
+      "name": "anglestoforward",
+      "returnType": "vector",
+      "parameters": [
+        { "name": "angles", "type": "vector", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Converts angles to a forward direction vector.",
+      "category": "math"
+    },
+    {
+      "name": "vectornormalize",
+      "returnType": "vector",
+      "parameters": [
+        { "name": "vec", "type": "vector", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Normalizes a vector (makes length 1) while keeping direction.",
+      "category": "math"
+    },
+    {
+      "name": "vectorscale",
+      "returnType": "vector",
+      "parameters": [
+        { "name": "vec", "type": "vector", "optional": false },
+        { "name": "scale", "type": "float", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Multiplies a vector by a scalar value.",
+      "category": "math"
+    },
+    {
+      "name": "random",
+      "returnType": "int",
+      "parameters": [
+        { "name": "max", "type": "int", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns a random integer from 0 to max-1.",
+      "category": "math"
+    },
+    {
+      "name": "randomint",
+      "returnType": "int",
+      "parameters": [
+        { "name": "max", "type": "int", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns a random integer from 0 to max-1.",
+      "category": "math"
+    },
+    {
+      "name": "randomfloat",
+      "returnType": "float",
+      "parameters": [
+        { "name": "max", "type": "float", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns a random float from 0 to max.",
+      "category": "math"
+    },
+    {
+      "name": "array_size",
+      "returnType": "int",
+      "parameters": [
+        { "name": "array", "type": "array", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Returns the size of an array.",
+      "category": "array"
+    },
+    {
+      "name": "tostring",
+      "returnType": "string",
+      "parameters": [
+        { "name": "value", "type": "any", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Converts a value to a string.",
+      "category": "utility"
+    },
+    {
+      "name": "int",
+      "returnType": "int",
+      "parameters": [
+        { "name": "value", "type": "any", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Converts a value to an integer.",
+      "category": "utility"
+    },
+    {
+      "name": "float",
+      "returnType": "float",
+      "parameters": [
+        { "name": "value", "type": "any", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Converts a value to a float.",
+      "category": "utility"
+    },
+    {
+      "name": "tolower",
+      "returnType": "string",
+      "parameters": [
+        { "name": "str", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Converts a string to lowercase.",
+      "category": "string"
+    },
+    {
+      "name": "toupper",
+      "returnType": "string",
+      "parameters": [
+        { "name": "str", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Converts a string to uppercase.",
+      "category": "string"
+    },
+    {
+      "name": "strtok",
+      "returnType": "array",
+      "parameters": [
+        { "name": "string", "type": "string", "optional": false },
+        { "name": "delimiter", "type": "string", "optional": true }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Splits a string into an array by delimiter.",
+      "category": "string"
+    },
+    {
+      "name": "isstring",
+      "returnType": "boolean",
+      "parameters": [
+        { "name": "value", "type": "any", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Checks if a value is a string.",
+      "category": "utility"
+    },
+    {
+      "name": "isarray",
+      "returnType": "boolean",
+      "parameters": [
+        { "name": "value", "type": "any", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Checks if a value is an array.",
+      "category": "utility"
+    },
+    {
+      "name": "isfunction",
+      "returnType": "boolean",
+      "parameters": [
+        { "name": "name", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Checks if a function exists.",
+      "category": "utility"
+    },
+    {
+      "name": "playfx",
+      "returnType": "void",
+      "parameters": [
+        { "name": "fxID", "type": "string", "optional": false },
+        { "name": "position", "type": "vector", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Plays a local effect at the specified position.",
+      "category": "effects"
+    },
+    {
+      "name": "playfxontag",
+      "returnType": "void",
+      "parameters": [
+        { "name": "fxID", "type": "string", "optional": false },
+        { "name": "entity", "type": "entity", "optional": false },
+        { "name": "tag", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Plays a local effect attached to a specific tag on an entity.",
+      "category": "effects"
+    },
+    {
+      "name": "playsound",
+      "returnType": "void",
+      "parameters": [
+        { "name": "alias", "type": "string", "optional": false }
+      ],
+      "calledOn": "entity",
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Plays a sound at the entity's location.",
+      "category": "audio"
+    },
+    {
+      "name": "objective_add",
+      "returnType": "void",
+      "parameters": [
+        { "name": "index", "type": "int", "optional": false },
+        { "name": "state", "type": "string", "optional": false },
+        { "name": "origin", "type": "vector", "optional": true },
+        { "name": "shader", "type": "string", "optional": true }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Adds or updates an objective marker on the map.",
+      "category": "ui"
+    },
+    {
+      "name": "objective_delete",
+      "returnType": "void",
+      "parameters": [
+        { "name": "index", "type": "int", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Deletes an objective marker.",
+      "category": "ui"
+    },
+    {
+      "name": "objective_player",
+      "returnType": "void",
+      "parameters": [
+        { "name": "index", "type": "int", "optional": false },
+        { "name": "player", "type": "player", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Makes an objective visible only to a specific player.",
+      "category": "ui"
+    },
+    {
+      "name": "newClientHudElem",
+      "returnType": "hudelem",
+      "parameters": [
+        { "name": "client", "type": "player", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Creates a HUD element visible only to a specific player.",
+      "category": "ui"
+    },
+    {
+      "name": "newHudElem",
+      "returnType": "hudelem",
+      "parameters": [],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Creates a HUD element visible to all players.",
+      "category": "ui"
+    },
+    {
+      "name": "precacheShader",
+      "returnType": "void",
+      "parameters": [
+        { "name": "shader", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Precaches a shader/image for use in HUDs or objectives.",
+      "category": "assets"
+    },
+    {
+      "name": "precacheString",
+      "returnType": "void",
+      "parameters": [
+        { "name": "string", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Precaches a localized string for display.",
+      "category": "assets"
+    },
+    {
+      "name": "precacheMenu",
+      "returnType": "void",
+      "parameters": [
+        { "name": "menu", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Precaches a menu for use.",
+      "category": "assets"
+    },
+    {
+      "name": "precacheHeadIcon",
+      "returnType": "void",
+      "parameters": [
+        { "name": "icon", "type": "string", "optional": false }
+      ],
+      "engines": ["cod4", "iw4", "cod4x", "iw4x"],
+      "description": "Precaches a head icon (minimap indicator).",
+      "category": "assets"
     }
   ]
 }

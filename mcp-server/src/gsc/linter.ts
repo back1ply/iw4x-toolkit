@@ -9,76 +9,104 @@
  * - Best practice warnings
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { tokenize, Token, TokenType, TokenizeResult } from "./tokenizer.js";
+import { getKnowledgeDir, MAX_LINE_LENGTH_WARNING } from "../utils.js";
+
+// ---------------------------------------------------------------------------
+// Core builtins that are always available (no file I/O needed)
+// ---------------------------------------------------------------------------
+
+const CORE_BUILTINS = [
+  // IO
+  "println", "print", "iprintln", "iprintlnbold", "print3d", "iprintlnln",
+  // Dvars
+  "getcvar", "setcvar", "getcvarint", "getcvarlen",
+  "getdvar", "setdvar", "getdvarint", "getdvarfloat", "getdvarvector",
+  "setdvarifuninitialized",
+  // Entity
+  "getent", "getarray", "getfirstarraykey", "getnextarraykey",
+  "alloc", "free", "spawn", "spawnstruct",
+  // Special
+  "self", "level", "game", "player",
+  // Flow control
+  "thread", "call", "notify", "endon", "wait", "waittill",
+  "waittillmatch", "waittillframeend", "childthread",
+  // Type conversion
+  "tostring", "int", "float", "strtok", "tolower", "toupper",
+  // Type checking
+  "isdefined", "isstring", "isarray", "isfunction",
+  // Math
+  "length", "vectordot", "vectorcross", "vectornormalize", "vectorscale",
+  "anglestoforward", "anglestoright", "anglestoleft",
+  "forward", "right", "up",
+  "distance", "distance2d", "distanceSquared",
+  "clamp", "lerp", "lerpvector",
+  // Entity methods
+  "getorigin", "setorigin", "getangles", "setangles",
+  "getvelocity", "setvelocity", "getmodel", "setmodel",
+  "getnumlinks", "getlinkname",
+  // Arrays
+  "array", "array_size", "sort", "random", "randomint", "randomfloat",
+  // Effects & Audio
+  "bullettrace", "bullettracepassed", "sighttracepassed",
+  "playfx", "playsound", "playrumbleonentity",
+  "playlocalsound",
+  // HUD
+  "setText", "setvalue", "clearalltextafterhud",
+  // Client
+  "setclientdvar", "setclientdvars",
+  // Player
+  "getguid", "getentitynumber", "isalive", "getteam", "getname",
+  "getplayerangles", "sayteam", "sayall", "suicide", "pingplayer",
+  // Input
+  "notifyonplayercommand", "_setactionslot",
+  // UI
+  "openpopupmenu", "openpopupmenugamepad", "closepopupmenu",
+  "objective_add", "objective_delete", "objective_player",
+  "newclienthudelem", "newhudelem",
+  // Assets
+  "precacheshader", "precachestring", "precachemenu", "precacheheadicon",
+  // Time
+  "gettime", "getsystemtime",
+  // Filesystem
+  "readfile", "writefile", "fileexists",
+];
+
+const CORE_DVARS = [
+  "ui_gametype", "g_gametype", "sv_fps", "sv_maxclients",
+  "r_fog", "r_detail", "r_normalmap", "r_specularmap",
+  "cg_fov", "cg_thirdperson", "cg_drawcrosshair", "cg_hud",
+  "cl_paused", "snaps", "rate", "cl_maxpackets",
+];
+
+// ---------------------------------------------------------------------------
+// Lazy-loaded caches (populated on first access via async I/O)
+// ---------------------------------------------------------------------------
+
+let _knownBuiltins: Set<string> | null = null;
+let _knownDvars: Set<string> | null = null;
 
 /**
- * Resolve path to knowledge files
+ * Returns the set of known GSC builtins, loading from the knowledge base
+ * on first access using async file I/O.
  */
-function resolveKnowledgePath(filename: string): string | null {
-  const __dirname = path.dirname(path.dirname(new URL(import.meta.url).pathname));
-  const candidates = [
-    path.resolve(__dirname, "..", "..", "knowledge", filename),
-    path.resolve(__dirname, "..", "knowledge", filename),
-    path.resolve(__dirname, "..", "..", "..", "knowledge", filename),
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return null;
-}
+export async function getKnownBuiltins(): Promise<Set<string>> {
+  if (_knownBuiltins) return _knownBuiltins;
 
-/**
- * Load known builtins from knowledge base
- */
-function loadKnownBuiltins(): Set<string> {
-  const builtins = new Set<string>();
-  
-  // Core builtins that are always needed for tokenization
-  const coreBuiltins = [
-    "println", "print", "iprintln", "iprintlnbold", "print3d", "iprintlnln",
-    "getcvar", "setcvar", "getcvarint", "getcvarlen",
-    "getdvar", "setdvar", "getdvarint", "getdvarfloat", "getdvarvector",
-    "getent", "getarray", "getfirstarraykey", "getnextarraykey",
-    "alloc", "free", "spawn", "spawnstruct",
-    "self", "level", "game", "player",
-    "thread", "call", "notify", "endon", "wait", "waittill",
-    "waittillmatch", "waittillframeend", "childthread",
-    "tostring", "int", "float", "strtok", "tolower", "toupper",
-    "isdefined", "isstring", "isarray", "isfunction",
-    // Math
-    "length", "vectordot", "vectorcross", "vectornormalize", "vectorscale",
-    "anglestoforward", "anglestoright", "anglestoleft",
-    "forward", "right", "up",
-    "distance", "distance2d", "distanceSquared",
-    "clamp", "lerp", "lerpvector",
-    // Entity
-    "getorigin", "setorigin", "getangles", "setangles",
-    "getvelocity", "setvelocity", "getmodel", "setmodel",
-    "getnumlinks", "getlinkname",
-    // Arrays
-    "array", "array_size", "sort", "random", "randomint", "randomfloat",
-    // Common
-    "bullettrace", "bullettracepassed", "sighttracepassed",
-    "playfx", "playsound", "playrumbleonentity",
-    "setText", "setvalue", "clearalltextafterhud",
-  ];
-  
-  for (const b of coreBuiltins) {
-    builtins.add(b);
-  }
-  
-  // Load from knowledge base
-  const filePath = resolveKnowledgePath("gsc-builtins.json");
+  const builtins = new Set<string>(CORE_BUILTINS);
+
+  const filePath = getKnowledgeDir("gsc-builtins.json");
   if (filePath) {
     try {
-      const raw = fs.readFileSync(filePath, "utf-8");
+      const { readFile } = await import("node:fs/promises");
+      const raw = await readFile(filePath, "utf-8");
       const data = JSON.parse(raw);
       if (data.functions && Array.isArray(data.functions)) {
         for (const func of data.functions) {
           if (func.name) {
+            // Add both original case and lowercase for case-insensitive matching
             builtins.add(func.name);
+            builtins.add(func.name.toLowerCase());
           }
         }
       }
@@ -86,33 +114,25 @@ function loadKnownBuiltins(): Set<string> {
       // Fall back to core builtins only
     }
   }
-  
+
+  _knownBuiltins = builtins;
   return builtins;
 }
 
 /**
- * Load known DVARs from knowledge base
+ * Returns the set of known DVARs, loading from the knowledge base
+ * on first access using async file I/O.
  */
-function loadKnownDvars(): Set<string> {
-  const dvars = new Set<string>();
-  
-  // Core DVARs
-  const coreDvars = [
-    "ui_gametype", "g_gametype", "sv_fps", "sv_maxclients",
-    "r_fog", "r_detail", "r_normalmap", "r_specularmap",
-    "cg_fov", "cg_thirdperson", "cg_drawcrosshair", "cg_hud",
-    "cl_paused", "snaps", "rate", "cl_maxpackets",
-  ];
-  
-  for (const d of coreDvars) {
-    dvars.add(d);
-  }
-  
-  // Load from knowledge base
-  const filePath = resolveKnowledgePath("dvars.json");
+export async function getKnownDvars(): Promise<Set<string>> {
+  if (_knownDvars) return _knownDvars;
+
+  const dvars = new Set<string>(CORE_DVARS);
+
+  const filePath = getKnowledgeDir("dvars.json");
   if (filePath) {
     try {
-      const raw = fs.readFileSync(filePath, "utf-8");
+      const { readFile } = await import("node:fs/promises");
+      const raw = await readFile(filePath, "utf-8");
       const data = JSON.parse(raw);
       if (data.dvars && Array.isArray(data.dvars)) {
         for (const dvar of data.dvars) {
@@ -125,7 +145,8 @@ function loadKnownDvars(): Set<string> {
       // Fall back to core DVARs only
     }
   }
-  
+
+  _knownDvars = dvars;
   return dvars;
 }
 
@@ -149,6 +170,16 @@ export interface LintResult {
 }
 
 /**
+ * Options for configuring linter behavior
+ */
+export interface LintOptions {
+  /** Check for undefined variables and functions (default: true) */
+  checkUndefined?: boolean;
+  /** Check for bad patterns and anti-patterns (default: true) */
+  checkPatterns?: boolean;
+}
+
+/**
  * GSC Linter
  */
 export class GSCLinter {
@@ -158,15 +189,17 @@ export class GSCLinter {
   private functions: Set<string> = new Set();
   private definedFunctions: Map<string, number> = new Map(); // name -> line
   private source: string = "";
+  private options: LintOptions = {};
 
   /**
    * Lint GSC source code
    */
-  lint(source: string): LintResult {
+  async lint(source: string, options?: LintOptions): Promise<LintResult> {
     this.source = source;
+    this.options = options ?? {};
     this.errors = [];
     this.variables = new Set(["self", "level", "game", "player"]);
-    this.functions = loadKnownBuiltins();
+    this.functions = await getKnownBuiltins();
     this.definedFunctions = new Map();
 
     // Tokenize first
@@ -188,11 +221,15 @@ export class GSCLinter {
     // First pass: collect defined functions and variables
     this.collectDefinitions();
 
-    // Second pass: check usage
-    this.analyzeUsage();
+    // Second pass: check usage (if enabled)
+    if (this.options.checkUndefined !== false) {
+      this.analyzeUsage();
+    }
 
-    // Check for bad patterns
-    this.checkBadPatterns();
+    // Check for bad patterns (if enabled)
+    if (this.options.checkPatterns !== false) {
+      await this.checkBadPatterns();
+    }
 
     // Count lines
     const lines = source.split("\n").length;
@@ -274,46 +311,43 @@ export class GSCLinter {
 
       // Check identifier usage
       if (token.type === TokenType.IDENTIFIER) {
-        // Skip after keywords or certain tokens
-        if (prev && (prev.type === TokenType.KEYWORD || 
+        // Identifier on RHS of assignment — treat as a variable reference
+        if (prev && prev.type === TokenType.EQUAL) {
+          if (!this.variables.has(token.value) &&
+              !this.isBuiltinProperty(token.value) &&
+              !this.definedFunctions.has(token.value) &&
+              !this.isCommonFunctionCall(token.value)) {
+            if (inFunction || braceDepth > 0) {
+              this.errors.push({
+                type: "warning",
+                code: "VAR-001",
+                message: `Undefined variable: '${token.value}'`,
+                line: token.line,
+                column: token.column,
+                length: token.length,
+              });
+            }
+          }
+        // Identifier after certain tokens — treat as a function call
+        } else if (prev && (prev.type === TokenType.KEYWORD ||
                      prev.type === TokenType.LEFT_PAREN ||
                      prev.type === TokenType.COMMA ||
                      prev.type === TokenType.COLON ||
-                     prev.type === TokenType.EQUAL ||
                      prev.type === TokenType.LEFT_BRACKET)) {
-          
-          // Check if it's a known function being called
-          if (next && next.type === TokenType.LEFT_PAREN) {
-            // Function call
-            if (!this.functions.has(token.value) && !this.definedFunctions.has(token.value)) {
-              // Allow common patterns
-              if (!this.isCommonFunctionCall(token.value)) {
-                this.errors.push({
-                  type: "warning",
-                  code: "FUN-001",
-                  message: `Undefined function: '${token.value}'`,
-                  line: token.line,
-                  column: token.column,
-                  length: token.length,
-                });
-              }
-            }
-          } else {
-            // Variable usage
-            if (!this.variables.has(token.value) && 
-                !this.isBuiltinProperty(token.value) &&
-                !this.definedFunctions.has(token.value)) {
-              // Only warn in function scope
-              if (inFunction || braceDepth > 0) {
-                this.errors.push({
-                  type: "warning",
-                  code: "VAR-001",
-                  message: `Undefined variable: '${token.value}'`,
-                  line: token.line,
-                  column: token.column,
-                  length: token.length,
-                });
-              }
+
+          // Check if it's a known function being called (case-insensitive)
+          const funcLower = token.value.toLowerCase();
+          if (!this.functions.has(funcLower) && !this.definedFunctions.has(token.value)) {
+            // Allow common patterns
+            if (!this.isCommonFunctionCall(token.value)) {
+              this.errors.push({
+                type: "warning",
+                code: "FUN-001",
+                message: `Undefined function: '${token.value}'`,
+                line: token.line,
+                column: token.column,
+                length: token.length,
+              });
             }
           }
         }
@@ -349,20 +383,13 @@ export class GSCLinter {
   /**
    * Check for bad patterns / anti-patterns
    */
-  private checkBadPatterns(): void {
+  private async checkBadPatterns(): Promise<void> {
     const source = this.source;
     const lines = source.split("\n");
-    const knownDvars = loadKnownDvars();
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lineNum = i + 1;
-
-      // Pattern: nested wait loops without endon
-      if (line.includes("wait(") && !line.includes("endon")) {
-        // Check if we're in a loop without endon
-        // This is a simplified check - real implementation would need scope tracking
-      }
 
       // Pattern: isdefined() without using the result
       if (line.match(/isDefined\s*\(\s*\)/)) {
@@ -377,11 +404,11 @@ export class GSCLinter {
       }
 
       // Pattern: long lines
-      if (line.length > 200) {
+      if (line.length > MAX_LINE_LENGTH_WARNING) {
         this.errors.push({
           type: "info",
           code: "STY-001",
-          message: `Line exceeds 200 characters (${line.length})`,
+          message: `Line exceeds ${MAX_LINE_LENGTH_WARNING} characters (${line.length})`,
           line: lineNum,
           column: 0,
           length: line.length,
@@ -395,7 +422,8 @@ export class GSCLinter {
         if (match) {
           for (const m of match) {
             const varName = m.replace(/"/g, "");
-            if (!knownDvars.has(varName.toLowerCase())) {
+            const dvars = await getKnownDvars();
+              if (!dvars.has(varName.toLowerCase())) {
               this.errors.push({
                 type: "info",
                 code: "STY-002",
@@ -427,43 +455,104 @@ export class GSCLinter {
 
   /**
    * Check for unreachable code after return/break/continue
+   * Uses token-based analysis to properly track function scopes
    */
   private checkUnreachableCode(): void {
-    const lines = this.source.split("\n");
+    // Track function scopes: each entry is the brace depth where a function starts
+    const functionScopeDepths: number[] = [];
+    let currentFunctionDepth = -1;
     let foundReturn = false;
     let returnLine = 0;
+    let returnBraceDepth = -1;
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      const lineNum = i + 1;
+    for (let i = 0; i < this.tokens.length; i++) {
+      const token = this.tokens[i];
+      const prev = this.tokens[i - 1];
 
-      if (foundReturn) {
-        // Skip empty lines and braces
-        if (line === "" || line === "}" || line === "{") {
+      // Track function definitions
+      if (token.type === TokenType.KEYWORD && token.value === "function") {
+        // Next brace opens a new function scope
+        const nextBrace = this.tokens.findIndex((t, idx) => 
+          idx > i && t.type === TokenType.LEFT_BRACE
+        );
+        if (nextBrace !== -1) {
+          // We'll track this function when we hit its opening brace
+        }
+      }
+
+      // Track opening braces - may start a function scope
+      if (token.type === TokenType.LEFT_BRACE) {
+        // Check if this brace opens a function (preceded by ) or identifier for shorthand)
+        if (prev && (prev.type === TokenType.RIGHT_PAREN || 
+            (prev.type === TokenType.IDENTIFIER && i >= 2 && 
+             this.tokens[i - 2]?.type === TokenType.KEYWORD && 
+             this.tokens[i - 2]?.value === "function"))) {
+          // Entering a new function scope
+          currentFunctionDepth = functionScopeDepths.length;
+          functionScopeDepths.push(i);
+          foundReturn = false; // Reset for new function
+        }
+      }
+
+      // Track closing braces
+      if (token.type === TokenType.RIGHT_BRACE) {
+        if (functionScopeDepths.length > 0) {
+          // Check if we're closing a function scope
+          const lastFuncStart = functionScopeDepths[functionScopeDepths.length - 1];
+          // Simple heuristic: if we're at depth 0 after closing, we left a function
+          if (functionScopeDepths.length === 1) {
+            functionScopeDepths.pop();
+            currentFunctionDepth = -1;
+            foundReturn = false;
+          }
+        }
+      }
+
+      // Detect return/break/continue statements
+      if (token.type === TokenType.KEYWORD && 
+          (token.value === "return" || token.value === "break" || token.value === "continue")) {
+        foundReturn = true;
+        returnLine = token.line;
+        returnBraceDepth = functionScopeDepths.length;
+      }
+
+      // Check for unreachable code
+      if (foundReturn && token.type !== TokenType.NEWLINE && 
+          token.type !== TokenType.COMMENT && token.type !== TokenType.BLOCK_COMMENT &&
+          token.type !== TokenType.EOF && token.type !== TokenType.SEMICOLON) {
+        
+        // Skip the return statement itself and tokens on the same line
+        if (token.line === returnLine) {
           continue;
         }
-        
-        // Found code after return
-        if (!line.startsWith("//")) {
+
+        // Only report if we're in the same function scope
+        if (functionScopeDepths.length === returnBraceDepth) {
           this.errors.push({
             type: "warning",
             code: "FLOW-001",
-            message: `Unreachable code after return statement (line ${returnLine})`,
-            line: lineNum,
-            column: 0,
-            length: line.length,
+            message: `Unreachable code after ${this.getReturnKeyword(returnLine)} statement (line ${returnLine})`,
+            line: token.line,
+            column: token.column,
+            length: token.length,
           });
-          foundReturn = false; // Only report once
+          foundReturn = false; // Only report once per function
         }
       }
+    }
+  }
 
-      if (line.startsWith("return") || line.startsWith("break") || line.startsWith("continue")) {
-        foundReturn = true;
-        returnLine = lineNum;
-      } else {
-        foundReturn = false;
+  /**
+   * Get the keyword (return/break/continue) that was used on a given line
+   */
+  private getReturnKeyword(lineNum: number): string {
+    for (const token of this.tokens) {
+      if (token.line === lineNum && token.type === TokenType.KEYWORD &&
+          (token.value === "return" || token.value === "break" || token.value === "continue")) {
+        return token.value;
       }
     }
+    return "return";
   }
 
   /**
@@ -483,6 +572,11 @@ export class GSCLinter {
    * Check if function is commonly used (allowlist)
    */
   private isCommonFunctionCall(name: string): boolean {
+    const nameLower = name.toLowerCase();
+    // Check if it's a known builtin (case-insensitive)
+    if (this.functions.has(nameLower)) {
+      return true;
+    }
     // Allow any function that looks like it's from the game or maps
     if (name.includes("\\") || name.includes("/")) {
       return true;
@@ -495,9 +589,12 @@ export class GSCLinter {
     const common = [
       "main", "init", "spawn", "think", "update", "damage", "death",
       "connect", "disconnect", "spawned", "playing", "onplayerconnect",
-      "onplayerspawn", "onplayerdeath", "onteamchange",
+      "onplayerspawn", "onplayerdeath", "onteamchange", "onplayerspawned",
+      "applyfpsboost", "watchtoggle", "showmessage", "onplayerspawned",
+      "apply", "callback", "handler", "callback_playerdamage",
+      "callback_playerlastdamage", "callback_killed",
     ];
-    return common.includes(name.toLowerCase());
+    return common.includes(nameLower);
   }
 
   /**
@@ -516,7 +613,7 @@ export class GSCLinter {
 /**
  * Convenience function to lint GSC source
  */
-export function lint(source: string): LintResult {
+export async function lint(source: string, options?: LintOptions): Promise<LintResult> {
   const linter = new GSCLinter();
-  return linter.lint(source);
+  return linter.lint(source, options);
 }

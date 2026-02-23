@@ -71,19 +71,19 @@
 
 *We cannot build LLM Agentic workflows without static analysis to catch syntax errors. This phase provides the building blocks.*
 
-### 2A: GSC Tokenizer & Formatter
-- [ ] Build a tokenizer (lexer) for GSC (References: `Muhlex/vscode-gsc`, `xensik/gsc-tool`)
-- [ ] Build a simple formatter operating on token streams
-- [ ] Expose as `gsc_format` MCP tool
+### 2A: GSC Tokenizer & Formatter ✅
+- [x] Build a tokenizer (lexer) for GSC — `mcp-server/src/gsc/tokenizer.ts` (adapted from `Muhlex/vscode-gsc`)
+- [x] Expose as `gsc_format` MCP tool
+- [ ] Build a standalone formatter operating on token streams
 
-### 2B: GSC Linter
+### 2B: GSC Linter ✅
 *Uses the Tokenizer from 2A.*
-- [ ] Undefined variable usage (used before assignment)
-- [ ] Missing `#include` for built-in calls (References `knowledge/gsc-builtins.json` from Phase 1)
-- [ ] Unreachable code after `return`/`break`/`continue`
-- [ ] Infinite loops without `endon` or `wait`
-- [ ] Brace/parentheses mismatched scope
-- [ ] Expose as `gsc_lint` MCP tool
+- [x] Undefined variable usage (used before assignment)
+- [x] Missing `#include` / undefined function calls (cross-references `knowledge/gsc-builtins.json`)
+- [x] Unreachable code after `return`/`break`/`continue`
+- [x] Infinite loops without `endon` or `wait`
+- [x] Brace/parentheses mismatched scope
+- [x] Expose as `gsc_lint` MCP tool — `mcp-server/src/gsc/linter.ts` + `tools.ts`
 
 ### 2C: Menu File Validator
 - [ ] Brace matching (most common error)
@@ -109,9 +109,15 @@ Built for LLMs driving development with minimal user expertise.
 
 ### The Experienced Modder
 Built to turbo-charge developers who know what they want.
-- [ ] **Loose-File Toolkit** — MCP tools for the `userraw/` loose-file system (`userraw_read`, `userraw_write`).
-- [ ] **GSC Linter CI Pipeline** (Requires Phase 2B) — Allow the LLM to run a continuous loop: Write Code -> Run `gsc_lint` -> Read Errors -> Fix Syntax -> Repeat, autonomously.
-- [ ] **DVAR Constraints Validator** — Warn the LLM immediately if it assigns a string to a numeric DVAR using Phase 1 knowledge base.
+- [ ] **Loose-File Toolkit** — MCP tools for the `userraw/` loose-file system (`userraw_read`, `userraw_write`, `userraw_list`, `userraw_grep`, `userraw_patch`).
+- [ ] **GSC Linter CI Pipeline** — LLM autonomous loop: Write Code → `gsc_lint` → Read Errors → Fix → Repeat.
+- [ ] **DVAR Constraints Validator** — Warn immediately if a string is assigned to a numeric DVAR.
+
+### Smart Workflow Tools (Token Efficiency)
+- [ ] **`scan_environment`** — One-call environment summary: IWDs in `mods/`, userraw contents, file counts. Replaces manual exploration at session start.
+- [ ] **`file_locate`** — Unified search across all IWDs + userraw in one call; reports which location takes precedence (userraw wins over IWD).
+- [ ] **`smart_read`** — Reads from userraw if an override exists, falls back to IWD. Prevents editing the wrong copy.
+- [ ] **`smart_deploy`** — Writes to best location (userraw by default; `target=iwd` for production builds).
 
 ---
 

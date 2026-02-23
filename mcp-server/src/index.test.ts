@@ -212,32 +212,40 @@ describe("openIwd (Fuzzing)", () => {
 
   it("handles a non-existent file gracefully (returns error object)", () => {
     const result = openIwd(path.join(tmpDir, "missing.iwd"));
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain("not found");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("not found");
+    }
   });
 
   it("handles a completely empty file gracefully", () => {
     const emptyPath = path.join(tmpDir, "empty.iwd");
     fs.writeFileSync(emptyPath, "");
     const result = openIwd(emptyPath);
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain("Failed to open IWD archive");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Failed to open IWD archive");
+    }
   });
 
   it("handles a plain text file disguised as a zip gracefully", () => {
     const textPath = path.join(tmpDir, "text.iwd");
     fs.writeFileSync(textPath, "this is definitely not a zip file");
     const result = openIwd(textPath);
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain("Failed to open IWD archive");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Failed to open IWD archive");
+    }
   });
 
   it("handles a header-truncated corrupt zip file gracefully", () => {
     const corruptPath = path.join(tmpDir, "corrupt.iwd");
     fs.writeFileSync(corruptPath, Buffer.from([0x50, 0x4B, 0x03])); // Incomplete PKZip header
     const result = openIwd(corruptPath);
-    expect("error" in result).toBe(true);
-    expect((result as { error: string }).error).toContain("Failed to open IWD archive");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Failed to open IWD archive");
+    }
   });
 });
 
@@ -1688,47 +1696,47 @@ describe("IWD cache", () => {
   it("returns the same AdmZip instance on a cache hit (no disk re-read)", () => {
     const r1 = openIwd(iwdFile);
     const r2 = openIwd(iwdFile);
-    expect("error" in r1).toBe(false);
-    expect("error" in r2).toBe(false);
-    if ("zip" in r1 && "zip" in r2) {
+    expect(r1.ok).toBe(true);
+    expect(r2.ok).toBe(true);
+    if (r1.ok && r2.ok) {
       // Referential equality — same object means cache was hit
-      expect(r1.zip).toBe(r2.zip);
+      expect(r1.value).toBe(r2.value);
     }
   });
 
   it("returns a fresh instance after invalidateIwdCache (stale-read prevention)", () => {
     const r1 = openIwd(iwdFile);
-    expect("error" in r1).toBe(false);
+    expect(r1.ok).toBe(true);
 
     invalidateIwdCache(iwdFile);
 
     const r2 = openIwd(iwdFile);
-    expect("error" in r2).toBe(false);
-    if ("zip" in r1 && "zip" in r2) {
+    expect(r2.ok).toBe(true);
+    if (r1.ok && r2.ok) {
       // After invalidation, a new AdmZip is created — not the same reference
-      expect(r1.zip).not.toBe(r2.zip);
+      expect(r1.value).not.toBe(r2.value);
     }
   });
 
   it("picks up new content after a write + invalidation", async () => {
     // First read
     const r1 = openIwd(iwdFile);
-    expect("zip" in r1).toBe(true);
+    expect(r1.ok).toBe(true);
 
     // Write new content and invalidate
-    if ("zip" in r1) {
-      r1.zip.updateFile("scripts/test.gsc", Buffer.from("// updated"));
-      await atomicWrite(r1.zip, iwdFile);
+    if (r1.ok) {
+      r1.value.updateFile("scripts/test.gsc", Buffer.from("// updated"));
+      await atomicWrite(r1.value, iwdFile);
     }
     invalidateIwdCache(iwdFile);
 
     // Second read should see the updated content
     const r2 = openIwd(iwdFile);
-    expect("zip" in r2).toBe(true);
-    if ("zip" in r2) {
-      const entry = r2.zip.getEntry("scripts/test.gsc");
+    expect(r2.ok).toBe(true);
+    if (r2.ok) {
+      const entry = r2.value.getEntry("scripts/test.gsc");
       expect(entry).not.toBeNull();
-      expect(r2.zip.readAsText(entry!)).toBe("// updated");
+      expect(r2.value.readAsText(entry!)).toBe("// updated");
     }
   });
 });

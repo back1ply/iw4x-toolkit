@@ -202,7 +202,7 @@ export class GSCTokenizer {
     }
 
     // Whitespace (skip)
-    if (c === " " || c === "\t" || c === "\r") {
+    if (c === " " || c === "\t") {
       return;
     }
 

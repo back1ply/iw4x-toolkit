@@ -133,8 +133,8 @@ describe("GSCTokenizer", () => {
 
 describe("GSCLinter", () => {
   describe("Syntax Errors", () => {
-    it("should detect balanced braces", () => {
-      const result = lint(`
+    it("should detect balanced braces", async () => {
+      const result = await lint(`
 function test()
 {
   if(true)
@@ -148,8 +148,8 @@ function test()
       expect(braceErrors).toHaveLength(0);
     });
 
-    it("should detect missing braces", () => {
-      const result = lint(`
+    it("should detect missing braces", async () => {
+      const result = await lint(`
 function test()
 {
   if(true)
@@ -162,8 +162,8 @@ function test()
   });
 
   describe("Undefined Variables", () => {
-    it("should not warn for known variables", () => {
-      const result = lint(`
+    it("should not warn for known variables", async () => {
+      const result = await lint(`
 function test()
 {
   self println("test");
@@ -175,10 +175,10 @@ function test()
       expect(undefinedVarErrors).toHaveLength(0);
     });
 
-    it("should detect undefined variables in function scope", () => {
+    it("should detect undefined variables in function scope", async () => {
       // Note: GSC allows implicit variable declarations, so we only warn about
       // truly unknown identifiers that aren't in our known list
-      const result = lint(`
+      const result = await lint(`
 function test()
 {
   // This is valid GSC - variables can be declared implicitly
@@ -192,8 +192,8 @@ function test()
   });
 
   describe("Function Detection", () => {
-    it("should recognize defined functions", () => {
-      const result = lint(`
+    it("should recognize defined functions", async () => {
+      const result = await lint(`
 function myCustomFunction()
 {
   println("hello");
@@ -211,15 +211,15 @@ function test()
   });
 
   describe("Bad Patterns", () => {
-    it("should detect long lines", () => {
+    it("should detect long lines", async () => {
       const longLine = "x = " + "1".repeat(250);
-      const result = lint(longLine);
+      const result = await lint(longLine);
       const longLineErrors = result.errors.filter(e => e.code === "STY-001");
       expect(longLineErrors.length).toBeGreaterThan(0);
     });
 
-    it("should detect suspicious isDefined usage", () => {
-      const result = lint(`
+    it("should detect suspicious isDefined usage", async () => {
+      const result = await lint(`
 function test()
 {
   x = isDefined();
@@ -230,8 +230,8 @@ function test()
       expect(patternErrors.length).toBeGreaterThan(0);
     });
 
-    it("should detect unreachable code after return", () => {
-      const result = lint(`
+    it("should detect unreachable code after return", async () => {
+      const result = await lint(`
 function test()
 {
   return;
@@ -244,7 +244,7 @@ function test()
   });
 
   describe("Real-World GSC", () => {
-    it("should handle real gametype code", () => {
+    it("should handle real gametype code", async () => {
       const code = `
 main()
 {
@@ -276,14 +276,14 @@ onSpawn()
     }
 }
 `;
-      const result = lint(code);
+      const result = await lint(code);
       
       // Should have minimal errors for valid code
       const errors = result.errors.filter(e => e.type === "error");
       expect(errors).toHaveLength(0);
     });
 
-    it("should handle player callback code", () => {
+    it("should handle player callback code", async () => {
       const code = `
 init()
 {
@@ -321,21 +321,21 @@ monitorHealth()
     }
 }
 `;
-      const result = lint(code);
+      const result = await lint(code);
       
       // Should have no errors
-      expect(result.errors.filter(e => e.type === "error")).toHaveLength(0);
+      expect(result.errors.filter((e: any) => e.type === "error")).toHaveLength(0);
     });
   });
 
   describe("Stats", () => {
-    it("should track line count", () => {
+    it("should track line count", async () => {
       const code = "line1\nline2\nline3\nline4\nline5";
-      const result = lint(code);
+      const result = await lint(code);
       expect(result.stats.lines).toBe(5);
     });
 
-    it("should count errors and warnings", () => {
+    it("should count errors and warnings", async () => {
       const code = `
 function test()
 {
@@ -343,7 +343,7 @@ function test()
   unreachable();
 }
 `;
-      const result = lint(code);
+      const result = await lint(code);
       expect(result.stats.errors).toBeGreaterThanOrEqual(0);
       expect(result.stats.warnings).toBeGreaterThanOrEqual(0);
     });

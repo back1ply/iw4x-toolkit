@@ -10,76 +10,87 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { lint, LintResult, LintError } from "./linter.js";
+import { lint, LintResult, LintError, LintOptions } from "./linter.js";
+import { getKnowledgeDir } from "../utils.js";
 
 /**
- * Resolve path to knowledge files
+ * GSC builtin function metadata
  */
-function resolveKnowledgePath(filename: string): string | null {
-  // Use import.meta.url for ESM, but also support running from dist
-  let baseDir: string;
-  try {
-    baseDir = path.dirname(fileURLToPath(import.meta.url));
-  } catch {
-    // Fallback for bundled code
-    baseDir = path.dirname(process.execPath);
-  }
-  
-  const candidates = [
-    // From dist/index.js -> project root
-    path.resolve(baseDir, "..", "..", "knowledge", filename),
-    // From dist/ -> mcp-server/ -> project root
-    path.resolve(baseDir, "..", "knowledge", filename),
-    // From dist/index.js -> mcp-server -> project root
-    path.resolve(baseDir, "..", "..", "..", "knowledge", filename),
-    // Direct from project root (for when running from mcp-server folder)
-    path.resolve("knowledge", filename),
-    // Absolute path for development
-    path.resolve("f:/Shehab Projects/iw4x-toolkit/knowledge", filename),
-  ];
-  
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return null;
+interface GscBuiltin {
+  name: string;
+  description?: string;
+  category?: string;
+  parameters?: string;
+  returns?: string;
+  engine?: string;
 }
 
 /**
- * Load GSC builtins from knowledge base
+ * GSC template metadata
  */
-function loadGscBuiltins(): Map<string, any> {
-  const filePath = resolveKnowledgePath("gsc-builtins.json");
-  if (!filePath) return new Map();
+interface GscTemplate {
+  code: string;
+  description?: string;
+  category?: string;
+  variables?: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
+// Module-level caches for knowledge base data
+// ---------------------------------------------------------------------------
+
+let gscBuiltinsCache: Map<string, GscBuiltin> | null = null;
+let templatesCache: Record<string, GscTemplate> | null = null;
+
+/**
+ * Load GSC builtins from knowledge base (cached after first load)
+ */
+function loadGscBuiltins(): Map<string, GscBuiltin> {
+  if (gscBuiltinsCache) return gscBuiltinsCache;
+
+  const filePath = getKnowledgeDir("gsc-builtins.json");
+  if (!filePath) {
+    gscBuiltinsCache = new Map();
+    return gscBuiltinsCache;
+  }
   
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw);
-    const funcs = new Map();
+    const funcs = new Map<string, GscBuiltin>();
     
     if (data.functions) {
       for (const func of data.functions) {
         funcs.set(func.name, func);
       }
     }
-    return funcs;
+    gscBuiltinsCache = funcs;
+    return gscBuiltinsCache;
   } catch {
-    return new Map();
+    gscBuiltinsCache = new Map();
+    return gscBuiltinsCache;
   }
 }
 
 /**
- * Load templates from knowledge base
+ * Load templates from knowledge base (cached after first load)
  */
-function loadTemplates(): Record<string, any> {
-  const filePath = resolveKnowledgePath("templates.json");
-  if (!filePath) return {};
+function loadTemplates(): Record<string, GscTemplate> {
+  if (templatesCache) return templatesCache;
+
+  const filePath = getKnowledgeDir("templates.json");
+  if (!filePath) {
+    templatesCache = {};
+    return templatesCache;
+  }
   
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
-    return JSON.parse(raw);
+    templatesCache = JSON.parse(raw);
+    return templatesCache!;
   } catch {
-    return {};
+    templatesCache = {};
+    return templatesCache;
   }
 }
 
@@ -205,8 +216,12 @@ export function registerGscTools(server: McpServer): void {
         };
       }
 
-      // Run linter
-      const result = lint(source);
+      // Run linter with options
+      const lintOptions: LintOptions = {
+        checkUndefined: check_undefined,
+        checkPatterns: check_patterns,
+      };
+      const result = await lint(source, lintOptions);
       const formatted = formatLintResult(result);
 
       return {
@@ -241,7 +256,7 @@ export function registerGscTools(server: McpServer): void {
       const q = query.toLowerCase();
       const cat = category?.toLowerCase();
 
-      const matches: any[] = [];
+      const matches: GscBuiltin[] = [];
 
       for (const [name, func] of builtins) {
         const nameMatch = name.toLowerCase().includes(q);
@@ -249,7 +264,7 @@ export function registerGscTools(server: McpServer): void {
         const catMatch = cat ? func.category?.toLowerCase() === cat : true;
 
         if ((nameMatch || descMatch) && catMatch) {
-          matches.push({ name, ...func });
+          matches.push(func);
         }
       }
 

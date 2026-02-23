@@ -12,12 +12,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { errResult, okResult, getErrMsg } from "../utils.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { errResult, okResult, getErrMsg, getKnowledgeDir } from "../utils.js";
 
 // ---------------------------------------------------------------------------
 // DVAR type
@@ -40,35 +35,26 @@ export interface Dvar {
 interface RawCache {
   raw: string;
   mtime: number;
+  cachedAt: number;
 }
 
 interface ParsedDvarsCache {
   data: { dvars: Dvar[] };
   mtime: number;
+  cachedAt: number;
 }
+
+/** TTL for knowledge caches in milliseconds (5 minutes). */
+const KNOWLEDGE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let dvarsCache: ParsedDvarsCache | null = null;
 let gscRawCache: RawCache | null = null;
 
-/** Resolves the path to a knowledge file, trying multiple candidate locations.
- * Candidates cover:
- *  - src/knowledge/ (vitest runs source files directly): ../../.. = iw4x-toolkit root
- *  - dist/          (esbuild bundle, flat output):       ../..    = mcp-server dir
- *  - src/           (alternate source layout):           ../..    = mcp-server dir
+/**
+ * Checks if a cache entry has expired based on TTL.
  */
-function resolveKnowledgePath(filename: string): string | null {
-  const candidates = [
-    // src/knowledge/ → ../../.. → iw4x-toolkit/knowledge/
-    path.resolve(__dirname, "..", "..", "..", "knowledge", filename),
-    // dist/          → ../..   → iw4x-toolkit/knowledge/
-    path.resolve(__dirname, "..", "..", "knowledge", filename),
-    // fallback: sibling knowledge/ dir
-    path.resolve(__dirname, "..", "knowledge", filename),
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return null;
+function isCacheExpired(cachedAt: number): boolean {
+  return Date.now() - cachedAt > KNOWLEDGE_CACHE_TTL_MS;
 }
 
 /**
@@ -88,17 +74,17 @@ export function loadDvars(): string {
  * Cached by mtime — disk is only re-read when the file changes.
  */
 export function loadGscBuiltins(): string {
-  const filePath = resolveKnowledgePath("gsc-builtins.json");
+  const filePath = getKnowledgeDir("gsc-builtins.json");
   if (!filePath) {
     return JSON.stringify({ error: "gsc-builtins.json not found" });
   }
   try {
     const mtime = fs.statSync(filePath).mtimeMs;
-    if (gscRawCache && gscRawCache.mtime === mtime) {
+    if (gscRawCache && gscRawCache.mtime === mtime && !isCacheExpired(gscRawCache.cachedAt)) {
       return gscRawCache.raw;
     }
     const raw = fs.readFileSync(filePath, "utf-8");
-    gscRawCache = { raw, mtime };
+    gscRawCache = { raw, mtime, cachedAt: Date.now() };
     return raw;
   } catch (e) {
     return JSON.stringify({ error: `Failed to load gsc-builtins.json: ${getErrMsg(e)}` });
@@ -110,18 +96,18 @@ export function loadGscBuiltins(): string {
  * `JSON.parse` on every `dvar_search` invocation.
  */
 function getParsedDvars(): { dvars: Dvar[] } | { error: string } {
-  const filePath = resolveKnowledgePath("dvars.json");
+  const filePath = getKnowledgeDir("dvars.json");
   if (!filePath) return { error: "dvars.json not found" };
 
   try {
     const mtime = fs.statSync(filePath).mtimeMs;
-    if (dvarsCache && dvarsCache.mtime === mtime) {
+    if (dvarsCache && dvarsCache.mtime === mtime && !isCacheExpired(dvarsCache.cachedAt)) {
       return dvarsCache.data;
     }
     
     const raw = fs.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw) as { dvars: Dvar[] };
-    dvarsCache = { data, mtime };
+    dvarsCache = { data, mtime, cachedAt: Date.now() };
     return data;
   } catch (e) {
     return { error: `Failed to parse dvars.json: ${getErrMsg(e)}` };

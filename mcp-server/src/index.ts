@@ -24,6 +24,7 @@ import { registerGscTools } from "./gsc/tools.js";
 export {
   isBinaryEntry,
   normalizeEntry,
+  isSafeEntryPath,
   resolveIwdPath,
   ensureBackup,
   atomicWrite,
@@ -31,10 +32,58 @@ export {
   buildDiffSnippet,
   backedUp,
   openIwd,
+  openIwdAsync,
   invalidateIwdCache,
+  getKnowledgeDir,
+  getCachedRegex,
+  checkRateLimit,
+  RATE_LIMITS,
 } from "./utils.js";
 
 export { loadDvars, loadGscBuiltins } from "./knowledge/tools.js";
+
+// ---------------------------------------------------------------------------
+// Startup cleanup
+// ---------------------------------------------------------------------------
+
+/**
+ * Cleans up orphaned .tmp files from previous crashed sessions.
+ * Called once on server startup.
+ */
+async function cleanupOrphanedTempFiles(): Promise<void> {
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  
+  // Only clean up .tmp files in common IWD locations
+  const cwd = process.cwd();
+  
+  try {
+    const entries = await fs.readdir(cwd, { withFileTypes: true });
+    let cleaned = 0;
+    
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".tmp")) {
+        try {
+          const fullPath = path.join(cwd, entry.name);
+          const stat = await fs.stat(fullPath);
+          // Only remove files older than 1 hour
+          if (Date.now() - stat.mtimeMs > 3600000) {
+            await fs.unlink(fullPath);
+            cleaned++;
+          }
+        } catch {
+          // Ignore errors for individual files
+        }
+      }
+    }
+    
+    if (cleaned > 0) {
+      console.error(`[iw4x-toolkit] Cleaned up ${cleaned} orphaned .tmp file(s)`);
+    }
+  } catch {
+    // Ignore errors during cleanup
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Server
@@ -54,6 +103,7 @@ registerGscTools(server);
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  await cleanupOrphanedTempFiles();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

@@ -46,6 +46,21 @@ Requires Node.js 18+ and TypeScript 5.7+.
 - [**TODO.md**](docs/TODO.md): Roadmap and active tasks.
 - [**SOURCES.md**](docs/SOURCES.md): References and research.
 
+### API Documentation
+
+API documentation is generated with TypeDoc. To generate:
+
+```bash
+cd mcp-server
+npm run docs
+```
+
+View the generated documentation at `docs/api/index.html`.
+
+### Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style guidelines, and pull request process.
+
 ## Quick Start
 
 ### Check IWD contents

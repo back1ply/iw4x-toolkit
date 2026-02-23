@@ -1,0 +1,35 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "../docs/api",
+  "plugin": [],
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": true,
+  "readme": "none",
+  "name": "iw4x-toolkit API",
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "sort": ["kind", "alphabetical"],
+  "kindSortOrder": [
+    "Document",
+    "Reference",
+    "Project",
+    "Module",
+    "Namespace",
+    "Function",
+    "Variable",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Enum"
+  ],
+  "visibilityFilters": {
+    "protected": true,
+    "private": false,
+    "inherited": true,
+    "external": true
+  }
+}
