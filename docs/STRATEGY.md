@@ -36,7 +36,7 @@ Directly editing `.iwd` files is risky and slow ("Production Mode"). Active deve
 -   **Goal**: Build tools (`setup_workspace`, `deploy_mod`) that manage this environment, allowing for rapid iteration without constant archiving.
 -   **Strategic Note**: In the wake of X Labs/H2M shutdowns (2023-2024), *decentralized, local-only* tooling is the only safe path for preservation. We do not rely on central servers.
 
-### 3. "Compilers" for Scripting (Static Analysis)
+### 5. "Compilers" for Scripting (Static Analysis)
 Since we cannot verify code by running it (no unit test framework for GSC), we must verify it by *reading* it.
 -   **Missing Piece**: GSC has no compiler. You find generic syntax errors only when the map fails to load.
 -   **Asset Compilation**: **ZoneBuilder** (2017+) is the standard for building FastFiles. We should treat it as the "Linker" in our toolchain.
@@ -46,10 +46,3 @@ Since we cannot verify code by running it (no unit test framework for GSC), we m
     -   Type safety (Argument counts for built-ins).
     -   *New*: Hard Limit Checks (DVAR count < 4096, Entity count limits).
 
-## Roadmap Priorities
-
-1.  **DVAR Search**: Server-side filtering to access the 1,700+ DVAR knowledge base efficiently.
-2.  **Knowledge Mining**: Systematically scraping CoD4/WaW wikis to build a `gsc-builtins` cheat sheet.
-3.  **GSC Linter**: The core "safety net" for the agent.
-4.  **Userraw Tooling**: Automating the workspace setup.
-5.  *New*: **OpenWarfare Feature Porting**: Analyze the OpenWarfare source code to "port" its feature-rich administrative scripts to modern IW4x.

@@ -56,7 +56,7 @@
 ### Remaining (Phase 1 Finish Line)
 *Before moving to advanced tools, we must finish enriching the foundational data.*
 
-- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference. Primary source: CoD4/WaW official docs.
+- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference. Primary source: CoD4/WaW official docs. *(Partial research already collected — see `tasks/gsc-builtins-research.md`.)*
 - [ ] Build `knowledge/menu-properties.json` — valid menuDef/itemDef properties
 - [ ] Enrich more DVARs — currently 89/1,731 have manual descriptions. Priority targets:
   - [ ] All `sm_*` shadow map DVARs (12 total, only 6 enriched)
@@ -112,6 +112,7 @@ Built to turbo-charge developers who know what they want.
 - [ ] **Loose-File Toolkit** — MCP tools for the `userraw/` loose-file system (`userraw_read`, `userraw_write`, `userraw_list`, `userraw_grep`, `userraw_patch`).
 - [ ] **GSC Linter CI Pipeline** — LLM autonomous loop: Write Code → `gsc_lint` → Read Errors → Fix → Repeat.
 - [ ] **DVAR Constraints Validator** — Warn immediately if a string is assigned to a numeric DVAR.
+- [ ] **Live Server RCON** — `rcon_send(command)`, `rcon_read_log()` to inject test commands (`map_restart`, `give all`) and read live server console output; enables iterative GSC debugging without alt-tabbing.
 
 ### Smart Workflow Tools (Token Efficiency)
 - [ ] **`scan_environment`** — One-call environment summary: IWDs in `mods/`, userraw contents, file counts. Replaces manual exploration at session start.
@@ -132,3 +133,17 @@ Built to turbo-charge developers who know what they want.
 - [ ] **ZoneBuilder Integration** — "Borrow" open-source tools to enable automated `.ff` (FastFile) compilation directly through the LLM.
 - [ ] **Server Config Generator** — Generate `server.cfg` from structured input using DVAR knowledge base.
 - [ ] **Weapon File Editor** — Parse and edit weapon definition files with type-safe validation using a compiled `knowledge/weapon-defs.json`.
+- [ ] **FastFile / BSP Asset Reader** — Wrap `OpenAssetTools` or `ZoneTool` to extract data from `.ff` and `.d3dbsp` files (e.g. spawn coordinates); lets the LLM read compiled map assets without opening Radiant.
+- [ ] **Semantic GSC Search (RAG)** — Local semantic search over `iw4x-rawfiles` to answer "how does IW handle X?" using actual base game scripts, preventing hallucinated constructs.
+
+---
+
+## Skills Roadmap
+
+*Planned Claude Code skills (slash commands) for domain-specific workflows. Skills are high-leverage: they encode domain rules so LLMs don't re-derive them every session.*
+
+- [ ] **gsc-script-master** — Prevent hallucinated GSC syntax; enforce strict GSC 1.0 rules (`spawn()`, `endon()`, `notify()`, `wait`); cross-reference `knowledge/gsc-builtins.json`; require `gsc_lint` before committing any `.gsc` files.
+- [ ] **iw4-ui-engineer** — Master the text-based IW4 UI engine; `menuDef`/`itemDef` syntax, DVAR expression hooking, brace matching rules, `exp` macro formats. Backed by `knowledge/menu-properties.json`.
+- [ ] **userraw-sandbox-manager** — Enforce local-first "Development Mode"; deploy/modify files in `userraw/` during iteration; console commands to verify changes (`vid_restart`, `map_restart`).
+- [ ] **legacy-code-porter** — Guidelines for migrating OpenWarfare and other community scripts to modern IW4x patterns.
+- [ ] **zonebuilder-compiler** — Automate FastFile compilation; rules for valid ZoneBuilder `.csv` payloads (e.g. `rawfile,maps/mp/gametypes/_my_script.gsc`); CLI commands to compile cleanly.

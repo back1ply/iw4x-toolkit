@@ -91,12 +91,8 @@ For more examples, see [WORKFLOW.md](docs/WORKFLOW.md).
 
 ## Dependencies
 
-| Package                     | Version | Purpose                               |
-|-----------------------------|---------|---------------------------------------|
-| `@modelcontextprotocol/sdk` | ^1.12.1 | MCP server framework                  |
-| `adm-zip`                   | ^0.5.16 | ZIP/IWD archive operations            |
-| `zod`                       | ^3.23.0 | Schema validation for tool parameters |
-| `vitest`                    | ^3.0.0  | Test framework (dev)                  |
+Runtime: `@modelcontextprotocol/sdk`, `adm-zip`, `zod`. Dev: `vitest`.
+See [SOURCES.md](docs/SOURCES.md#tools-and-libraries-used) for full details.
 
 ## License
 

@@ -111,7 +111,7 @@
 2. iwd_read  path="modded.iwd"  entry="<specific changed file>"  limit=40
    → read just the changed file if needed
    (or use content_diff=true on iwd_diff for inline diffs of all changed files)
-```text
+```
 
 ---
 
@@ -148,4 +148,4 @@ Rules for this session:
 - Use dry_run=true before any destructive operation
 - Keep entry_glob set on all iwd_grep calls
 - Use limit= on iwd_read — never read a whole file if we only need part of it
-```text
+```

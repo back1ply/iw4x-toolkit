@@ -38,6 +38,7 @@ Thank you for your interest in contributing to iw4x-toolkit! This document provi
 
 ```
 iw4x-toolkit/
+├── dist/                 # Compiled output — committed for marketplace installs
 ├── mcp-server/           # MCP server implementation
 │   ├── src/
 │   │   ├── index.ts      # Entry point
@@ -45,9 +46,11 @@ iw4x-toolkit/
 │   │   ├── iwd/          # IWD archive tools
 │   │   ├── gsc/          # GSC language tools
 │   │   └── knowledge/    # DVAR/GSC knowledge
+│   ├── src/**/*.test.ts  # Tests live alongside source files (e.g. tools.test.ts next to tools.ts)
 │   └── package.json
 ├── knowledge/            # Knowledge base JSON files
 ├── docs/                 # Documentation
+├── tasks/                # Task notes and lessons learned
 └── skills/               # Claude Code skills
 ```
 

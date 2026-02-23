@@ -9,8 +9,9 @@ A comprehensive list of MW2 DVARs (Console Variables).
 - **Source**: `bloodbourne/M2-dvars-list` + Engine Analysis
 - **Usage**: Used by the `dvar_search` tool to find variables, types, and defaults.
 
-### `gsc-builtins.json`
+### `gsc-builtins.json` *(Planned — not yet created)*
 A definitions file for GSC (Game Script) built-in functions.
+- **Status**: Research in progress. See `tasks/gsc-builtins-research.md` for collected data and next steps.
 - **Source**: Manual compilation from X-Labs, CoD4x, and Zeroy wikis.
 - **Schema**:
   ```json
