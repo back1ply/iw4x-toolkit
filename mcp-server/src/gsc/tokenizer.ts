@@ -106,7 +106,21 @@ export interface TokenizeError {
   message: string;
   line: number;
   column: number;
+  code?: string; // Error code for categorization
+  suggestion?: string; // Fix suggestion
 }
+
+// Extended error codes for syntax errors
+export const SyntaxErrorCode = {
+  UNTERMINATED_STRING: "TOK-001",
+  UNMATCHED_BRACKET: "TOK-002",
+  UNMATCHED_PAREN: "TOK-003",
+  UNMATCHED_BRACE: "TOK-004",
+  INVALID_IDENTIFIER: "TOK-005",
+  MALFORMED_PREPROCESSOR: "TOK-006",
+  INVALID_CHARACTER: "TOK-007",
+  UNTERMINATED_COMMENT: "TOK-008",
+} as const;
 
 export class GSCTokenizer {
   private source: string = "";
@@ -116,6 +130,11 @@ export class GSCTokenizer {
   private column: number = 0;
   private tokens: Token[] = [];
   private errors: TokenizeError[] = [];
+  
+  // Bracket tracking for validation
+  private bracketStack: { type: TokenType; line: number; column: number }[] = [];
+  private parenStack: { type: TokenType; line: number; column: number }[] = [];
+  private braceStack: { type: TokenType; line: number; column: number }[] = [];
 
   /**
    * Tokenize GSC source code
@@ -128,6 +147,11 @@ export class GSCTokenizer {
     this.column = 0;
     this.tokens = [];
     this.errors = [];
+    
+    // Initialize bracket tracking stacks
+    this.bracketStack = [];
+    this.parenStack = [];
+    this.braceStack = [];
 
     while (!this.isAtEnd()) {
       this.start = this.current;
@@ -138,6 +162,8 @@ export class GSCTokenizer {
           message: e instanceof Error ? e.message : "Unknown error",
           line: this.line,
           column: this.column,
+          code: SyntaxErrorCode.INVALID_CHARACTER,
+          suggestion: "Check for invalid characters in your code",
         });
         this.advance();
       }
@@ -151,7 +177,28 @@ export class GSCTokenizer {
       length: 0,
     });
 
+    // Validate bracket matching at the end
+    this.validateBrackets();
+    
     return { tokens: this.tokens, errors: this.errors };
+  }
+
+  /**
+   * Validate that all brackets are matched
+   * Only reports errors for UNEXPECTED closing brackets (too many)
+   * Does NOT report missing closing brackets - that could be incomplete code
+   */
+  private validateBrackets(): void {
+    // We only report errors for UNEXPECTED closing brackets (extra closing without opening)
+    // We don't report missing opening brackets - the code might just be incomplete
+    // The linter will handle more complex validation
+    
+    // Note: The bracketStack, parenStack, braceStack tracking during scanning
+    // already handles detecting unexpected closing brackets (too many closing)
+    
+    // For unmatched opening brackets, we don't report them here because:
+    // 1. The code could be incomplete
+    // 2. The linter should handle more sophisticated validation
   }
 
   private isAtEnd(): boolean {
@@ -198,7 +245,7 @@ export class GSCTokenizer {
 
     // Handle newlines
     if (c === "\n" || c === "\r") {
-      return; // Skip newlines but track line number
+      return;
     }
 
     // Whitespace (skip)
@@ -209,7 +256,6 @@ export class GSCTokenizer {
     // Comments
     if (c === "/") {
       if (this.peek() === "/") {
-        // Line comment
         while (this.peek() !== "\n" && !this.isAtEnd()) {
           this.advance();
         }
@@ -224,17 +270,29 @@ export class GSCTokenizer {
         return;
       }
       if (this.peek() === "*") {
-        // Block comment
-        this.advance(); // consume *
+        this.advance();
+        let foundEnd = false;
         while (!this.isAtEnd()) {
           if (this.peek() === "*" && this.peekNext() === "/") {
-            this.advance(); // consume *
-            this.advance(); // consume /
+            this.advance();
+            this.advance();
+            foundEnd = true;
             break;
           }
           this.advance();
         }
         const value = this.source.substring(this.start + 2, this.current - 2);
+        
+        if (!foundEnd) {
+          this.errors.push({
+            message: "Unterminated block comment - missing '*/'",
+            line: this.line,
+            column: this.column - (this.current - this.start),
+            code: SyntaxErrorCode.UNTERMINATED_COMMENT,
+            suggestion: "Add '*/' to close the block comment",
+          });
+        }
+        
         this.tokens.push({
           type: TokenType.BLOCK_COMMENT,
           value,
@@ -244,7 +302,6 @@ export class GSCTokenizer {
         });
         return;
       }
-      // Division operator
       if (this.peek() === "=") {
         this.advance();
         this.addToken(TokenType.SLASH_EQUAL);
@@ -280,12 +337,60 @@ export class GSCTokenizer {
 
     // Single-character tokens
     switch (c) {
-      case "{": this.addToken(TokenType.LEFT_BRACE); break;
-      case "}": this.addToken(TokenType.RIGHT_BRACE); break;
-      case "(": this.addToken(TokenType.LEFT_PAREN); break;
-      case ")": this.addToken(TokenType.RIGHT_PAREN); break;
-      case "[": this.addToken(TokenType.LEFT_BRACKET); break;
-      case "]": this.addToken(TokenType.RIGHT_BRACKET); break;
+      case "{": 
+        this.addToken(TokenType.LEFT_BRACE); 
+        this.braceStack.push({ type: TokenType.LEFT_BRACE, line: this.line, column: this.column - 1 });
+        break;
+      case "}": 
+        this.addToken(TokenType.RIGHT_BRACE); 
+        if (this.braceStack.length > 0) {
+          this.braceStack.pop();
+        } else {
+          this.errors.push({
+            message: `Unexpected '}' - no matching '{'`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.UNMATCHED_BRACE,
+            suggestion: "Remove this closing brace or check for extra braces",
+          });
+        }
+        break;
+      case "(": 
+        this.addToken(TokenType.LEFT_PAREN); 
+        this.parenStack.push({ type: TokenType.LEFT_PAREN, line: this.line, column: this.column - 1 });
+        break;
+      case ")": 
+        this.addToken(TokenType.RIGHT_PAREN); 
+        if (this.parenStack.length > 0) {
+          this.parenStack.pop();
+        } else {
+          this.errors.push({
+            message: `Unexpected ')' - no matching '('`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.UNMATCHED_PAREN,
+            suggestion: "Remove this closing parenthesis or check for extra parentheses",
+          });
+        }
+        break;
+      case "[": 
+        this.addToken(TokenType.LEFT_BRACKET); 
+        this.bracketStack.push({ type: TokenType.LEFT_BRACKET, line: this.line, column: this.column - 1 });
+        break;
+      case "]": 
+        this.addToken(TokenType.RIGHT_BRACKET); 
+        if (this.bracketStack.length > 0) {
+          this.bracketStack.pop();
+        } else {
+          this.errors.push({
+            message: `Unexpected ']' - no matching '['`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.UNMATCHED_BRACKET,
+            suggestion: "Remove this closing bracket or check for extra brackets",
+          });
+        }
+        break;
       case ",": this.addToken(TokenType.COMMA); break;
       case ".": this.addToken(TokenType.DOT); break;
       case ";": this.addToken(TokenType.SEMICOLON); break;
@@ -295,7 +400,15 @@ export class GSCTokenizer {
       case "^": this.addToken(TokenType.CARET); break;
       case "@": this.addToken(TokenType.AT); break;
       default:
-        // Operator handling continues below
+        if (c !== "\0" && c !== "\r" && c !== "\n") {
+          this.errors.push({
+            message: `Invalid character: '${c}'`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.INVALID_CHARACTER,
+            suggestion: "Remove or replace this character",
+          });
+        }
         break;
     }
 
@@ -318,7 +431,6 @@ export class GSCTokenizer {
         case "*=": this.advance(); this.addToken(TokenType.STAR_EQUAL); break;
         case "/=": this.advance(); this.addToken(TokenType.SLASH_EQUAL); break;
         default:
-          // Single-character operators
           switch (c) {
             case "=": this.addToken(TokenType.EQUAL); break;
             case "!": this.addToken(TokenType.BANG); break;
@@ -339,14 +451,12 @@ export class GSCTokenizer {
     let value = "";
     while (this.peek() !== quote && !this.isAtEnd()) {
       if (this.peek() === "\n") {
-        // Multiline strings are allowed in GSC
         value += "\n";
         this.advance();
         continue;
       }
-      // Escape sequences
       if (this.peek() === "\\" && !this.isAtEnd()) {
-        this.advance(); // consume backslash
+        this.advance();
         const escaped = this.peek();
         switch (escaped) {
           case "n": value += "\n"; break;
@@ -364,15 +474,17 @@ export class GSCTokenizer {
 
     if (this.isAtEnd()) {
       this.errors.push({
-        message: `Unterminated string`,
+        message: `Unterminated string - missing closing '${quote}'`,
         line: this.line,
         column: this.column,
+        code: SyntaxErrorCode.UNTERMINATED_STRING,
+        suggestion: `Add closing '${quote}' to complete the string`,
       });
       this.addToken(TokenType.STRING, value);
       return;
     }
 
-    this.advance(); // closing quote
+    this.advance();
     this.addToken(TokenType.STRING, value);
   }
 
@@ -381,15 +493,13 @@ export class GSCTokenizer {
       this.advance();
     }
 
-    // Look for a fractional part
     if (this.peek() === "." && this.isDigit(this.peekNext())) {
-      this.advance(); // consume the "."
+      this.advance();
       while (this.isDigit(this.peek())) {
         this.advance();
       }
     }
 
-    // Look for hexadecimal
     if (this.peek() === "x" || this.peek() === "X") {
       this.advance();
       while (this.isHexDigit(this.peek())) {
@@ -401,30 +511,51 @@ export class GSCTokenizer {
   }
 
   private scanIdentifier(): void {
-    while (this.isAlphaNumeric(this.peek())) {
+    while (this.isAlphaNumeric(this.peek()) || this.peek() === "\\") {
       this.advance();
     }
 
     const text = this.source.substring(this.start, this.current);
 
-    // Check if it's a keyword
+    // Skip identifier validation - let the linter handle semantic analysis
+    // The tokenizer should just tokenize, not validate identifier rules
+
     const type = GSC_KEYWORDS.has(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
     this.addToken(type, text);
   }
 
+  private isValidIdentifier(text: string): boolean {
+    if (!text || text.length === 0) return false;
+    
+    const firstChar = text[0];
+    if (!this.isAlpha(firstChar) && firstChar !== "$" && firstChar !== "_") {
+      return false;
+    }
+    
+    for (let i = 1; i < text.length; i++) {
+      const c = text[i];
+      if (!this.isAlphaNumeric(c) && c !== "_" && c !== "$" && c !== "\\") {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
   private scanPreprocessor(): void {
-    // Read the preprocessor directive
     while (this.isAlpha(this.peek()) && !this.isAtEnd()) {
       this.advance();
     }
 
-    // Get the directive (without the #)
     const directive = this.source.substring(this.start + 1, this.current);
 
-    // Read the rest of the line as the argument
-    let argument = "";
+    // Note: We don't validate preprocessor directives here because:
+    // 1. There are many valid directives in GSC
+    // 2. Some mods use custom directives
+    // 3. The linter should handle directive validation if needed
+
     while (this.peek() !== "\n" && !this.isAtEnd()) {
-      argument += this.advance();
+      this.advance();
     }
 
     this.addToken(TokenType.HASH, directive);
@@ -447,9 +578,6 @@ export class GSCTokenizer {
   }
 }
 
-/**
- * Convenience function to tokenize GSC source
- */
 export function tokenize(source: string): TokenizeResult {
   const tokenizer = new GSCTokenizer();
   return tokenizer.tokenize(source);

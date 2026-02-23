@@ -267,17 +267,30 @@ export function resolveIwdPath(iwdPath: string): string {
 }
 
 /**
- * Creates a `.bak` copy of the given IWD the first time it is modified
- * this session. Subsequent calls for the same path are no-ops, and an
- * already-existing `.bak` is never overwritten (preserving the original).
+ * Creates a timestamped `.bak` copy of the given IWD before modification.
+ * Each modification gets a unique backup with timestamp: file.iwd.20260223_143045.bak
+ * This preserves multiple backup versions instead of overwriting a single .bak file.
  */
 export async function ensureBackup(iwdPath: string): Promise<void> {
   if (backedUp.has(iwdPath)) return;
-  const bakPath = iwdPath + ".bak";
-  if (!fs.existsSync(bakPath)) {
-    const { copyFile } = await import("node:fs/promises");
-    await copyFile(iwdPath, bakPath);
-  }
+  
+  // Generate timestamp in format: YYYYMMDD_HHMMSS
+  const now = new Date();
+  const timestamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    '_',
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0')
+  ].join('');
+  
+  const bakPath = `${iwdPath}.${timestamp}.bak`;
+  
+  // Always create a new timestamped backup (never overwrite)
+  const { copyFile } = await import("node:fs/promises");
+  await copyFile(iwdPath, bakPath);
   backedUp.add(iwdPath);
 }
 
@@ -358,15 +371,117 @@ export function globToRegex(pattern: string): RegExp {
 }
 
 /**
- * Builds a ±`ctx`-line unified diff snippet around the first changed line
- * between `original` and `patched`.
+ * Builds a side-by-side diff view with original and modified text displayed in two columns.
+ * Each line shows line numbers and the content, with markers for additions/deletions/changes.
  *
  * @param original  - The original text
  * @param patched   - The patched text
- * @param ctx       - Number of context lines either side of the change (default 3)
- * @param hintLine  - 0-indexed line to centre the snippet on (overrides auto-scan)
- * @returns `{ snippet, changedLine }` — the diff text and the 0-indexed anchor line
+ * @param ctx       - Number of context lines around changes (default 3)
+ * @returns Formatted side-by-side diff string
  */
+export function buildSideBySideDiff(
+  original: string,
+  patched: string,
+  ctx = 3
+): string {
+  const originalLines = original.split(/\r?\n/);
+  const patchedLines = patched.split(/\r?\n/);
+  
+  // Find all changed lines
+  const changes: { origIdx: number; patchIdx: number }[] = [];
+  for (let i = 0; i < Math.max(originalLines.length, patchedLines.length); i++) {
+    if (originalLines[i] !== patchedLines[i]) {
+      changes.push({ origIdx: i, patchIdx: i });
+    }
+  }
+  
+  // If no changes, return simple message
+  if (changes.length === 0) {
+    return "Files are identical (no changes)";
+  }
+  
+  // Group changes into regions
+  const regions: { start: number; end: number }[] = [];
+  for (let i = 0; i < changes.length; i++) {
+    const change = changes[i];
+    const prevChange = regions.length > 0 ? regions[regions.length - 1] : null;
+    
+    if (prevChange && change.origIdx - prevChange.end <= ctx * 2) {
+      // Extend existing region
+      prevChange.end = change.origIdx + ctx;
+    } else {
+      // Start new region
+      regions.push({
+        start: Math.max(0, change.origIdx - ctx),
+        end: change.origIdx + ctx
+      });
+    }
+  }
+  
+  const lines: string[] = [];
+  
+  for (const region of regions) {
+    if (regions.indexOf(region) > 0) {
+      lines.push("\n... (more changes) ...\n");
+    }
+    
+    const maxLines = Math.max(
+      region.end - region.start,
+      originalLines.slice(region.start, region.end).length,
+      patchedLines.slice(region.start, region.end).length
+    );
+    
+    // Header
+    lines.push("┌─────────────────────────────────────────────────────────────────────────────┐");
+    lines.push("│ Original (A)                          │ Modified (B)                      │");
+    lines.push("├─────────────────────────────────────────────────────────────────────────────┤");
+    
+    for (let i = 0; i < maxLines; i++) {
+      const origLineIdx = region.start + i;
+      const patchLineIdx = region.start + i;
+      
+      const origLine = origLineIdx < originalLines.length ? originalLines[origLineIdx] : "";
+      const patchLine = patchLineIdx < patchedLines.length ? patchedLines[patchLineIdx] : "";
+      
+      // Determine line type
+      let marker = " │";
+      let origPrefix = "  ";
+      let patchPrefix = "  ";
+      
+      if (origLine !== patchLine) {
+        if (origLineIdx >= originalLines.length) {
+          // Addition
+          marker = " +│";
+          patchPrefix = "+ ";
+        } else if (patchLineIdx >= patchedLines.length) {
+          // Deletion
+          marker = " -│";
+          origPrefix = "- ";
+        } else {
+          // Modification
+          marker = " ~│";
+          origPrefix = "~ ";
+          patchPrefix = "~ ";
+        }
+      }
+      
+      // Pad line numbers
+      const origLineNum = String(origLineIdx + 1).padStart(4, ' ');
+      const patchLineNum = String(patchLineIdx + 1).padStart(4, ' ');
+      
+      // Truncate long lines for display
+      const maxColWidth = 40;
+      const displayOrig = origLine.length > maxColWidth ? origLine.substring(0, maxColWidth - 3) + "..." : origLine;
+      const displayPatch = patchLine.length > maxColWidth ? patchLine.substring(0, maxColWidth - 3) + "..." : patchLine;
+      
+      lines.push(`${origLineNum}${origPrefix}${displayOrig.padEnd(maxColWidth)}${marker}${patchPrefix}${displayPatch}`);
+    }
+    
+    lines.push("└─────────────────────────────────────────────────────────────────────────────┘");
+  }
+  
+  return lines.join("\n");
+}
 export function buildDiffSnippet(
   original: string,
   patched: string,

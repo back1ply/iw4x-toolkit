@@ -6,5 +6,5 @@
     "name": "back1ply"
   },
   "keywords": ["iw4x", "mw2", "modding", "iwd", "dvar", "cod"],
-  "skills": ["./skills/dvar-lookup"]
+  "skills": ["./skills/dvar-lookup", "./skills/gsc-writer"]
 }

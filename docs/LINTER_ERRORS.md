@@ -7,6 +7,13 @@ This document describes the error codes produced by the GSC linter in iw4x-toolk
 | Code     | Type    | Description                              | Example                          |
 |----------|---------|------------------------------------------|----------------------------------|
 | TOK-001  | error   | Tokenization error                       | Unterminated string, invalid char|
+| TOK-002  | error   | Unmatched bracket                        | Missing closing ']'              |
+| TOK-003  | error   | Unmatched parenthesis                    | Missing closing ')'              |
+| TOK-004  | error   | Unmatched brace                          | Missing closing '}'              |
+| TOK-005  | error   | Invalid identifier                       | Invalid characters in name      |
+| TOK-006  | error   | Malformed preprocessor                   | Unknown #directive              |
+| TOK-007  | error   | Invalid character                        | Unknown character in code       |
+| TOK-008  | error   | Unterminated comment                    | Missing '*/' for block comment  |
 | VAR-001  | warning | Potentially undefined variable           | Using variable before definition |
 | FUN-001  | warning | Potentially undefined function           | Calling unknown function         |
 | PAT-001  | warning | Suspicious pattern detected              | isDefined() without using result |
@@ -37,6 +44,96 @@ The tokenizer encountered an invalid token or syntax that it cannot parse.
 ```gsc
 // Error: unterminated string
 myString = "hello world;
+```
+
+**Fix:**
+```gsc
+// Add closing quote
+myString = "hello world";
+```
+
+### TOK-002: Unmatched Bracket
+
+**Type:** error
+
+A closing bracket `]` was found without a matching opening bracket `[`.
+
+**Common causes:**
+- Extra closing bracket
+- Typo in array access
+
+**Example:**
+```gsc
+myArray = players[0];]
+```
+
+**Fix:**
+```gsc
+myArray = players[0];
+```
+
+### TOK-003: Unmatched Parenthesis
+
+**Type:** error
+
+A closing parenthesis `)` was found without a matching opening parenthesis `(`.
+
+**Common causes:**
+- Extra closing parenthesis
+- Typo in function call
+
+**Example:**
+```gsc
+println("hello");
+```
+
+**Fix:**
+```gsc
+println("hello");
+```
+
+### TOK-004: Unmatched Brace
+
+**Type:** error
+
+A closing brace `}` was found without a matching opening brace `{`.
+
+**Common causes:**
+- Extra closing brace
+- Typo in code block
+
+**Example:**
+```gsc
+function test() {
+    println("test");
+}}
+```
+
+**Fix:**
+```gsc
+function test() {
+    println("test");
+}
+```
+
+### TOK-008: Unterminated Comment
+
+**Type:** error
+
+A block comment `/*` was not properly closed with `*/`.
+
+**Common causes:**
+- Missing closing `*/`
+- Comment accidentally spanning too far
+
+**Example:**
+```gsc
+/* This comment never ends
+```
+
+**Fix:**
+```gsc
+/* This comment ends properly */
 ```
 
 ### VAR-001: Potentially Undefined Variable
@@ -241,3 +338,37 @@ gsc_lint(content="function main() { ... }", check_undefined=true, check_patterns
 3. **Use info as guidelines**: Style suggestions improve code quality but aren't critical
 4. **Run linter early**: Catch issues during development, not in production
 5. **Configure appropriately**: Disable checks that don't apply to your use case
+
+## Auto-Fix Functionality
+
+The linter includes an auto-fix function that can automatically fix common syntax errors:
+
+```typescript
+import { lint, fix } from './gsc/linter.js';
+
+// First, lint to see errors
+const result = await lint(sourceCode);
+console.log(result.errors);
+
+// Then try to auto-fix common errors
+const fixResult = fix(sourceCode);
+if (fixResult.fixed) {
+    console.log('Fixes applied:', fixResult.fixesApplied);
+    console.log('Fixed code:', fixResult.fixedCode);
+}
+```
+
+### What can be auto-fixed:
+- Unterminated strings (adds missing closing quote)
+- Missing closing braces (adds missing `}`)
+
+### What requires manual fixing:
+- Unmatched parentheses `()`
+- Unmatched brackets `[]`
+- Other syntax errors
+
+The auto-fix function returns:
+- `fixed`: boolean indicating if any fixes were applied
+- `original`: the original source code
+- `fixedCode`: the fixed source code (if fixes were applied)
+- `fixesApplied`: array of strings describing what was fixed

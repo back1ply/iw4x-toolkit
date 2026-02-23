@@ -617,3 +617,158 @@ export async function lint(source: string, options?: LintOptions): Promise<LintR
   const linter = new GSCLinter();
   return linter.lint(source, options);
 }
+
+/**
+ * Auto-fix result
+ */
+export interface FixResult {
+  fixed: boolean;
+  original: string;
+  fixedCode: string;
+  fixesApplied: string[];
+}
+
+/**
+ * Attempt to auto-fix common GSC syntax errors
+ * Returns the fixed code and list of fixes applied
+ */
+export function fix(source: string): FixResult {
+  let fixedCode = source;
+  const fixesApplied: string[] = [];
+  let hasChanges = false;
+
+  // Fix 1: Add missing closing quotes for unterminated strings
+  // Pattern: strings that end without closing quote
+  const unterminatedStringPattern = /("[^"\\]*(?:\\.[^"\\]*)*)(?=[^;"]*$)/g;
+  // Check for unterminated strings by counting quotes
+  const lines = source.split("\n");
+  let inString = false;
+  let stringChar = "";
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let modifiedLine = line;
+    
+    for (let j = 0; j < modifiedLine.length; j++) {
+      const char = modifiedLine[j];
+      
+      if ((char === '"' || char === "'") && (j === 0 || modifiedLine[j-1] !== '\\')) {
+        if (!inString) {
+          inString = true;
+          stringChar = char;
+        } else if (char === stringChar) {
+          inString = false;
+        }
+      }
+    }
+    
+    // If we're still in a string at end of line, add closing quote
+    if (inString) {
+      modifiedLine += stringChar;
+      fixesApplied.push(`Line ${i + 1}: Added missing closing '${stringChar}'`);
+      hasChanges = true;
+    }
+    
+    lines[i] = modifiedLine;
+  }
+  
+  if (hasChanges) {
+    fixedCode = lines.join("\n");
+  }
+
+  // Fix 2: Add missing closing brackets (basic heuristic)
+  // Count brackets and add missing ones at end of line/function
+  const bracketCounts = countBrackets(fixedCode);
+  
+  if (bracketCounts.unmatchedBraces > 0) {
+    // Add missing closing braces
+    for (let i = 0; i < bracketCounts.unmatchedBraces; i++) {
+      fixedCode += "\n}";
+    }
+    fixesApplied.push(`Added ${bracketCounts.unmatchedBraces} missing closing brace(s)`);
+    hasChanges = true;
+  }
+  
+  if (bracketCounts.unmatchedParens > 0) {
+    fixesApplied.push(`Warning: ${bracketCounts.unmatchedParens} unmatched parenthesis(es) - manual fix required`);
+  }
+  
+  if (bracketCounts.unmatchedBrackets > 0) {
+    fixesApplied.push(`Warning: ${bracketCounts.unmatchedBrackets} unmatched bracket(s) - manual fix required`);
+  }
+
+  return {
+    fixed: hasChanges,
+    original: source,
+    fixedCode,
+    fixesApplied,
+  };
+}
+
+/**
+ * Count unmatched brackets in code
+ */
+function countBrackets(code: string): {
+  unmatchedBraces: number;
+  unmatchedParens: number;
+  unmatchedBrackets: number;
+} {
+  let braces = 0;
+  let parens = 0;
+  let brackets = 0;
+  let inString = false;
+  let stringChar = "";
+  
+  for (let i = 0; i < code.length; i++) {
+    const char = code[i];
+    
+    // Skip strings
+    if ((char === '"' || char === "'") && (i === 0 || code[i-1] !== '\\')) {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (char === stringChar) {
+        inString = false;
+      }
+      continue;
+    }
+    
+    if (inString) continue;
+    
+    // Skip comments
+    if (char === '/' && i + 1 < code.length) {
+      if (code[i + 1] === '/') {
+        // Skip to end of line
+        while (i < code.length && code[i] !== '\n') i++;
+        continue;
+      }
+      if (code[i + 1] === '*') {
+        // Skip block comment
+        i += 2;
+        while (i < code.length - 1) {
+          if (code[i] === '*' && code[i + 1] === '/') {
+            i += 2;
+            break;
+          }
+          i++;
+        }
+        continue;
+      }
+    }
+    
+    switch (char) {
+      case '{': braces++; break;
+      case '}': braces--; break;
+      case '(': parens++; break;
+      case ')': parens--; break;
+      case '[': brackets++; break;
+      case ']': brackets--; break;
+    }
+  }
+  
+  return {
+    unmatchedBraces: Math.max(0, braces),
+    unmatchedParens: Math.max(0, parens),
+    unmatchedBrackets: Math.max(0, brackets),
+  };
+}

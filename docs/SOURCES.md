@@ -2,7 +2,7 @@
 
 Research sources for the iw4x-toolkit plugin — DVAR knowledge base, IWD/asset formats, GSC scripting, and the broader IW engine modding ecosystem.
 
-IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engine**. The IW engine lineage means many formats, DVARs, and scripting patterns are shared across titles from CoD4 (IW3) through Ghosts (IW6) and beyond.
+IW4x is a **community client mod** for **Call of Duty: Modern Warfare 2 (2009)** that enables private multiplayer servers (since Activision shut down official IW4 servers). It runs on the **IW4 engine**, which itself evolved from the **IW3 engine** (CoD4: Modern Warfare) and shares design DNA with **T4** (CoD: World at War). The community modding ecosystem for IW4x grew directly out of the CoD4x and WaW modding communities — formats, DVARs, scripting conventions, and tooling are closely related across all three generations.
 
 ---
 
@@ -10,35 +10,110 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 
 ### Official
 
+- **IW4x Homepage**
+  https://iw4x.io/
+  Official IW4x site. Links to documentation, Discord, and GitHub.
+
 - **IW4x Client (Source)**
   https://github.com/iw4x/iw4x-client
-  The main C++ client mod for MW2. Includes ZoneBuilder, DVAR unprotection, and modding support. 5,000+ commits, actively maintained.
+  The main C++ client mod for MW2. Includes ZoneBuilder (`-zonebuilder` flag), DVAR unprotection, and modding support. 241 stars, updated February 2026.
 
 - **IW4x Documentation**
   https://docs.iw4x.io/
-  Official docs covering quickstart, installation, bot warfare, and server setup.
+  Official docs: quickstart, installation, bot warfare, server setup, and modding. Built with Astro Starlight, last updated October 2025.
+  - Server hosting: https://docs.iw4x.io/hosting/server-hosting/
 
 - **IW4x Rawfiles**
   https://github.com/iw4x/iw4x-rawfiles
-  Stock GSC scripts used by the IW4x client. Essential reference for game script structure.
+  Stock GSC scripts used by the IW4x client. Primary reference for game script structure and IW4-specific built-in GSC usage. 70 stars, updated February 2026.
 
 - **IW4x Open Formats**
   https://github.com/iw4x/iw4-open-formats
-  Open format specifications for IW4 assets.
+  C++ serializer/deserializer for IW4 asset formats. Static library for building IW4 tools; output assets can be read directly by IW4x ZoneBuilder. 11 stars, updated November 2025.
+
+- **IW4x Wiki**
+  https://github.com/iw4x/iw4x-wiki
+  Official knowledge base. References Zeroy wiki, Modme, and Plutonium docs as canonical GSC scripting references.
+
+- **IW4x Launcher**
+  https://github.com/iw4x/launcher
+  Cross-platform launcher for IW4x. Updated February 2026.
 
 - **IW4x GitHub Organization**
   https://github.com/iw4x
-  All 20+ repositories including `iw3x-port`, `iw5x-port`, `zonebuilder-wrapper`, `img-format-helper`, and more.
+  All repositories including the ones below.
+
+- **iw4x/iw3x-port**
+  https://github.com/iw4x/iw3x-port
+  C++ tool for exporting and converting assets from CoD4 (IW3) to IW4. The `iw3xport.exe` used in the map porting workflow. 14 releases, v1.2.3 released September 2025.
+
+- **iw4x/iw5x-port**
+  https://github.com/iw4x/iw5x-port
+  Map and asset converter for porting IW5 (MW3) content to IW4. Active.
+
+- **iw4x/iw4x-map-porting-utility**
+  https://github.com/iw4x/iw4x-map-porting-utility
+  GUI middleware that unifies the CoD4→IW4 map porting workflow. Wraps iw3xport and ZoneBuilder: export assets from CoD4, build zone, output to `usermaps/`. 10 stars, updated October 2024.
+
+- **iw4x/zonebuilder-wrapper**
+  https://github.com/iw4x/zonebuilder-wrapper
+  Thin wrapper around the IW4x client's built-in ZoneBuilder (`-zonebuilder` flag) for building IW4x-compatible zone files. Updated June 2025.
+
+- **iw4x/iw4-server-configs**
+  https://github.com/iw4x/iw4-server-configs
+  Canonical prebuilt server configuration files: `DedicatedServer.bat/.sh`, `server.cfg`, `partyserver.cfg`. The starting-point config set referenced by the official server-hosting docs. 4 stars, updated February 2026.
 
 ### Community
 
 - **shit-ware/IW4 (Raw Game Files)**
   https://github.com/shit-ware/IW4
-  Extracted MW2 rawfiles — GSC scripts, menu files, weapon definitions, soundaliases, vision files, animscripts. Invaluable reference for IW4 internals. Also contains `devgui_renderer.cfg` used for DVAR subcategory assignments.
+  Extracted MW2 rawfiles — GSC scripts, menu files, weapon definitions, soundaliases, vision files, animscripts. Invaluable reference for IW4 internals. Also contains `devgui_renderer.cfg` used for DVAR subcategory assignments. **Note:** This is also the closest available substitute for an IW4 GSC decompiler — no public tool exists for decompiling IW4 GSC bytecode; these are the extracted source scripts.
+
+- **Rex109/CoD4QOL**
+  https://github.com/Rex109/CoD4QOL
+  Quality-of-life plugin for CoD4 (IW3). Unlocks restricted console variables/DVARs, adds graphics customization (FOV, draw distance, fullbright), and includes a demo browser/manager. 16 releases, updated January 2026. Directly relevant since IW4 inherited many of CoD4's DVAR restrictions and plugin patterns.
 
 - **IW4MAdmin**
   https://github.com/RaidMax/IW4M-Admin
-  Server administration tool supporting IW4x, Plutonium, CoD4x, and more. Web interface, plugin support, player management.
+  Definitive server administration tool supporting IW4x, Plutonium, CoD4x, H1-Mod, and more. Web interface, plugin system, player management, anti-cheat. 239 stars, latest release February 2026.
+
+- **Muhlex/iw4x-gsc**
+  https://github.com/Muhlex/iw4x-gsc
+  GSC-based server admin command system for IW4x. In-game `!commands`, kick, ban, map change, DVAR management via chat or RCON. Useful reference for GSC-based server management patterns.
+
+---
+
+## AlterWare
+
+AlterWare is the primary active hub for IW4-SP, IW5-Mod (MW3), IW6-Mod (Ghosts), and S1-Mod (Advanced Warfare). X Labs (which originally maintained IW4x, IW6x, S1x) shut down in May 2023 — AlterWare absorbed/continued those projects.
+
+- **AlterWare Website**
+  https://alterware.dev/
+  Hub for IW4-SP, IW5-Mod, IW6-Mod, S1-Mod clients. 16,500+ Discord members.
+
+- **AlterWare Documentation**
+  https://alterware.dev/docs
+  Installation guides for all AlterWare-distributed clients. Note: no scripting/GSC content — modding guides live on the forum.
+
+- **AlterWare Forum**
+  https://forum.alterware.dev/
+  Active modding and support forum.
+  - IW4x Mod Guide (General Overview): https://forum.alterware.dev/t/iw4x-mod-guide-general-overview/846
+  - IW5-Mod Guide: https://forum.alterware.dev/t/iw5-mod-mod-guide-general-overview/905
+  - IW4x FAQ (setplayerdata, prestige commands): https://forum.alterware.dev/t/iw4x-frequently-asked-questions/845
+  - MW2 Mods Collection: https://forum.alterware.dev/t/mods-collection-for-mw2/726
+
+- **AlterWare Gitea (Source repos)**
+  https://git.alterware.dev/alterware/
+  Self-hosted Gitea: `iw4x-sp`, `iw6-mod`, `s1-mod`, `alterware-launcher`, `master-server`, `IW5-arena`, `jump-gsc`, `t7-rawfiles`. All updated January–February 2026.
+
+- **X Labs Mirror (archived 2023-05-24)**
+  https://xlabs-mirror.github.io/
+  Archived snapshot of the defunct X Labs documentation. Historical reference only.
+  - GSC Functions: https://xlabs-mirror.github.io/gsc_functions — only tabular reference for IW4x-specific extended built-ins (GetPing, GetIP, IsBot, StorageSet, etc.)
+  - Console Commands: https://xlabs-mirror.github.io/console_commands — per-client DVAR/command compatibility matrix
+  - IW4x Server Support: https://xlabs-mirror.github.io/support_iw4x_server — server setup guide (archived)
+  - IW4x Mod Guide: https://xlabs-mirror.github.io/mod_guide — mod folder structure (archived, superseded by AlterWare forum guide)
 
 ---
 
@@ -53,10 +128,6 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 - **Jeepcoders/Call-of-Duty-Dvars**
   https://github.com/Jeepcoders/Call-of-Duty-Dvars
   Cross-game DVAR collection covering CoD4 through MW3. Useful for cross-referencing DVARs shared across engine versions.
-
-- **X Labs Console Commands**
-  https://xlabs-mirror.github.io/console_commands
-  Console commands/DVARs table across IW4x, IW6x, and S1x with compatibility matrix.
 
 ### DVAR documentation and research
 
@@ -108,7 +179,7 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 
 - **OpenAssetTools (OAT)**
   https://github.com/Laupetin/OpenAssetTools
-  Modern open-source fastfile Linker/Unlinker. Supports IW3, IW4, IW5, T5, T6. 2,900+ commits, actively developed.
+  Modern open-source fastfile Linker/Unlinker. Supports IW3, IW4, IW5, T5, T6. 175 stars, v0.26.1 released January 2026. Very actively maintained.
   Docs: https://openassettools.dev/guide/components.html
 
 - **ZoneTool**
@@ -119,27 +190,74 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
   https://docs.auroramod.dev/zonetool-basics
   Practical guide to ZoneTool commands (loadzone, dumpzone, dumpmap) with examples for porting assets between games.
 
+- **XLabsProject/iw4-zone-asset-finder**
+  https://github.com/XLabsProject/iw4-zone-asset-finder
+  Searches IW4 assets by type/name across all zone files and builds minimal `zone_source.csv` dependency lists. Essential for finding which zones contain a given asset.
+
 - **CoD FF Tools**
   https://github.com/primetime43/CoD-FF-Tools
   GUI FastFile editor for CoD4, WaW, MW2 across PS3, Xbox 360, PC.
 
 ---
 
+## Map Making (CoD4 / IW3)
+
+MW2/IW4 has no official mod tools — the community repurposes the CoD4 (IW3) mod tools, since both games share the Radiant map editor format and zone_source conventions.
+
+- **CoD4 Mod Tools (Official SDK)**
+  https://github.com/promod/CoD4-Mod-Tools
+  Original Infinity Ward CoD4 Mod Tools v1.1 archived on GitHub. Includes:
+  - `CoD4Radiant.exe` — Quake-lineage brush map editor
+  - `CoD4CompileTools.exe` — BSP + light compilation frontend
+  - `MoDBuilder.exe` — IWD/mod packaging
+  - `CoD2_EffectsEd.exe` — visual effects (`.efx`) editor
+  - `XModelExport.mll` / `XAnimExport.mll` — Maya plugins for model/animation export
+  - `zone_source/` templates, `raw/` game data, `deffiles/` asset definitions
+  ModDB download (603 MB): https://www.moddb.com/games/call-of-duty-4-modern-warfare/downloads/mod-tools-sdk
+  **Requires CoD4 v1.4+.** Not on Steam — downloaded separately.
+
+- **iw3xo-radiant (xoxor4d)**
+  https://github.com/xoxor4d/iw3xo-radiant
+  Project page: https://xoxor4d.github.io/projects/iw3xo-radiant/
+  DLL mod dropped into CoD4 mod tools `bin/` that replaces the stock Radiant UI with an ImGui-based interface. Adds PhysX simulation, live-link between game and editor, in-editor BSP/light compilation, effects editor, model/prefab browser, and dozens of QoL fixes. The definitive enhanced CoD4 Radiant. Nightly builds available.
+
+- **Zeroy Wiki — CoD4 Modding Tutorial**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Modding_Tutorial
+  Covers the Radiant → BSP compile → AssetManager → EffectsEd workflow for CoD4 maps and effects.
+
+- **Zeroy Wiki — Import Models**
+  https://wiki.zeroy.com/index.php?title=Call_of_duty_4:_Import_models
+  Full Maya → `xmodel_export` → AssetManager pipeline including animated models, the `VERSION 8` → `VERSION 6` fix, and XAnim workflow.
+
+---
+
 ## GSC Scripting
+
+> **IW4 GSC decompiler gap:** No public tool exists for decompiling IW4 (MW2 2009) GSC bytecode. `xensik/gsc-tool` does not support IW4 (issue [#251](https://github.com/xensik/gsc-tool/issues/251), open since Feb 2025). The `shit-ware/IW4` rawfile dump is the only available source of IW4 game scripts.
 
 ### Documentation and references
 
 - **Zeroy Wiki — CoD Script Handbook**
   https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_CoD_Script_Handbook
-  The most thorough GSC tutorial available. Variables, operators, functions, loops, arrays, entities, threading.
+  The most thorough GSC tutorial available. Variables, operators, functions, loops, arrays, entities, threading. CoD4-era but the GSC language is essentially identical in IW4. Last edited December 2023.
 
-- **Zeroy Wiki — Scripting Reference**
-  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Scripting_Reference_-_String
-  Categorized function reference: AI, Animation, Array, Client, Damage, Debug, DVARs, Effects, Entity, HUD, Level, Math, Menus, Player, Sound, Spawn, Weapons.
+- **Zeroy Wiki — GSC Introduction**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Introduction
+  GSC language introduction. Prefer this over the wiki's "Scripting Reference" index page, which is largely a stub.
 
-- **X Labs GSC Functions**
+- **Plutonium — GSC Language Guide**
+  https://plutonium.pw/docs/modding/gsc/
+  Official Plutonium GSC language overview. The most authoritative modern GSC intro available.
+  - How-to: https://plutonium.pw/docs/modding/gsc/how-to-gsc/
+  - New features (Plutonium extensions): https://plutonium.pw/docs/modding/gsc/new-scripting-features/
+
+- **CoD4x — In-repo Script Documentation**
+  https://github.com/callofduty4x/CoD4x_Server/tree/master/scriptdocumentation
+  CoD4x-specific GSC extensions documented in the server repo. Since IW4 evolved from IW3/CoD4, CoD4x additions are often analogous to IW4x extensions. 391 stars, updated December 2025.
+
+- **X Labs GSC Functions (archived)**
   https://xlabs-mirror.github.io/gsc_functions
-  Custom GSC functions added by X Labs clients (IW4x, IW6x, S1x) — `GetPing`, `GetIP`, `Exec`, `PrintConsole`, `ToUpper`, etc.
+  Tabular reference for IW4x-specific extended built-in functions — `GetPing`, `GetIP`, `Exec`, `PrintConsole`, `ToUpper`, `IsBot`, `StorageSet`, etc. with per-client columns. The only structured reference for these extended builtins.
 
 - **UGX-Mods Scripting Guide**
   https://wiki.ugx-mods.com/Modding/World-at-War-Modtools/Script/Scripting-Guide
@@ -157,7 +275,12 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 
 - **xensik/gsc-tool**
   https://github.com/xensik/gsc-tool
-  The definitive GSC compiler/decompiler. Supports IW3–IW8, S1–S4, H1–H2, T4–T9 across PC and consoles. Modes: `asm`, `disasm`, `comp`, `decomp`, `parse`. Contains the most complete formal Bison grammar for GSC.
+  GSC compiler/decompiler supporting IW5–IW9, S1–S4, H1–H2, T6–T9. 299 stars. Contains the most complete formal Bison grammar for GSC.
+  **Note:** IW4 (MW2 2009) is not currently supported — see issue [#251](https://github.com/xensik/gsc-tool/issues/251).
+
+- **xensik/menu-tool**
+  https://github.com/xensik/menu-tool
+  Parses and dumps IW engine legacy `.menu` files (the pre-LUI menu format). IW4 support is listed as WIP. 10 stars. From the same author as gsc-tool.
 
 - **VSCode GSC Extension**
   https://marketplace.visualstudio.com/items?itemName=mjkzy.vscode-gsc-ultimate
@@ -177,6 +300,7 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 
 - **Cerberus (BO2/BO3 GSC Decompiler)**
   https://github.com/Scobalula/Cerberus-Repo
+  GSC/CSC decompiler for BO2 and BO3 only. 66 stars. Not applicable to IW4.
 
 ### Script collections
 
@@ -195,6 +319,10 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 - **aerosoul94/IWMenuDumper**
   https://github.com/aerosoul94/IWMenuDumper
   IW Engine Menu Asset Decompiler. Decompiles compiled menu files from MW2 (IW4) and MW3 (IW5). Source includes `iw4.h`/`iw5.h` with menu structure definitions.
+
+- **xensik/menu-tool**
+  https://github.com/xensik/menu-tool
+  WIP parser/dumper for IW engine legacy menu scripts. IW3/IW4/IW5/IW6 all listed as targets. 10 stars.
 
 - **shit-ware/IW4 — ui_mp/ Menu Files**
   https://github.com/shit-ware/IW4
@@ -224,22 +352,48 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
   https://github.com/mauserzjeh/cod-asset-importer
   Blender add-on for importing CoD assets. Supports CoD1 through BO1 — xmodel, xmodelsurfs, xmodelparts, xanim, materials, images, d3dbsp maps.
 
+- **Tom Crowley — xAnim Extractor**
+  http://tom-crowley.co.uk/downloads/
+  Maya plugin for importing CoD animations. Supports CoD2, CoD4, CoD5, CoD BO. Maya versions 6.0 through 2012 (32/64-bit). Also hosts a FastFile Extractor and IWI/DDS Converter. 20,000+ downloads, released 2014.
+
+- **CoD4 Mod Tools — Maya Plugins**
+  https://github.com/promod/CoD4-Mod-Tools
+  Official `XModelExport.mll` and `XAnimExport.mll` Maya plugins for exporting models and animations into CoD format. Includes `xanim_export/` example files.
+
 ### D3DBSP maps
 
 - **Zeroy Wiki — d3dbsp Format**
   https://wiki.zeroy.com/index.php/Call_of_Duty_2:_d3dbsp
   Lump-by-lump documentation: Materials (72 bytes per entry with flags), Lightmaps, Light Grid Hash, Brushes, Planes, Vertices. Applicable across IW engine versions.
 
+- **Husky**
+  https://github.com/Scobalula/Husky
+  BSP/map geometry extractor. Reads live game memory while a map is loaded and exports vertex/face geometry as `.obj` + `.mtl` + a `.map` file with static model placements. Directly supports MW2 (IW4), MW3, WaW, BO1, BO2, BO3, MWR, MW2019, and more. 119 stars. Pair with Greyhound for textures.
+
+### Sound / Audio
+
+- **XLabsProject/snd-alias-converter**
+  https://github.com/XLabsProject/snd-alias-converter
+  Converts sound alias CSV files between ZoneTool and ZoneBuilder formats. Small utility for IW4 soundalias format interoperability.
+
+- **shit-ware/IW4 — soundaliases/**
+  https://github.com/shit-ware/IW4
+  Raw MW2 soundalias CSV files — the text-based alias definitions that map sound events to audio files. Primary reference for IW4 sound system structure.
+
 ### Asset extraction
 
 - **Greyhound**
   https://github.com/Scobalula/Greyhound
-  Asset extractor for IW engine titles. XModels, XAnims, XImages, XEffects, Raw Files, Sounds across CoD4 through WWII.
+  Asset extractor for IW engine titles. XModels, XAnims, XImages, XEffects, Raw Files, Sounds across CoD4 through WWII. 429 stars.
   Docs: https://scobalula.github.io/Greyhound/
 
 - **Kobra**
   https://github.com/VenomModding/Kobra
   Fork of Greyhound adding XEffect and GDT support.
+
+- **GameImageUtil**
+  https://github.com/Scobalula/GameImageUtil
+  Image format processor for CoD mod tools. Handles normal map splitting, specular/albedo fusion, BC5 XY mode. 75 stars. **Archived January 2024** — read-only. Primarily targets IW7/IW8-era formats; relevant for cross-porting assets from newer CoD titles into IW4 mods.
 
 ### Weapon files
 
@@ -259,7 +413,7 @@ IW4X targets **Call of Duty: Modern Warfare 2 (2009)** running on the **IW4 engi
 
 ## Related Mod Clients
 
-The IW engine modding ecosystem spans many titles. Formats, DVARs, and scripting patterns are often shared or evolved across these projects.
+The IW engine modding ecosystem spans many titles. IW4x grew out of the CoD4x (IW3) and WaW (T4) communities — formats, DVARs, and scripting patterns are closely shared across these projects.
 
 | Game | Code | Client | Year | Repository |
 |------|------|--------|------|------------|
@@ -279,14 +433,15 @@ The IW engine modding ecosystem spans many titles. Formats, DVARs, and scripting
 | Call of Duty: Advanced Warfare | S1 | AlterWare | 2014 | https://git.alterware.dev/alterware/s1-mod |
 | Call of Duty: Black Ops III | T7 | AlterWare | 2015 | https://git.alterware.dev/alterware/t7-rawfiles |
 | Call of Duty: Modern Warfare Remastered | H1 | Aurora | 2016 | https://github.com/auroramod/h1-mod |
-| Call of Duty: Infinite Warfare | IW7 | Aurora | 2016 | — |
+| Call of Duty: Infinite Warfare | IW7 | Aurora | 2016 | https://github.com/auroramod/iw7-mod |
 | HMW / H2M-Mod | HMW/H2M | Horizon | 2020 | — |
 
 ### Mod client hubs
 
-- **AlterWare** — https://alterware.dev/ — Hub for IW4-SP, IW5-Mod, IW6-Mod, S1-Mod, T7x
-- **Plutonium** — https://forum.plutonium.pw/ — T4, T5, T6, IW5
-- **CoD4x** — https://cod4x.ovh/ — CoD4 server/client modding
+- **AlterWare** — https://alterware.dev/ — IW4-SP, IW5-Mod, IW6-Mod, S1-Mod, T7x. Self-hosted Gitea at https://git.alterware.dev/alterware/
+- **Plutonium** — https://forum.plutonium.pw/ — T4, T5, T6, IW5. Official docs at https://plutonium.pw/docs/
+- **CoD4x** — https://cod4x.ovh/ — CoD4 server/client modding. The direct ancestor community to IW4x.
+- **Aurora** — https://github.com/auroramod — H1-Mod (MWR) and IW7-Mod. Docs at https://docs.auroramod.dev/
 
 ---
 
@@ -296,29 +451,48 @@ The IW engine modding ecosystem spans many titles. Formats, DVARs, and scripting
   https://en.wikipedia.org/wiki/IW_(game_engine)
   Overview of all IW engine versions from IW 3.0 through IW 9.0. Maps engine versions to game titles.
 
+- **CoD Engine Research Wiki**
+  https://codresearch.dev/index.php/Main_Page
+  Goes well beyond DVARs — covers fastfile/zone format, PAK files, per-game asset type tables (IW4, IW5, T5, T6 etc.) with hex IDs and pool sizes, reverse-engineered C struct definitions (e.g. `SndCurve`, `GfxWorld`), and save data structures. Admin-only editing; contact `redeyex32` on Discord for contributions.
+
+- **OpenIW4/OpenIW4**
+  https://github.com/OpenIW4/OpenIW4
+  An attempt to reverse engineer and reimplement the IW4 engine in C++. Documents IW4MP internal functions and data structures. 29 stars, 244 commits, WTFPL license. The closest thing to a public IW4 network protocol and engine internals reference.
+
 - **Activision Research Publications**
   https://research.activision.com/publications
   Official technical papers: rendering, lighting, networking. Includes "Rendering of COD:IW" (Michal Drobot), "Raytraced Shadows in COD:MW".
 
 - **momo5502's Blog**
-  https://momo5502.com/posts/2022-11-17-reverse-engineering-integrity-checks-in-black-ops-3/
-  Reverse engineering deep dives by a core developer behind IW4x, H1-Mod, and other projects.
+  https://momo5502.com/posts/
+  Technical blog by a core IW4x developer. Reverse engineering deep dives on IW engine internals and beyond.
+  - IW4/MW2 network exploit research: https://momo5502.com/posts/2017-12-14-game-hacking-reinvented-a-poc-cod-hack/
+  - BO3 integrity checks: https://momo5502.com/posts/2022-11-17-reverse-engineering-integrity-checks-in-black-ops-3/
+
+- **Nukem9/LinkerMod**
+  https://github.com/Nukem9/LinkerMod
+  Enhancements for Black Ops (T5) mod tools — linker features, custom asset utilities, Radiant support for new maps. 129 stars, 1,201 commits. **T5 only, not IW4** — relevant as an adjacent modtools enhancement reference and for the detours hooking patterns used by IW3/IW4 tools.
 
 - **DevRaw — Modding Tools Directory**
   https://www.devraw.net/resources
-  Curated list of CoD modding tools: Greyhound, Husky, HydraX, Cordycep, Kobra, GameImageUtil, SExCOD, VKRadiant, and more.
+  Curated list of CoD modding tools: Greyhound, Husky, HydraX, Cordycep, Kobra, GameImageUtil, SExCOD, VKRadiant, and more. BO3-focused but covers multi-game tools.
 
 ---
 
 ## Community Wikis and Forums
 
-- **Zeroy Wiki** — https://wiki.zeroy.com/ — The most comprehensive CoD modding wiki. CoD1 through BO1: fastfile format, d3dbsp, scripting, mapping, weapons, menus.
+- **Zeroy Wiki** — https://wiki.zeroy.com/ — The most comprehensive CoD modding wiki. CoD1 through BO1: fastfile format, d3dbsp, scripting, mapping, weapons, menus. Last edited December 2023.
+- **Plutonium Docs** — https://plutonium.pw/docs/ — Official Plutonium documentation including GSC language guide, how-to scripting, and new features.
+- **Plutonium Forum** — https://forum.plutonium.pw/ — T4/T5/T6/IW5 modding, scripting help, resource threads.
+- **AlterWare Forum** — https://forum.alterware.dev/ — IW4x-SP/IW5/IW6/S1 modding guides and support.
+- **CoD4x Forum** — https://cod4x.ovh/ — CoD4 server/client support, scripting, plugin releases. Direct ancestor community to IW4x.
+- **CabConModding** — https://cabconmodding.com/ — Large English-language modding forum. 24,000+ BO2 threads, MW scripting section, BO3 mods.
 - **UGX-Mods Wiki** — https://wiki.ugx-mods.com/ — Zombies-focused modding wiki with scripting guides and zone management.
+- **ZombieModding** — https://zombiemodding.com/ — Custom zombies community (WaW-era). 434,000+ members.
 - **Modme Wiki** — https://wiki.modme.co/ — BO3 modding wiki with scripting guides.
 - **Se7enSins** — https://www.se7ensins.com/forums/ — DVAR lists, scripting references, weapon modding.
 - **CoDJumper** — https://www.codjumper.com/forums/ — CoD4 modding and jump community. Custom menus, scripting tutorials.
-- **AlterWare Forum** — https://forum.alterware.dev/ — IW4/IW5/IW6/S1 modding guides and support.
-- **X Labs Mirror (archived)** — https://xlabs-mirror.github.io/ — Archived IW4x/IW6x/S1x documentation, mod guides, GSC function reference.
+- **X Labs Mirror (archived)** — https://xlabs-mirror.github.io/ — Archived IW4x/IW6x/S1x documentation (2023). GSC function reference and console commands tables preserved here.
 
 ---
 

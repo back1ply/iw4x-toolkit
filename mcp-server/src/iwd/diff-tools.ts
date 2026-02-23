@@ -16,6 +16,7 @@ import {
   atomicWrite,
   globToRegex,
   buildDiffSnippet,
+  buildSideBySideDiff,
   errResult,
   okResult,
   entryNotFoundErr,
@@ -33,7 +34,8 @@ export function registerDiffTools(server: McpServer): void {
       description:
         "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. " +
         "Use entry_glob to limit comparison to a specific subset of files. " +
-        "Set content_diff=true to include unified diffs for modified text entries.",
+        "Set content_diff=true to include diffs for modified text entries. " +
+        "Use diff_format='side-by-side' for a visual two-column view.",
       inputSchema: {
         path1: z.string().describe("Path to the first (base) IWD file"),
         path2: z.string().describe("Path to the second (modified) IWD file"),
@@ -48,14 +50,21 @@ export function registerDiffTools(server: McpServer): void {
           .optional()
           .default(false)
           .describe(
-            "If true, includes a ±3-line diff for each modified text entry (may be verbose)",
+            "If true, includes diffs for modified text entries",
+          ),
+        diff_format: z
+          .enum(["unified", "side-by-side"])
+          .optional()
+          .default("unified")
+          .describe(
+            "Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison",
           ),
       },
       annotations: {
         readOnlyHint: true,
       },
     },
-    async ({ path1, path2, entry_glob, content_diff }) => {
+    async ({ path1, path2, entry_glob, content_diff, diff_format }) => {
       const r1 = resolveIwdPath(path1);
       const r2 = resolveIwdPath(path2);
 
@@ -123,7 +132,8 @@ export function registerDiffTools(server: McpServer): void {
         modified.forEach((n) => lines.push(`  ~ ${n}`));
 
         if (content_diff) {
-          lines.push(``, `--- Content diffs for modified text entries ---`);
+          const formatNote = diff_format === "side-by-side" ? " (side-by-side view)" : "";
+          lines.push(``, `--- Content diffs for modified text entries${formatNote} ---`);
           for (const name of modified) {
             if (isBinaryEntry(name)) {
               const e1 = zip1.getEntry(name);
@@ -141,12 +151,22 @@ export function registerDiffTools(server: McpServer): void {
             if (!e1 || !e2) continue;
             const t1 = zip1.readAsText(e1);
             const t2 = zip2.readAsText(e2);
-            const { snippet, changedLine } = buildDiffSnippet(t1, t2);
-            lines.push(
-              ``,
-              `[diff] ${name} (first change at line ${changedLine + 1}):`,
-              snippet,
-            );
+            
+            if (diff_format === "side-by-side") {
+              const sideBySide = buildSideBySideDiff(t1, t2);
+              lines.push(
+                ``,
+                `[diff] ${name}:`,
+                sideBySide,
+              );
+            } else {
+              const { snippet, changedLine } = buildDiffSnippet(t1, t2);
+              lines.push(
+                ``,
+                `[diff] ${name} (first change at line ${changedLine + 1}):`,
+                snippet,
+              );
+            }
           }
         }
       }

@@ -460,4 +460,191 @@ describe("GSC Tools", () => {
       expect(text).toContain("```gsc");
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // gsc_fix
+  // ---------------------------------------------------------------------------
+
+  describe("gsc_fix", () => {
+    it("reports no fixable issues on valid code", async () => {
+      const result = await client.callTool({
+        name: "gsc_fix",
+        arguments: { content: "init()\n{\n    level thread doStuff();\n}\n\ndoStuff()\n{\n    wait 1;\n}" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("No auto-fixable");
+    });
+
+    it("fixes missing closing brace", async () => {
+      const result = await client.callTool({
+        name: "gsc_fix",
+        arguments: { content: "init()\n{\n    wait 1;\n// missing closing brace" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("Fixed");
+      expect(text).toContain("brace");
+      expect(text).toContain("```gsc");
+    });
+
+    it("fixes unterminated string", async () => {
+      const result = await client.callTool({
+        name: "gsc_fix",
+        arguments: { content: 'init()\n{\n    iprintln("hello);\n}' }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      // Either fixed a string or braces — should report something changed
+      expect(text).toContain("Fixed");
+    });
+
+    it("errors on missing input", async () => {
+      const result = await client.callTool({
+        name: "gsc_fix",
+        arguments: {}
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("❌");
+    });
+
+    it("errors on missing file", async () => {
+      const result = await client.callTool({
+        name: "gsc_fix",
+        arguments: { path: "/nonexistent/path/file.gsc" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("❌");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // gsc_outline
+  // ---------------------------------------------------------------------------
+
+  describe("gsc_outline", () => {
+    const sampleGsc = [
+      "#include maps\\mp\\_utility;",
+      "#include maps\\mp\\gametypes\\_globallogic;",
+      "",
+      "init()",
+      "{",
+      "    level.players = [];",
+      "    level.roundActive = false;",
+      "    level thread onPlayerConnect();",
+      "    level thread watchRound();",
+      "}",
+      "",
+      "onPlayerConnect()",
+      "{",
+      "    for(;;)",
+      "    {",
+      "        level waittill(\"connected\", player);",
+      "        player thread setupPlayer();",
+      "    }",
+      "}",
+      "",
+      "setupPlayer()",
+      "{",
+      "    self endon(\"disconnect\");",
+      "    self endon(\"death\");",
+      "    self waittill(\"spawned\");",
+      "    self.kills = 0;",
+      "}",
+      "",
+      "watchRound()",
+      "{",
+      "    level waittill(\"round_start\");",
+      "    level.roundActive = true;",
+      "    level notify(\"game_ready\");",
+      "}",
+    ].join("\n");
+
+    it("lists all function definitions", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: { content: sampleGsc }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("init");
+      expect(text).toContain("onPlayerConnect");
+      expect(text).toContain("setupPlayer");
+      expect(text).toContain("watchRound");
+    });
+
+    it("lists includes", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: { content: sampleGsc }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("_utility");
+      expect(text).toContain("_globallogic");
+    });
+
+    it("lists thread calls", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: { content: sampleGsc }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("onPlayerConnect");
+      expect(text).toContain("watchRound");
+    });
+
+    it("lists waittill and endon events", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: { content: sampleGsc }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("waittill");
+      expect(text).toContain("connected");
+      expect(text).toContain("endon");
+      expect(text).toContain("disconnect");
+    });
+
+    it("lists shared state properties", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: { content: sampleGsc }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("level.players");
+      expect(text).toContain("level.roundActive");
+      expect(text).toContain("self.kills");
+    });
+
+    it("includes line numbers", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: { content: sampleGsc }
+      });
+      const text = getResultText(result as any);
+      expect(text).toMatch(/line \d+/);
+    });
+
+    it("errors on missing input", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: {}
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("❌");
+    });
+
+    it("errors on missing file", async () => {
+      const result = await client.callTool({
+        name: "gsc_outline",
+        arguments: { path: "/nonexistent/path/file.gsc" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("❌");
+    });
+  });
 });

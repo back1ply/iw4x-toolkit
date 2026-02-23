@@ -10,7 +10,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { lint, LintResult, LintError, LintOptions } from "./linter.js";
+import { lint, fix, LintResult, LintError, LintOptions } from "./linter.js";
+import { outline, formatOutline } from "./outline.js";
 import { getKnowledgeDir } from "../utils.js";
 
 /**
@@ -389,6 +390,138 @@ export function registerGscTools(server: McpServer): void {
           text: `Generated from '${template}':\n\n\`\`\`gsc\n${code}\n\`\`\``
         }]
       };
+    }
+  );
+
+  // --- Tool: gsc_fix ---
+  server.registerTool(
+    "gsc_fix",
+    {
+      title: "Auto-fix GSC Syntax Errors",
+      description:
+        "Attempts to auto-fix common GSC syntax errors: unmatched braces, " +
+        "unterminated strings, and missing closing brackets. " +
+        "Returns the fixed code and a list of changes made. " +
+        "Use after gsc_lint reports fixable errors. " +
+        "Set write_back=true to write the fix directly to a file path.",
+      inputSchema: {
+        path: z.string().optional().describe(
+          "Path to .gsc file to fix. Either this or content must be provided."
+        ),
+        content: z.string().optional().describe(
+          "GSC source code to fix directly. Either this or path must be provided."
+        ),
+        write_back: z.boolean().optional().default(false).describe(
+          "If true and path is provided, write the fixed code back to the file."
+        ),
+      },
+    },
+    async ({ path: filePath, content, write_back }) => {
+      let source: string;
+
+      if (filePath) {
+        const resolved = path.resolve(filePath);
+        if (!fs.existsSync(resolved)) {
+          return {
+            content: [{ type: "text", text: `❌ File not found: ${resolved}` }]
+          };
+        }
+        try {
+          source = fs.readFileSync(resolved, "utf-8");
+        } catch (e) {
+          return {
+            content: [{ type: "text", text: `❌ Error reading file: ${e}` }]
+          };
+        }
+      } else if (content) {
+        source = content;
+      } else {
+        return {
+          content: [{ type: "text", text: "❌ Either path or content must be provided" }]
+        };
+      }
+
+      const result = fix(source);
+
+      let output: string;
+      if (!result.fixed) {
+        output = "ℹ️  No auto-fixable issues found.\n\n" +
+          "Run gsc_lint for a full diagnostic report.";
+      } else {
+        output = `✅ Fixed ${result.fixesApplied.length} issue(s):\n`;
+        for (const change of result.fixesApplied) {
+          output += `  • ${change}\n`;
+        }
+        output += `\n**Fixed code:**\n\`\`\`gsc\n${result.fixedCode}\n\`\`\``;
+
+        if (write_back && filePath) {
+          try {
+            fs.writeFileSync(path.resolve(filePath), result.fixedCode, "utf-8");
+            output += `\n\n✍️  Written back to: ${filePath}`;
+          } catch (e) {
+            output += `\n\n❌ Write failed: ${e}`;
+          }
+        }
+      }
+
+      return { content: [{ type: "text", text: output }] };
+    }
+  );
+
+  // --- Tool: gsc_outline ---
+  server.registerTool(
+    "gsc_outline",
+    {
+      title: "GSC File Outline",
+      description:
+        "Parses a GSC file and returns its structural skeleton: " +
+        "function definitions (name, params, line), #include directives, " +
+        "thread calls, event listeners (waittill/notify/endon), " +
+        "and shared-state property assignments (level.x, self.x, game.x). " +
+        "Use this BEFORE editing a GSC file to understand its structure " +
+        "and avoid accidentally deleting functions or breaking event chains.",
+      inputSchema: {
+        path: z.string().optional().describe(
+          "Path to .gsc file to outline. Either this or content must be provided."
+        ),
+        content: z.string().optional().describe(
+          "GSC source code to outline directly. Either this or path must be provided."
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    async ({ path: filePath, content }) => {
+      let source: string;
+
+      if (filePath) {
+        const resolved = path.resolve(filePath);
+        if (!fs.existsSync(resolved)) {
+          return {
+            content: [{ type: "text", text: `❌ File not found: ${resolved}` }]
+          };
+        }
+        try {
+          source = fs.readFileSync(resolved, "utf-8");
+        } catch (e) {
+          return {
+            content: [{ type: "text", text: `❌ Error reading file: ${e}` }]
+          };
+        }
+      } else if (content) {
+        source = content;
+      } else {
+        return {
+          content: [{ type: "text", text: "❌ Either path or content must be provided" }]
+        };
+      }
+
+      const result = outline(source);
+      const formatted = formatOutline(result, source);
+
+      return { content: [{ type: "text", text: formatted }] };
     }
   );
 }

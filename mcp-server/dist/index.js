@@ -23645,11 +23645,19 @@ function resolveIwdPath(iwdPath) {
 }
 async function ensureBackup(iwdPath) {
   if (backedUp.has(iwdPath)) return;
-  const bakPath = iwdPath + ".bak";
-  if (!fs.existsSync(bakPath)) {
-    const { copyFile } = await import("node:fs/promises");
-    await copyFile(iwdPath, bakPath);
-  }
+  const now = /* @__PURE__ */ new Date();
+  const timestamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    "_",
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0"),
+    String(now.getSeconds()).padStart(2, "0")
+  ].join("");
+  const bakPath = `${iwdPath}.${timestamp}.bak`;
+  const { copyFile } = await import("node:fs/promises");
+  await copyFile(iwdPath, bakPath);
   backedUp.add(iwdPath);
 }
 async function atomicWrite(zip, targetPath) {
@@ -23679,6 +23687,76 @@ function globToRegex(pattern) {
     return tok.replace(/[.+^${}()|[\]\\]/g, "\\$&");
   }).join("");
   return new RegExp(`^${regexStr}$`, "i");
+}
+function buildSideBySideDiff(original, patched, ctx = 3) {
+  const originalLines = original.split(/\r?\n/);
+  const patchedLines = patched.split(/\r?\n/);
+  const changes = [];
+  for (let i = 0; i < Math.max(originalLines.length, patchedLines.length); i++) {
+    if (originalLines[i] !== patchedLines[i]) {
+      changes.push({ origIdx: i, patchIdx: i });
+    }
+  }
+  if (changes.length === 0) {
+    return "Files are identical (no changes)";
+  }
+  const regions = [];
+  for (let i = 0; i < changes.length; i++) {
+    const change = changes[i];
+    const prevChange = regions.length > 0 ? regions[regions.length - 1] : null;
+    if (prevChange && change.origIdx - prevChange.end <= ctx * 2) {
+      prevChange.end = change.origIdx + ctx;
+    } else {
+      regions.push({
+        start: Math.max(0, change.origIdx - ctx),
+        end: change.origIdx + ctx
+      });
+    }
+  }
+  const lines = [];
+  for (const region of regions) {
+    if (regions.indexOf(region) > 0) {
+      lines.push("\n... (more changes) ...\n");
+    }
+    const maxLines = Math.max(
+      region.end - region.start,
+      originalLines.slice(region.start, region.end).length,
+      patchedLines.slice(region.start, region.end).length
+    );
+    lines.push("\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
+    lines.push("\u2502 Original (A)                          \u2502 Modified (B)                      \u2502");
+    lines.push("\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524");
+    for (let i = 0; i < maxLines; i++) {
+      const origLineIdx = region.start + i;
+      const patchLineIdx = region.start + i;
+      const origLine = origLineIdx < originalLines.length ? originalLines[origLineIdx] : "";
+      const patchLine = patchLineIdx < patchedLines.length ? patchedLines[patchLineIdx] : "";
+      let marker = " \u2502";
+      let origPrefix = "  ";
+      let patchPrefix = "  ";
+      if (origLine !== patchLine) {
+        if (origLineIdx >= originalLines.length) {
+          marker = " +\u2502";
+          patchPrefix = "+ ";
+        } else if (patchLineIdx >= patchedLines.length) {
+          marker = " -\u2502";
+          origPrefix = "- ";
+        } else {
+          marker = " ~\u2502";
+          origPrefix = "~ ";
+          patchPrefix = "~ ";
+        }
+      }
+      const origLineNum = String(origLineIdx + 1).padStart(4, " ");
+      const patchLineNum = String(patchLineIdx + 1).padStart(4, " ");
+      const maxColWidth = 40;
+      const displayOrig = origLine.length > maxColWidth ? origLine.substring(0, maxColWidth - 3) + "..." : origLine;
+      const displayPatch = patchLine.length > maxColWidth ? patchLine.substring(0, maxColWidth - 3) + "..." : patchLine;
+      lines.push(`${origLineNum}${origPrefix}${displayOrig.padEnd(maxColWidth)}${marker}${patchPrefix}${displayPatch}`);
+    }
+    lines.push("\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
+  }
+  return lines.join("\n");
 }
 function buildDiffSnippet(original, patched, ctx = 3, hintLine) {
   const originalLines = original.split(/\r?\n/);
@@ -24529,7 +24607,7 @@ function registerDiffTools(server2) {
     "iwd_diff",
     {
       title: "Diff Two Archives",
-      description: "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include unified diffs for modified text entries.",
+      description: "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include diffs for modified text entries. Use diff_format='side-by-side' for a visual two-column view.",
       inputSchema: {
         path1: external_exports.string().describe("Path to the first (base) IWD file"),
         path2: external_exports.string().describe("Path to the second (modified) IWD file"),
@@ -24537,14 +24615,17 @@ function registerDiffTools(server2) {
           "Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"
         ),
         content_diff: external_exports.boolean().optional().default(false).describe(
-          "If true, includes a \xB13-line diff for each modified text entry (may be verbose)"
+          "If true, includes diffs for modified text entries"
+        ),
+        diff_format: external_exports.enum(["unified", "side-by-side"]).optional().default("unified").describe(
+          "Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison"
         )
       },
       annotations: {
         readOnlyHint: true
       }
     },
-    async ({ path1, path2: path22, entry_glob, content_diff }) => {
+    async ({ path1, path2: path22, entry_glob, content_diff, diff_format }) => {
       const r1 = resolveIwdPath(path1);
       const r2 = resolveIwdPath(path22);
       const o1 = openIwd(r1);
@@ -24603,7 +24684,8 @@ function registerDiffTools(server2) {
         lines.push(``, `Modified (CRC differs):`);
         modified.forEach((n) => lines.push(`  ~ ${n}`));
         if (content_diff) {
-          lines.push(``, `--- Content diffs for modified text entries ---`);
+          const formatNote = diff_format === "side-by-side" ? " (side-by-side view)" : "";
+          lines.push(``, `--- Content diffs for modified text entries${formatNote} ---`);
           for (const name of modified) {
             if (isBinaryEntry(name)) {
               const e12 = zip1.getEntry(name);
@@ -24621,12 +24703,21 @@ function registerDiffTools(server2) {
             if (!e1 || !e2) continue;
             const t1 = zip1.readAsText(e1);
             const t2 = zip2.readAsText(e2);
-            const { snippet, changedLine } = buildDiffSnippet(t1, t2);
-            lines.push(
-              ``,
-              `[diff] ${name} (first change at line ${changedLine + 1}):`,
-              snippet
-            );
+            if (diff_format === "side-by-side") {
+              const sideBySide = buildSideBySideDiff(t1, t2);
+              lines.push(
+                ``,
+                `[diff] ${name}:`,
+                sideBySide
+              );
+            } else {
+              const { snippet, changedLine } = buildDiffSnippet(t1, t2);
+              lines.push(
+                ``,
+                `[diff] ${name} (first change at line ${changedLine + 1}):`,
+                snippet
+              );
+            }
           }
         }
       }
@@ -25070,6 +25161,16 @@ var GSC_KEYWORDS = /* @__PURE__ */ new Set([
   "getarray",
   "alloc"
 ]);
+var SyntaxErrorCode = {
+  UNTERMINATED_STRING: "TOK-001",
+  UNMATCHED_BRACKET: "TOK-002",
+  UNMATCHED_PAREN: "TOK-003",
+  UNMATCHED_BRACE: "TOK-004",
+  INVALID_IDENTIFIER: "TOK-005",
+  MALFORMED_PREPROCESSOR: "TOK-006",
+  INVALID_CHARACTER: "TOK-007",
+  UNTERMINATED_COMMENT: "TOK-008"
+};
 var GSCTokenizer = class {
   source = "";
   start = 0;
@@ -25078,6 +25179,10 @@ var GSCTokenizer = class {
   column = 0;
   tokens = [];
   errors = [];
+  // Bracket tracking for validation
+  bracketStack = [];
+  parenStack = [];
+  braceStack = [];
   /**
    * Tokenize GSC source code
    */
@@ -25089,6 +25194,9 @@ var GSCTokenizer = class {
     this.column = 0;
     this.tokens = [];
     this.errors = [];
+    this.bracketStack = [];
+    this.parenStack = [];
+    this.braceStack = [];
     while (!this.isAtEnd()) {
       this.start = this.current;
       try {
@@ -25097,7 +25205,9 @@ var GSCTokenizer = class {
         this.errors.push({
           message: e instanceof Error ? e.message : "Unknown error",
           line: this.line,
-          column: this.column
+          column: this.column,
+          code: SyntaxErrorCode.INVALID_CHARACTER,
+          suggestion: "Check for invalid characters in your code"
         });
         this.advance();
       }
@@ -25109,7 +25219,15 @@ var GSCTokenizer = class {
       column: this.column,
       length: 0
     });
+    this.validateBrackets();
     return { tokens: this.tokens, errors: this.errors };
+  }
+  /**
+   * Validate that all brackets are matched
+   * Only reports errors for UNEXPECTED closing brackets (too many)
+   * Does NOT report missing closing brackets - that could be incomplete code
+   */
+  validateBrackets() {
   }
   isAtEnd() {
     return this.current >= this.source.length;
@@ -25170,15 +25288,26 @@ var GSCTokenizer = class {
       }
       if (this.peek() === "*") {
         this.advance();
+        let foundEnd = false;
         while (!this.isAtEnd()) {
           if (this.peek() === "*" && this.peekNext() === "/") {
             this.advance();
             this.advance();
+            foundEnd = true;
             break;
           }
           this.advance();
         }
         const value = this.source.substring(this.start + 2, this.current - 2);
+        if (!foundEnd) {
+          this.errors.push({
+            message: "Unterminated block comment - missing '*/'",
+            line: this.line,
+            column: this.column - (this.current - this.start),
+            code: SyntaxErrorCode.UNTERMINATED_COMMENT,
+            suggestion: "Add '*/' to close the block comment"
+          });
+        }
         this.tokens.push({
           type: "BLOCK_COMMENT" /* BLOCK_COMMENT */,
           value,
@@ -25215,21 +25344,57 @@ var GSCTokenizer = class {
     switch (c) {
       case "{":
         this.addToken("LEFT_BRACE" /* LEFT_BRACE */);
+        this.braceStack.push({ type: "LEFT_BRACE" /* LEFT_BRACE */, line: this.line, column: this.column - 1 });
         break;
       case "}":
         this.addToken("RIGHT_BRACE" /* RIGHT_BRACE */);
+        if (this.braceStack.length > 0) {
+          this.braceStack.pop();
+        } else {
+          this.errors.push({
+            message: `Unexpected '}' - no matching '{'`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.UNMATCHED_BRACE,
+            suggestion: "Remove this closing brace or check for extra braces"
+          });
+        }
         break;
       case "(":
         this.addToken("LEFT_PAREN" /* LEFT_PAREN */);
+        this.parenStack.push({ type: "LEFT_PAREN" /* LEFT_PAREN */, line: this.line, column: this.column - 1 });
         break;
       case ")":
         this.addToken("RIGHT_PAREN" /* RIGHT_PAREN */);
+        if (this.parenStack.length > 0) {
+          this.parenStack.pop();
+        } else {
+          this.errors.push({
+            message: `Unexpected ')' - no matching '('`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.UNMATCHED_PAREN,
+            suggestion: "Remove this closing parenthesis or check for extra parentheses"
+          });
+        }
         break;
       case "[":
         this.addToken("LEFT_BRACKET" /* LEFT_BRACKET */);
+        this.bracketStack.push({ type: "LEFT_BRACKET" /* LEFT_BRACKET */, line: this.line, column: this.column - 1 });
         break;
       case "]":
         this.addToken("RIGHT_BRACKET" /* RIGHT_BRACKET */);
+        if (this.bracketStack.length > 0) {
+          this.bracketStack.pop();
+        } else {
+          this.errors.push({
+            message: `Unexpected ']' - no matching '['`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.UNMATCHED_BRACKET,
+            suggestion: "Remove this closing bracket or check for extra brackets"
+          });
+        }
         break;
       case ",":
         this.addToken("COMMA" /* COMMA */);
@@ -25256,6 +25421,15 @@ var GSCTokenizer = class {
         this.addToken("AT" /* AT */);
         break;
       default:
+        if (c !== "\0" && c !== "\r" && c !== "\n") {
+          this.errors.push({
+            message: `Invalid character: '${c}'`,
+            line: this.line,
+            column: this.column - 1,
+            code: SyntaxErrorCode.INVALID_CHARACTER,
+            suggestion: "Remove or replace this character"
+          });
+        }
         break;
     }
     if (!this.isAtEnd()) {
@@ -25383,9 +25557,11 @@ var GSCTokenizer = class {
     }
     if (this.isAtEnd()) {
       this.errors.push({
-        message: `Unterminated string`,
+        message: `Unterminated string - missing closing '${quote}'`,
         line: this.line,
-        column: this.column
+        column: this.column,
+        code: SyntaxErrorCode.UNTERMINATED_STRING,
+        suggestion: `Add closing '${quote}' to complete the string`
       });
       this.addToken("STRING" /* STRING */, value);
       return;
@@ -25412,21 +25588,34 @@ var GSCTokenizer = class {
     this.addToken("NUMBER" /* NUMBER */);
   }
   scanIdentifier() {
-    while (this.isAlphaNumeric(this.peek())) {
+    while (this.isAlphaNumeric(this.peek()) || this.peek() === "\\") {
       this.advance();
     }
     const text = this.source.substring(this.start, this.current);
     const type = GSC_KEYWORDS.has(text) ? "KEYWORD" /* KEYWORD */ : "IDENTIFIER" /* IDENTIFIER */;
     this.addToken(type, text);
   }
+  isValidIdentifier(text) {
+    if (!text || text.length === 0) return false;
+    const firstChar = text[0];
+    if (!this.isAlpha(firstChar) && firstChar !== "$" && firstChar !== "_") {
+      return false;
+    }
+    for (let i = 1; i < text.length; i++) {
+      const c = text[i];
+      if (!this.isAlphaNumeric(c) && c !== "_" && c !== "$" && c !== "\\") {
+        return false;
+      }
+    }
+    return true;
+  }
   scanPreprocessor() {
     while (this.isAlpha(this.peek()) && !this.isAtEnd()) {
       this.advance();
     }
     const directive = this.source.substring(this.start + 1, this.current);
-    let argument = "";
     while (this.peek() !== "\n" && !this.isAtEnd()) {
-      argument += this.advance();
+      this.advance();
     }
     this.addToken("HASH" /* HASH */, directive);
   }
@@ -26010,6 +26199,333 @@ async function lint(source, options) {
   const linter = new GSCLinter();
   return linter.lint(source, options);
 }
+function fix(source) {
+  let fixedCode = source;
+  const fixesApplied = [];
+  let hasChanges = false;
+  const unterminatedStringPattern = /("[^"\\]*(?:\\.[^"\\]*)*)(?=[^;"]*$)/g;
+  const lines = source.split("\n");
+  let inString = false;
+  let stringChar = "";
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let modifiedLine = line;
+    for (let j = 0; j < modifiedLine.length; j++) {
+      const char = modifiedLine[j];
+      if ((char === '"' || char === "'") && (j === 0 || modifiedLine[j - 1] !== "\\")) {
+        if (!inString) {
+          inString = true;
+          stringChar = char;
+        } else if (char === stringChar) {
+          inString = false;
+        }
+      }
+    }
+    if (inString) {
+      modifiedLine += stringChar;
+      fixesApplied.push(`Line ${i + 1}: Added missing closing '${stringChar}'`);
+      hasChanges = true;
+    }
+    lines[i] = modifiedLine;
+  }
+  if (hasChanges) {
+    fixedCode = lines.join("\n");
+  }
+  const bracketCounts = countBrackets(fixedCode);
+  if (bracketCounts.unmatchedBraces > 0) {
+    for (let i = 0; i < bracketCounts.unmatchedBraces; i++) {
+      fixedCode += "\n}";
+    }
+    fixesApplied.push(`Added ${bracketCounts.unmatchedBraces} missing closing brace(s)`);
+    hasChanges = true;
+  }
+  if (bracketCounts.unmatchedParens > 0) {
+    fixesApplied.push(`Warning: ${bracketCounts.unmatchedParens} unmatched parenthesis(es) - manual fix required`);
+  }
+  if (bracketCounts.unmatchedBrackets > 0) {
+    fixesApplied.push(`Warning: ${bracketCounts.unmatchedBrackets} unmatched bracket(s) - manual fix required`);
+  }
+  return {
+    fixed: hasChanges,
+    original: source,
+    fixedCode,
+    fixesApplied
+  };
+}
+function countBrackets(code) {
+  let braces = 0;
+  let parens = 0;
+  let brackets = 0;
+  let inString = false;
+  let stringChar = "";
+  for (let i = 0; i < code.length; i++) {
+    const char = code[i];
+    if ((char === '"' || char === "'") && (i === 0 || code[i - 1] !== "\\")) {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (char === stringChar) {
+        inString = false;
+      }
+      continue;
+    }
+    if (inString) continue;
+    if (char === "/" && i + 1 < code.length) {
+      if (code[i + 1] === "/") {
+        while (i < code.length && code[i] !== "\n") i++;
+        continue;
+      }
+      if (code[i + 1] === "*") {
+        i += 2;
+        while (i < code.length - 1) {
+          if (code[i] === "*" && code[i + 1] === "/") {
+            i += 2;
+            break;
+          }
+          i++;
+        }
+        continue;
+      }
+    }
+    switch (char) {
+      case "{":
+        braces++;
+        break;
+      case "}":
+        braces--;
+        break;
+      case "(":
+        parens++;
+        break;
+      case ")":
+        parens--;
+        break;
+      case "[":
+        brackets++;
+        break;
+      case "]":
+        brackets--;
+        break;
+    }
+  }
+  return {
+    unmatchedBraces: Math.max(0, braces),
+    unmatchedParens: Math.max(0, parens),
+    unmatchedBrackets: Math.max(0, brackets)
+  };
+}
+
+// src/gsc/outline.ts
+function outline(source) {
+  const { tokens } = tokenize(source);
+  const sourceLines = source.split("\n");
+  const len = tokens.length;
+  const functions = [];
+  const includes = [];
+  const threads = [];
+  const events = [];
+  const seenProps = /* @__PURE__ */ new Map();
+  let braceDepth = 0;
+  function nextOf(from) {
+    for (let k = from; k < len; k++) {
+      const t = tokens[k];
+      if (t.type !== "COMMENT" /* COMMENT */ && t.type !== "BLOCK_COMMENT" /* BLOCK_COMMENT */ && t.type !== "EOF" /* EOF */) {
+        return k;
+      }
+    }
+    return -1;
+  }
+  for (let i = 0; i < len; i++) {
+    const tok = tokens[i];
+    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
+      braceDepth++;
+      continue;
+    }
+    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (braceDepth === 0 && tok.type === "IDENTIFIER" /* IDENTIFIER */) {
+      const parenIdx = nextOf(i + 1);
+      if (parenIdx === -1 || tokens[parenIdx].type !== "LEFT_PAREN" /* LEFT_PAREN */) continue;
+      const params = [];
+      let j = parenIdx + 1;
+      let depth = 1;
+      while (j < len && depth > 0) {
+        const t = tokens[j];
+        if (t.type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
+        else if (t.type === "RIGHT_PAREN" /* RIGHT_PAREN */) {
+          depth--;
+          if (depth === 0) break;
+        } else if (depth === 1 && t.type === "IDENTIFIER" /* IDENTIFIER */) {
+          params.push(t.value);
+        }
+        j++;
+      }
+      const braceIdx = nextOf(j + 1);
+      if (braceIdx !== -1 && tokens[braceIdx].type === "LEFT_BRACE" /* LEFT_BRACE */) {
+        functions.push({ name: tok.value, params, line: tok.line });
+        i = braceIdx - 1;
+      }
+      continue;
+    }
+    if (tok.type === "HASH" /* HASH */ && (tok.value === "include" || tok.value.startsWith("using"))) {
+      const lineIdx = tok.line - 1;
+      if (lineIdx >= 0 && lineIdx < sourceLines.length) {
+        const lineText = sourceLines[lineIdx];
+        const m = lineText.match(/#\w+\s+(.+?)(?:\s*;.*)?$/);
+        if (m) {
+          includes.push({ path: m[1].trim(), line: tok.line });
+        }
+      }
+      continue;
+    }
+    if (tok.type === "KEYWORD" /* KEYWORD */ && tok.value === "thread") {
+      let entity = null;
+      if (i > 0) {
+        const prev = tokens[i - 1];
+        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
+          entity = prev.value;
+        }
+      }
+      const nxt = nextOf(i + 1);
+      if (nxt !== -1) {
+        let funcName = "";
+        let j = nxt;
+        while (j < len && tokens[j].type !== "LEFT_PAREN" /* LEFT_PAREN */ && tokens[j].type !== "SEMICOLON" /* SEMICOLON */ && tokens[j].type !== "EOF" /* EOF */) {
+          funcName += tokens[j].value;
+          j++;
+        }
+        funcName = funcName.trim();
+        if (funcName) {
+          threads.push({ funcName, entity, line: tok.line });
+        }
+      }
+      continue;
+    }
+    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "waittill" || tok.value === "notify" || tok.value === "endon" || tok.value === "waittillmatch")) {
+      let entity = null;
+      if (i > 0) {
+        const prev = tokens[i - 1];
+        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
+          entity = prev.value;
+        }
+      }
+      let eventName = null;
+      const nxt = nextOf(i + 1);
+      if (nxt !== -1 && tokens[nxt].type === "LEFT_PAREN" /* LEFT_PAREN */) {
+        const argIdx = nextOf(nxt + 1);
+        if (argIdx !== -1 && tokens[argIdx].type === "STRING" /* STRING */) {
+          eventName = tokens[argIdx].value;
+        }
+      }
+      events.push({
+        type: tok.value,
+        entity,
+        eventName,
+        line: tok.line
+      });
+      continue;
+    }
+    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "level" || tok.value === "self" || tok.value === "game")) {
+      const dotIdx = nextOf(i + 1);
+      if (dotIdx === -1 || tokens[dotIdx].type !== "DOT" /* DOT */) continue;
+      const propIdx = nextOf(dotIdx + 1);
+      if (propIdx === -1 || tokens[propIdx].type !== "IDENTIFIER" /* IDENTIFIER */) continue;
+      const eqIdx = nextOf(propIdx + 1);
+      if (eqIdx !== -1 && tokens[eqIdx].type === "EQUAL" /* EQUAL */) {
+        const key = `${tok.value}.${tokens[propIdx].value}`;
+        if (!seenProps.has(key)) {
+          seenProps.set(key, {
+            object: tok.value,
+            property: tokens[propIdx].value,
+            line: tok.line
+          });
+        }
+      }
+    }
+  }
+  return {
+    functions,
+    includes,
+    threads,
+    events,
+    props: Array.from(seenProps.values())
+  };
+}
+function formatOutline(result, source) {
+  const totalLines = source.split("\n").length;
+  let out = `\u{1F4CB} GSC Outline (${totalLines} lines)
+
+`;
+  if (result.includes.length > 0) {
+    out += `\u{1F4E6} Includes (${result.includes.length}):
+`;
+    for (const inc of result.includes) {
+      out += `  #include ${inc.path}
+`;
+    }
+    out += "\n";
+  }
+  if (result.functions.length > 0) {
+    out += `\u{1F527} Functions (${result.functions.length}):
+`;
+    const nameWidth = Math.max(...result.functions.map((f) => f.name.length + f.params.join(", ").length + 2));
+    for (const fn of result.functions) {
+      const sig = `${fn.name}(${fn.params.join(", ")})`;
+      out += `  ${sig.padEnd(Math.min(nameWidth, 40))}  line ${fn.line}
+`;
+    }
+    out += "\n";
+  } else {
+    out += `\u{1F527} Functions: none found
+
+`;
+  }
+  if (result.threads.length > 0) {
+    const seen = /* @__PURE__ */ new Set();
+    const unique = result.threads.filter((t) => {
+      if (seen.has(t.funcName)) return false;
+      seen.add(t.funcName);
+      return true;
+    });
+    out += `\u{1F9F5} Threads spawned (${result.threads.length} calls, ${unique.length} unique):
+`;
+    for (const t of unique) {
+      const prefix = t.entity ? `${t.entity} thread ` : "thread ";
+      out += `  ${prefix}${t.funcName}()  line ${t.line}
+`;
+    }
+    out += "\n";
+  }
+  if (result.events.length > 0) {
+    out += `\u{1F4E1} Events (${result.events.length}):
+`;
+    for (const ev of result.events) {
+      const eventLabel = ev.eventName ? `"${ev.eventName}"` : "(dynamic)";
+      const entityLabel = ev.entity ? `${ev.entity} ` : "";
+      out += `  ${ev.type.padEnd(12)}  ${entityLabel}${eventLabel}  line ${ev.line}
+`;
+    }
+    out += "\n";
+  }
+  if (result.props.length > 0) {
+    out += `\u{1F511} Shared state (${result.props.length} unique properties, first assignment):
+`;
+    const byObj = {};
+    for (const p of result.props) {
+      (byObj[p.object] ??= []).push(p);
+    }
+    for (const obj of ["level", "self", "game"]) {
+      if (!byObj[obj]) continue;
+      for (const p of byObj[obj]) {
+        out += `  ${obj}.${p.property.padEnd(24)}  line ${p.line}
+`;
+      }
+    }
+  }
+  return out.trimEnd();
+}
 
 // src/gsc/tools.ts
 var gscBuiltinsCache = null;
@@ -26315,6 +26831,124 @@ ${code}
 \`\`\``
         }]
       };
+    }
+  );
+  server2.registerTool(
+    "gsc_fix",
+    {
+      title: "Auto-fix GSC Syntax Errors",
+      description: "Attempts to auto-fix common GSC syntax errors: unmatched braces, unterminated strings, and missing closing brackets. Returns the fixed code and a list of changes made. Use after gsc_lint reports fixable errors. Set write_back=true to write the fix directly to a file path.",
+      inputSchema: {
+        path: external_exports.string().optional().describe(
+          "Path to .gsc file to fix. Either this or content must be provided."
+        ),
+        content: external_exports.string().optional().describe(
+          "GSC source code to fix directly. Either this or path must be provided."
+        ),
+        write_back: external_exports.boolean().optional().default(false).describe(
+          "If true and path is provided, write the fixed code back to the file."
+        )
+      }
+    },
+    async ({ path: filePath, content, write_back }) => {
+      let source;
+      if (filePath) {
+        const resolved = path6.resolve(filePath);
+        if (!fs3.existsSync(resolved)) {
+          return {
+            content: [{ type: "text", text: `\u274C File not found: ${resolved}` }]
+          };
+        }
+        try {
+          source = fs3.readFileSync(resolved, "utf-8");
+        } catch (e) {
+          return {
+            content: [{ type: "text", text: `\u274C Error reading file: ${e}` }]
+          };
+        }
+      } else if (content) {
+        source = content;
+      } else {
+        return {
+          content: [{ type: "text", text: "\u274C Either path or content must be provided" }]
+        };
+      }
+      const result = fix(source);
+      let output;
+      if (!result.fixed) {
+        output = "\u2139\uFE0F  No auto-fixable issues found.\n\nRun gsc_lint for a full diagnostic report.";
+      } else {
+        output = `\u2705 Fixed ${result.fixesApplied.length} issue(s):
+`;
+        for (const change of result.fixesApplied) {
+          output += `  \u2022 ${change}
+`;
+        }
+        output += `
+**Fixed code:**
+\`\`\`gsc
+${result.fixedCode}
+\`\`\``;
+        if (write_back && filePath) {
+          try {
+            fs3.writeFileSync(path6.resolve(filePath), result.fixedCode, "utf-8");
+            output += `
+
+\u270D\uFE0F  Written back to: ${filePath}`;
+          } catch (e) {
+            output += `
+
+\u274C Write failed: ${e}`;
+          }
+        }
+      }
+      return { content: [{ type: "text", text: output }] };
+    }
+  );
+  server2.registerTool(
+    "gsc_outline",
+    {
+      title: "GSC File Outline",
+      description: "Parses a GSC file and returns its structural skeleton: function definitions (name, params, line), #include directives, thread calls, event listeners (waittill/notify/endon), and shared-state property assignments (level.x, self.x, game.x). Use this BEFORE editing a GSC file to understand its structure and avoid accidentally deleting functions or breaking event chains.",
+      inputSchema: {
+        path: external_exports.string().optional().describe(
+          "Path to .gsc file to outline. Either this or content must be provided."
+        ),
+        content: external_exports.string().optional().describe(
+          "GSC source code to outline directly. Either this or path must be provided."
+        )
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
+      }
+    },
+    async ({ path: filePath, content }) => {
+      let source;
+      if (filePath) {
+        const resolved = path6.resolve(filePath);
+        if (!fs3.existsSync(resolved)) {
+          return {
+            content: [{ type: "text", text: `\u274C File not found: ${resolved}` }]
+          };
+        }
+        try {
+          source = fs3.readFileSync(resolved, "utf-8");
+        } catch (e) {
+          return {
+            content: [{ type: "text", text: `\u274C Error reading file: ${e}` }]
+          };
+        }
+      } else if (content) {
+        source = content;
+      } else {
+        return {
+          content: [{ type: "text", text: "\u274C Either path or content must be provided" }]
+        };
+      }
+      const result = outline(source);
+      const formatted = formatOutline(result, source);
+      return { content: [{ type: "text", text: formatted }] };
     }
   );
 }
