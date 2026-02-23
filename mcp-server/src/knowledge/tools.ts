@@ -23,9 +23,12 @@ export interface Dvar {
   name: string;
   type: string;
   default: string;
+  flags?: string[];
   category: string;
   subcategory?: string;
+  context?: string;
   description?: string;
+  fps_impact?: string;
 }
 
 // ---------------------------------------------------------------------------

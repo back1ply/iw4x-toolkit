@@ -56,7 +56,7 @@
 ### Remaining (Phase 1 Finish Line)
 *Before moving to advanced tools, we must finish enriching the foundational data.*
 
-- [ ] Build `knowledge/gsc-builtins.json` — GSC built-in function reference. Primary source: CoD4/WaW official docs. *(Partial research already collected — see `tasks/gsc-builtins-research.md`.)*
+- [x] Build `knowledge/gsc-builtins.json` — GSC built-in function reference. v1.1.0, 80 functions. Source: X-Labs, CoD4x, Zeroy wikis.
 - [ ] Build `knowledge/menu-properties.json` — valid menuDef/itemDef properties
 - [ ] Enrich more DVARs — currently 89/1,731 have manual descriptions. Priority targets:
   - [ ] All `sm_*` shadow map DVARs (12 total, only 6 enriched)

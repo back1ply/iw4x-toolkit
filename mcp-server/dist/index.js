@@ -24479,7 +24479,7 @@ Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`
     "iwd_sync",
     {
       title: "Sync Workspace to Existing Archive (Partial Update)",
-      description: "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. crucial: It leaves all other files in the archive untouched. Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
+      description: "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. Crucially, it leaves all other files in the archive untouched. Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
       inputSchema: {
         source_dir: external_exports.string().describe("Folder with modified loose files"),
         dest_path: external_exports.string().describe("The existing .iwd file to update"),
@@ -26220,9 +26220,9 @@ function registerGscTools(server2) {
         output += "\n";
         if (func.description) output += `  ${func.description}
 `;
-        if (func.parameters) output += `  Params: ${func.parameters}
+        if (func.parameters) output += `  Params: ${func.parameters.map((p) => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}
 `;
-        if (func.returns) output += `  Returns: ${func.returns}
+        if (func.returnType) output += `  Returns: ${func.returnType}
 `;
         output += "\n";
       }
@@ -26348,7 +26348,7 @@ async function cleanupOrphanedTempFiles() {
 }
 var server = new McpServer({
   name: "iw4x-toolkit",
-  version: "1.0.0"
+  version: "1.0.1"
 });
 registerIwdTools(server);
 registerKnowledgeTools(server);

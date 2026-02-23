@@ -20,9 +20,9 @@ interface GscBuiltin {
   name: string;
   description?: string;
   category?: string;
-  parameters?: string;
-  returns?: string;
-  engine?: string;
+  parameters?: { name: string; type: string; optional?: boolean }[];
+  returnType?: string;
+  engines?: string[];
 }
 
 /**
@@ -285,8 +285,8 @@ export function registerGscTools(server: McpServer): void {
         if (func.category) output += ` [${func.category}]`;
         output += "\n";
         if (func.description) output += `  ${func.description}\n`;
-        if (func.parameters) output += `  Params: ${func.parameters}\n`;
-        if (func.returns) output += `  Returns: ${func.returns}\n`;
+        if (func.parameters) output += `  Params: ${func.parameters.map(p => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}\n`;
+        if (func.returnType) output += `  Returns: ${func.returnType}\n`;
         output += "\n";
       }
 

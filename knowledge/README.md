@@ -9,9 +9,9 @@ A comprehensive list of MW2 DVARs (Console Variables).
 - **Source**: `bloodbourne/M2-dvars-list` + Engine Analysis
 - **Usage**: Used by the `dvar_search` tool to find variables, types, and defaults.
 
-### `gsc-builtins.json` *(Planned — not yet created)*
+### `gsc-builtins.json`
 A definitions file for GSC (Game Script) built-in functions.
-- **Status**: Research in progress. See `tasks/gsc-builtins-research.md` for collected data and next steps.
+- **Status**: Available — v1.1.0, 80 functions compiled from X-Labs, CoD4x, and Zeroy wikis.
 - **Source**: Manual compilation from X-Labs, CoD4x, and Zeroy wikis.
 - **Schema**:
   ```json
@@ -19,14 +19,14 @@ A definitions file for GSC (Game Script) built-in functions.
     "name": "function_name",
     "returnType": "void|int|float|string|entity|array|bool",
     "parameters": [
-      { "name": "arg1", "type": "type", "optional": boolean }
+      { "name": "arg1", "type": "type", "optional": false }
     ],
-    "engines": ["cod4", "iw4", "cod4x", "iw4x"], // Compatibility tags
+    "engines": ["cod4", "iw4", "cod4x", "iw4x"],
     "description": "Short description of behavior.",
     "category": "category_name"
   }
   ```
-- **Goal**: To serve as the source of truth for the future GSC Linter and Autocomplete features.
+- **Goal**: Source of truth for the GSC Linter (`gsc_lint`) and the `gsc_lookup` tool.
 
 ## Contributing
 To add new functions:

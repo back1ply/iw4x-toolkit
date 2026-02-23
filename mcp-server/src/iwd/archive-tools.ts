@@ -206,7 +206,7 @@ export function registerArchiveTools(server: McpServer): void {
       title: "Sync Workspace to Existing Archive (Partial Update)",
       description:
         "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. " +
-        "crucial: It leaves all other files in the archive untouched. " +
+        "Crucially, it leaves all other files in the archive untouched. " +
         "Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
       inputSchema: {
         source_dir: z.string().describe("Folder with modified loose files"),

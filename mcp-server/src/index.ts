@@ -91,7 +91,7 @@ async function cleanupOrphanedTempFiles(): Promise<void> {
 
 export const server = new McpServer({
   name: "iw4x-toolkit",
-  version: "1.0.0",
+  version: "1.0.1",
 });
 
 registerIwdTools(server);
