@@ -447,6 +447,165 @@ export class GSCLinter {
         // Could be accessing a property on potentially undefined entity
         // This is a heuristic - might have false positives
       }
+
+      // --- IW4-specific anti-patterns (PAT-010 to PAT-024, all errors) ---
+
+      // PAT-010: No `function` keyword for definitions
+      if (/\bfunction\s+\w+\s*\(/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-010",
+          message: "IW4 GSC does not support the `function` keyword. Write `myFunc() {}` not `function myFunc() {}`",
+          line: lineNum, column: 0, length: line.trimStart().length,
+        });
+      }
+
+      // PAT-011: No var/let/const declarations
+      const varMatch011 = line.match(/\b(var|let|const)\s+\w/);
+      if (varMatch011) {
+        this.errors.push({
+          type: "error", code: "PAT-011",
+          message: `IW4 GSC does not support '${varMatch011[1]}'. Use plain assignment: x = 5;`,
+          line: lineNum, column: line.indexOf(varMatch011[0]), length: varMatch011[1].length,
+        });
+      }
+
+      // PAT-012: No .push()/.pop() array methods
+      const pushMatch012 = line.match(/\.(push|pop|shift|unshift|splice)\s*\(/);
+      if (pushMatch012) {
+        const fix012 = pushMatch012[1] === "push"
+          ? "use arr[arr.size] = item;"
+          : "no direct equivalent — rethink with indexed loop";
+        this.errors.push({
+          type: "error", code: "PAT-012",
+          message: `IW4 GSC does not support .${pushMatch012[1]}(). ${fix012}`,
+          line: lineNum, column: line.indexOf(pushMatch012[0]), length: pushMatch012[0].length,
+        });
+      }
+
+      // PAT-013: No .length property — use .size
+      if (/\.length\b/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-013",
+          message: "IW4 GSC uses .size not .length for array/string length",
+          line: lineNum, column: line.indexOf(".length"), length: 7,
+        });
+      }
+
+      // PAT-014: No strict equality operators
+      if (/===|!==/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-014",
+          message: "IW4 GSC does not support === or !==. Use == or != instead",
+          line: lineNum, column: Math.max(0, line.search(/===|!==/)), length: 3,
+        });
+      }
+
+      // PAT-015: No ternary operator
+      if (/[^?!<>=]\?[^?.?]/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-015",
+          message: "IW4 GSC does not support the ternary operator (?:). Use if/else instead",
+          line: lineNum, column: Math.max(0, line.search(/[^?!<>=]\?[^?.]/)), length: 1,
+        });
+      }
+
+      // PAT-016: No arrow functions
+      if (/=>/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-016",
+          message: "IW4 GSC does not support arrow functions (=>). Use named functions",
+          line: lineNum, column: line.indexOf("=>"), length: 2,
+        });
+      }
+
+      // PAT-017: No object literal syntax { key: value }
+      if (/[=(,]\s*\{[^}]*\w+\s*:/.test(line) || /\breturn\s+\{[^}]*\w+\s*:/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-017",
+          message: "IW4 GSC does not support object literals {key: value}. Use spawnstruct() then assign properties",
+          line: lineNum, column: 0, length: line.trimStart().length,
+        });
+      }
+
+      // PAT-018: No null literal
+      if (/\bnull\b/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-018",
+          message: "IW4 GSC does not have 'null'. Use !isDefined(x) to test for undefined variables",
+          line: lineNum, column: Math.max(0, line.search(/\bnull\b/)), length: 4,
+        });
+      }
+
+      // PAT-019: No JS Math/parseInt/parseFloat globals
+      const jsGlobal019 = line.match(/\b(Math\.\w+|parseInt|parseFloat|Number\s*\(|Boolean\s*\(|JSON\.)\s*/);
+      if (jsGlobal019) {
+        const name019 = jsGlobal019[1].replace(/\s*$/, "");
+        const alt019 = name019 === "parseInt" ? "int()" :
+                       name019 === "parseFloat" ? "float()" :
+                       name019.startsWith("Math.floor") ? "int()" :
+                       name019.startsWith("Math.") ? "a built-in GSC math function (randomint, sin, cos, etc.)" :
+                       "GSC equivalent";
+        this.errors.push({
+          type: "error", code: "PAT-019",
+          message: `'${name019}' is a JavaScript global not available in IW4 GSC. Use ${alt019}`,
+          line: lineNum, column: line.indexOf(jsGlobal019[0]), length: jsGlobal019[0].trimEnd().length,
+        });
+      }
+
+      // PAT-020: No template literals (backticks)
+      if (line.includes("`")) {
+        this.errors.push({
+          type: "error", code: "PAT-020",
+          message: 'IW4 GSC does not support template literals (`). Use string concatenation: "Hello " + name',
+          line: lineNum, column: line.indexOf("`"), length: 1,
+        });
+      }
+
+      // PAT-021: No `new` keyword
+      if (/\bnew\s+\w/.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-021",
+          message: "IW4 GSC does not support the `new` keyword. Use spawnstruct() to create objects",
+          line: lineNum, column: Math.max(0, line.search(/\bnew\s+\w/)), length: 3,
+        });
+      }
+
+      // PAT-022: No `this.` references
+      if (/\bthis\./.test(line)) {
+        this.errors.push({
+          type: "error", code: "PAT-022",
+          message: "IW4 GSC does not have 'this'. Use 'self' for the current entity context",
+          line: lineNum, column: Math.max(0, line.search(/\bthis\./)), length: 5,
+        });
+      }
+
+      // PAT-023: No for...of or functional iteration (.forEach/.map/.filter)
+      const iterMatch023 = line.match(/\bfor\s*\([^)]*\bof\b|\b(forEach|\.map|\.filter|\.reduce)\s*\(/);
+      if (iterMatch023) {
+        this.errors.push({
+          type: "error", code: "PAT-023",
+          message: "IW4 GSC does not support for...of or .forEach. Use: for(i=0; i<arr.size; i++)",
+          line: lineNum, column: 0, length: line.trimStart().length,
+        });
+      }
+
+      // PAT-024: No JS string/array methods (.concat, .join, .indexOf, etc.)
+      const strMethod024 = line.match(/\.(concat|join|slice|indexOf|includes|startsWith|endsWith|split|trim|replace)\s*\(/);
+      if (strMethod024) {
+        const alts024: Record<string, string> = {
+          concat: "use + operator for strings",
+          indexOf: "use strtok() or manual loop",
+          split: "use strtok()",
+          trim: "no equivalent — avoid extra whitespace",
+          replace: "no equivalent — rethink approach",
+        };
+        const alt024 = alts024[strMethod024[1]] ?? "no direct equivalent in IW4 GSC";
+        this.errors.push({
+          type: "error", code: "PAT-024",
+          message: `IW4 GSC does not support .${strMethod024[1]}(). ${alt024}`,
+          line: lineNum, column: line.indexOf(strMethod024[0]), length: strMethod024[0].length,
+        });
+      }
     }
 
     // Check for unreachable code after return/break/continue

@@ -155,9 +155,11 @@ function test()
   if(true)
     println("hello");
 `);
-      // This is valid GSC actually, so no error expected
+      // This is valid GSC actually, so no brace-related error expected
       // (GSC doesn't require braces for single statements)
-      expect(result.errors.filter(e => e.type === "error")).toHaveLength(0);
+      // PAT-010 fires on the `function` keyword (JS syntax, not a brace issue) — exclude it here
+      const braceErrors = result.errors.filter(e => e.type === "error" && e.code !== "PAT-010");
+      expect(braceErrors).toHaveLength(0);
     });
   });
 
@@ -349,6 +351,96 @@ function test()
       const result = await lint(code);
       expect(result.stats.errors).toBeGreaterThanOrEqual(0);
       expect(result.stats.warnings).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe("IW4 anti-pattern rules", () => {
+    it("PAT-010: catches function keyword", async () => {
+      const result = await lint('function init() { iprintln("hi"); }');
+      const codes = result.errors.map(e => e.code);
+      expect(codes).toContain("PAT-010");
+    });
+
+    it("PAT-011: catches var/let/const", async () => {
+      const r1 = await lint("var x = 5;");
+      expect(r1.errors.map(e => e.code)).toContain("PAT-011");
+      const r2 = await lint("let y = 5;");
+      expect(r2.errors.map(e => e.code)).toContain("PAT-011");
+      const r3 = await lint("const z = 5;");
+      expect(r3.errors.map(e => e.code)).toContain("PAT-011");
+    });
+
+    it("PAT-012: catches .push() and .pop()", async () => {
+      const r1 = await lint("arr.push(item);");
+      expect(r1.errors.map(e => e.code)).toContain("PAT-012");
+      const r2 = await lint("arr.pop();");
+      expect(r2.errors.map(e => e.code)).toContain("PAT-012");
+    });
+
+    it("PAT-013: catches .length", async () => {
+      const result = await lint("x = arr.length;");
+      expect(result.errors.map(e => e.code)).toContain("PAT-013");
+    });
+
+    it("PAT-014: catches === and !==", async () => {
+      const r1 = await lint("if (x === 5) {}");
+      expect(r1.errors.map(e => e.code)).toContain("PAT-014");
+      const r2 = await lint("if (x !== 5) {}");
+      expect(r2.errors.map(e => e.code)).toContain("PAT-014");
+    });
+
+    it("PAT-015: catches ternary operator", async () => {
+      const result = await lint("x = (a > 0) ? 1 : 0;");
+      expect(result.errors.map(e => e.code)).toContain("PAT-015");
+    });
+
+    it("PAT-016: catches arrow functions", async () => {
+      const result = await lint("fn = (x) => x + 1;");
+      expect(result.errors.map(e => e.code)).toContain("PAT-016");
+    });
+
+    it("PAT-017: catches object literals", async () => {
+      const result = await lint("obj = { x: 1, y: 2 };");
+      expect(result.errors.map(e => e.code)).toContain("PAT-017");
+    });
+
+    it("PAT-018: catches null literal", async () => {
+      const result = await lint("if (x == null) {}");
+      expect(result.errors.map(e => e.code)).toContain("PAT-018");
+    });
+
+    it("PAT-019: catches JS globals", async () => {
+      const r1 = await lint("x = parseInt(str);");
+      expect(r1.errors.map(e => e.code)).toContain("PAT-019");
+      const r2 = await lint("x = Math.floor(y);");
+      expect(r2.errors.map(e => e.code)).toContain("PAT-019");
+    });
+
+    it("PAT-020: catches template literals", async () => {
+      const result = await lint("s = `hello ${name}`;");
+      expect(result.errors.map(e => e.code)).toContain("PAT-020");
+    });
+
+    it("PAT-021: catches new keyword", async () => {
+      const result = await lint("obj = new Object();");
+      expect(result.errors.map(e => e.code)).toContain("PAT-021");
+    });
+
+    it("PAT-022: catches this.", async () => {
+      const result = await lint("x = this.health;");
+      expect(result.errors.map(e => e.code)).toContain("PAT-022");
+    });
+
+    it("PAT-023: catches forEach", async () => {
+      const result = await lint("players.forEach(fn);");
+      expect(result.errors.map(e => e.code)).toContain("PAT-023");
+    });
+
+    it("PAT-024: catches .concat() and .join()", async () => {
+      const r1 = await lint('s = "a".concat("b");');
+      expect(r1.errors.map(e => e.code)).toContain("PAT-024");
+      const r2 = await lint('s = arr.join(", ");');
+      expect(r2.errors.map(e => e.code)).toContain("PAT-024");
     });
   });
 });

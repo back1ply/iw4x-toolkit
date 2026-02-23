@@ -53,7 +53,7 @@ describe("GSC Tools", () => {
       const result = await client.callTool({
         name: "gsc_lint",
         arguments: {
-          content: 'function test() {\n  iprintln("hello");\n}'
+          content: 'test() {\n  iprintln("hello");\n}'
         }
       });
       expect(result.isError).toBeFalsy();
@@ -93,7 +93,7 @@ describe("GSC Tools", () => {
 
     it("works with file path input", async () => {
       const gscPath = path.join(tmpDir, "test.gsc");
-      fs.writeFileSync(gscPath, 'function test() {\n  iprintln("hello");\n}');
+      fs.writeFileSync(gscPath, 'test() {\n  iprintln("hello");\n}');
 
       const result = await client.callTool({
         name: "gsc_lint",
