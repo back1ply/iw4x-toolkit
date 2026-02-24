@@ -26042,6 +26042,172 @@ var GSCLinter = class {
       }
       if (line.includes(".") && !line.includes("isdefined") && !line.includes("isDefined")) {
       }
+      if (/\bfunction\s+\w+\s*\(/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-010",
+          message: "IW4 GSC does not support the `function` keyword. Write `myFunc() {}` not `function myFunc() {}`",
+          line: lineNum,
+          column: 0,
+          length: line.trimStart().length
+        });
+      }
+      const varMatch011 = line.match(/\b(var|let|const)\s+\w/);
+      if (varMatch011) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-011",
+          message: `IW4 GSC does not support '${varMatch011[1]}'. Use plain assignment: x = 5;`,
+          line: lineNum,
+          column: line.indexOf(varMatch011[0]),
+          length: varMatch011[1].length
+        });
+      }
+      const pushMatch012 = line.match(/\.(push|pop|shift|unshift|splice)\s*\(/);
+      if (pushMatch012) {
+        const fix012 = pushMatch012[1] === "push" ? "use arr[arr.size] = item;" : "no direct equivalent \u2014 rethink with indexed loop";
+        this.errors.push({
+          type: "error",
+          code: "PAT-012",
+          message: `IW4 GSC does not support .${pushMatch012[1]}(). ${fix012}`,
+          line: lineNum,
+          column: line.indexOf(pushMatch012[0]),
+          length: pushMatch012[0].length
+        });
+      }
+      if (/\.length\b/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-013",
+          message: "IW4 GSC uses .size not .length for array/string length",
+          line: lineNum,
+          column: line.indexOf(".length"),
+          length: 7
+        });
+      }
+      if (/===|!==/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-014",
+          message: "IW4 GSC does not support === or !==. Use == or != instead",
+          line: lineNum,
+          column: Math.max(0, line.search(/===|!==/)),
+          length: 3
+        });
+      }
+      if (/\s\?\s/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-015",
+          message: "IW4 GSC does not support the ternary operator (?:). Use if/else instead",
+          line: lineNum,
+          column: Math.max(0, line.search(/\s\?\s/) + 1),
+          length: 1
+        });
+      }
+      if (/=>/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-016",
+          message: "IW4 GSC does not support arrow functions (=>). Use named functions",
+          line: lineNum,
+          column: line.indexOf("=>"),
+          length: 2
+        });
+      }
+      if (/[=(,]\s*\{[^}]*\w+\s*:/.test(line) || /\breturn\s+\{[^}]*\w+\s*:/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-017",
+          message: "IW4 GSC does not support object literals {key: value}. Use spawnstruct() then assign properties",
+          line: lineNum,
+          column: 0,
+          length: line.trimStart().length
+        });
+      }
+      if (/\bnull\b/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-018",
+          message: "IW4 GSC does not have 'null'. Use !isDefined(x) to test for undefined variables",
+          line: lineNum,
+          column: Math.max(0, line.search(/\bnull\b/)),
+          length: 4
+        });
+      }
+      const jsGlobal019 = line.match(/\b(Math\.\w+|parseInt|parseFloat|Number\s*\(|Boolean\s*\(|JSON\.)\s*/);
+      if (jsGlobal019) {
+        const name019 = jsGlobal019[1].replace(/\s*$/, "");
+        const alt019 = name019 === "parseInt" ? "int()" : name019 === "parseFloat" ? "float()" : name019.startsWith("Math.floor") ? "int()" : name019.startsWith("Math.") ? "a built-in GSC math function (randomint, sin, cos, etc.)" : "GSC equivalent";
+        this.errors.push({
+          type: "error",
+          code: "PAT-019",
+          message: `'${name019}' is a JavaScript global not available in IW4 GSC. Use ${alt019}`,
+          line: lineNum,
+          column: line.indexOf(jsGlobal019[0]),
+          length: jsGlobal019[0].trimEnd().length
+        });
+      }
+      if (line.includes("`")) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-020",
+          message: 'IW4 GSC does not support template literals (`). Use string concatenation: "Hello " + name',
+          line: lineNum,
+          column: line.indexOf("`"),
+          length: 1
+        });
+      }
+      if (/\bnew\s+\w/.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-021",
+          message: "IW4 GSC does not support the `new` keyword. Use spawnstruct() to create objects",
+          line: lineNum,
+          column: Math.max(0, line.search(/\bnew\s+\w/)),
+          length: 3
+        });
+      }
+      if (/\bthis\./.test(line)) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-022",
+          message: "IW4 GSC does not have 'this'. Use 'self' for the current entity context",
+          line: lineNum,
+          column: Math.max(0, line.search(/\bthis\./)),
+          length: 5
+        });
+      }
+      const iterMatch023 = line.match(/\bfor\s*\([^)]*\bof\b|\b(forEach|\.map|\.filter|\.reduce)\s*\(/);
+      if (iterMatch023) {
+        this.errors.push({
+          type: "error",
+          code: "PAT-023",
+          message: "IW4 GSC does not support for...of or .forEach. Use: for(i=0; i<arr.size; i++)",
+          line: lineNum,
+          column: 0,
+          length: line.trimStart().length
+        });
+      }
+      const strMethod024 = line.match(/\.(concat|join|slice|indexOf|includes|startsWith|endsWith|split|trim|replace)\s*\(/);
+      if (strMethod024) {
+        const alts024 = {
+          concat: "use + operator for strings",
+          indexOf: "use strtok() or manual loop",
+          split: "use strtok()",
+          trim: "no equivalent \u2014 avoid extra whitespace",
+          replace: "no equivalent \u2014 rethink approach"
+        };
+        const alt024 = alts024[strMethod024[1]] ?? "no direct equivalent in IW4 GSC";
+        this.errors.push({
+          type: "error",
+          code: "PAT-024",
+          message: `IW4 GSC does not support .${strMethod024[1]}(). ${alt024}`,
+          line: lineNum,
+          column: line.indexOf(strMethod024[0]),
+          length: strMethod024[0].length
+        });
+      }
     }
     this.checkUnreachableCode();
   }
@@ -26530,6 +26696,24 @@ function formatOutline(result, source) {
 // src/gsc/tools.ts
 var gscBuiltinsCache = null;
 var templatesCache = null;
+var antiPatternsCache = null;
+function loadAntiPatterns() {
+  if (antiPatternsCache) return antiPatternsCache;
+  const filePath = getKnowledgeDir("gsc-anti-patterns.json");
+  if (!filePath) {
+    antiPatternsCache = [];
+    return antiPatternsCache;
+  }
+  try {
+    const raw = fs3.readFileSync(filePath, "utf-8");
+    const data = JSON.parse(raw);
+    antiPatternsCache = data.patterns ?? [];
+    return antiPatternsCache;
+  } catch {
+    antiPatternsCache = [];
+    return antiPatternsCache;
+  }
+}
 function loadGscBuiltins2() {
   if (gscBuiltinsCache) return gscBuiltinsCache;
   const filePath = getKnowledgeDir("gsc-builtins.json");
@@ -26949,6 +27133,93 @@ ${result.fixedCode}
       const result = outline(source);
       const formatted = formatOutline(result, source);
       return { content: [{ type: "text", text: formatted }] };
+    }
+  );
+  server2.registerTool(
+    "gsc_anti_patterns",
+    {
+      title: "GSC Anti-Patterns Reference",
+      description: "Search IW4 GSC anti-patterns: common mistakes from JS/BO3/modern languages with correct IW4 equivalents. Call this BEFORE writing code to check how to do something correctly in IW4. Returns wrong\u2192right pairs with explanations. Examples: query='push' for array append, query='null' for null checks, query='object' for struct creation, list=true to see all categories.",
+      inputSchema: {
+        query: external_exports.string().optional().describe(
+          "Search term (e.g. 'push', 'null', 'object', 'loop', 'event'). Not required if list=true."
+        ),
+        category: external_exports.string().optional().describe(
+          "Filter by category: syntax, arrays, objects, types, loops, events, entities"
+        ),
+        list: external_exports.boolean().optional().default(false).describe(
+          "If true, list all categories with entry counts instead of searching"
+        )
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
+      }
+    },
+    async ({ query, category, list }) => {
+      const patterns = loadAntiPatterns();
+      if (list || !query && !category) {
+        const counts = {};
+        for (const p of patterns) {
+          counts[p.category] = (counts[p.category] ?? 0) + 1;
+        }
+        if (Object.keys(counts).length === 0) {
+          return {
+            content: [{ type: "text", text: "No anti-patterns loaded. Check knowledge/gsc-anti-patterns.json." }]
+          };
+        }
+        let out2 = `\u{1F4DA} Anti-pattern categories (${patterns.length} total):
+
+`;
+        for (const [cat2, count] of Object.entries(counts).sort()) {
+          out2 += `  **${cat2}** \u2014 ${count} entries
+`;
+        }
+        out2 += "\nUse query='<term>' to search, or category='<name>' to filter.";
+        return { content: [{ type: "text", text: out2 }] };
+      }
+      const q = query?.toLowerCase() ?? "";
+      const cat = category?.toLowerCase();
+      const matches = patterns.filter((p) => {
+        const inCat = cat ? p.category === cat : true;
+        const inSearch = q ? p.title.toLowerCase().includes(q) || p.wrong.toLowerCase().includes(q) || p.right.toLowerCase().includes(q) || p.explanation.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) : true;
+        return inCat && inSearch;
+      });
+      if (matches.length === 0) {
+        return {
+          content: [{ type: "text", text: `No patterns found for '${query}'${cat ? ` in category '${cat}'` : ""}.
+Use list=true to see all categories.` }]
+        };
+      }
+      let out = `Found ${matches.length} pattern(s):
+
+`;
+      for (const p of matches.slice(0, 10)) {
+        out += `### ${p.id}: ${p.title} [${p.category}]
+
+`;
+        out += `**Wrong:**
+\`\`\`gsc
+${p.wrong}
+\`\`\`
+
+`;
+        out += `**Right:**
+\`\`\`gsc
+${p.right}
+\`\`\`
+
+`;
+        out += `**Why:** ${p.explanation}
+
+---
+
+`;
+      }
+      if (matches.length > 10) {
+        out += `...and ${matches.length - 10} more. Narrow your query.`;
+      }
+      return { content: [{ type: "text", text: out }] };
     }
   );
 }

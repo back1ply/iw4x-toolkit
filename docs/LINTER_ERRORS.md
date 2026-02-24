@@ -17,6 +17,21 @@ This document describes the error codes produced by the GSC linter in iw4x-toolk
 | VAR-001  | warning | Potentially undefined variable           | Using variable before definition |
 | FUN-001  | warning | Potentially undefined function           | Calling unknown function         |
 | PAT-001  | warning | Suspicious pattern detected              | isDefined() without using result |
+| PAT-010  | error   | `function` keyword in definition         | `function init() {}`             |
+| PAT-011  | error   | var/let/const declaration                | `var x = 5;`                     |
+| PAT-012  | error   | JS array method (.push/.pop)             | `arr.push(item)`                 |
+| PAT-013  | error   | .length on array/string                  | `arr.length`                     |
+| PAT-014  | error   | Strict equality operator                 | `x === 5`                        |
+| PAT-015  | error   | Ternary operator                         | `x > 0 ? a : b`                  |
+| PAT-016  | error   | Arrow function                           | `(x) => x + 1`                   |
+| PAT-017  | error   | Object literal syntax                    | `obj = {x: 1}`                   |
+| PAT-018  | error   | null literal                             | `if (x == null)`                 |
+| PAT-019  | error   | JavaScript global (Math/parseInt)        | `Math.floor(x)`                  |
+| PAT-020  | error   | Template literal (backtick)              | `` `hi ${name}` ``               |
+| PAT-021  | error   | new keyword                              | `new Object()`                   |
+| PAT-022  | error   | this. reference                          | `this.health`                    |
+| PAT-023  | error   | for...of or forEach                      | `arr.forEach(fn)`                |
+| PAT-024  | error   | JS string/array method                   | `"a".concat("b")`                |
 | STY-001  | info    | Style suggestion                         | Line exceeds 200 characters     |
 | STY-002  | info    | Style suggestion                         | Hardcoded value should be DVAR   |
 | FLOW-001 | warning | Unreachable code detected                | Code after return/break/continue|
@@ -372,3 +387,13 @@ The auto-fix function returns:
 - `original`: the original source code
 - `fixedCode`: the fixed source code (if fixes were applied)
 - `fixesApplied`: array of strings describing what was fixed
+
+## Anti-Pattern Detection
+
+The linter detects 15 IW4-specific anti-patterns (PAT-010 to PAT-024) that fire as errors.
+These catch common mistakes made by LLMs trained on JavaScript or BO3 GSC.
+
+For a searchable reference of wrong→right code pairs, use the `gsc_anti_patterns` MCP tool:
+- `gsc_anti_patterns(query="push")` — array append pattern
+- `gsc_anti_patterns(query="null")` — null check pattern
+- `gsc_anti_patterns(list=true)` — list all categories
