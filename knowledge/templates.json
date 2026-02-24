@@ -28,5 +28,44 @@
     "description": "Common array utility functions",
     "category": "utilities",
     "code": "getArraySize(array)\n{\n    if(!isdefined(array))\n        return 0;\n    \n    return array.size;\n}\n\nrandomizeArray(array)\n{\n    newArray = [];\n    \n    for(i = 0; i < array.size; i++)\n    {\n        newArray[newArray.size] = array[i];\n    }\n    \n    for(i = 0; i < newArray.size; i++)\n    {\n        j = randomint(newArray.size);\n        temp = newArray[i];\n        newArray[i] = newArray[j];\n        newArray[j] = temp;\n    }\n    \n    return newArray;\n}\n\nremoveFromArray(array, item)\n{\n    newArray = [];\n    \n    for(i = 0; i < array.size; i++)\n    {\n        if(array[i] != item)\n            newArray[newArray.size] = array[i];\n    }\n    \n    return newArray;\n}\n\ngetArrayKeys(array)\n{\n    keys = [];\n    \n    foreach(key, value in array)\n    {\n        keys[keys.size] = key;\n    }\n    \n    return keys;\n}"
+  },
+  "player_death": {
+    "description": "Player death callback — runs when self dies, captures killer and weapon",
+    "category": "callbacks",
+    "variables": { "FUNC_NAME": "onPlayerDeath" },
+    "code": "onPlayerDeath()\n{\n    self endon(\"disconnect\");\n    for (;;)\n    {\n        self waittill(\"death\", attacker, sHitLoc, sMeansOfDeath, sWeapon);\n        if (isDefined(attacker) && attacker != self)\n        {\n            // killed by another player\n        }\n        wait 1;\n    }\n}"
+  },
+  "player_damage": {
+    "description": "Player damage watcher — observes incoming damage events",
+    "category": "callbacks",
+    "code": "watchPlayerDamage()\n{\n    self endon(\"death\");\n    self endon(\"disconnect\");\n    for (;;)\n    {\n        self waittill(\"damage\", amount, attacker, sMeansOfDeath, sWeapon, sHitLoc);\n        // amount: damage dealt, attacker: entity that dealt it\n        // Restore some health to effectively reduce damage:\n        // self.health += int(amount * 0.5);\n    }\n}"
+  },
+  "chat_handler": {
+    "description": "Chat command handler loop — listens for !command style messages",
+    "category": "gameplay",
+    "variables": { "PREFIX": "!" },
+    "code": "watchChat()\n{\n    self endon(\"disconnect\");\n    for (;;)\n    {\n        self waittill(\"say\", message);\n        message = tolower(message);\n        if (message == \"!help\")\n        {\n            self iprintlnbold(\"Commands: !help\");\n        }\n        else if (message == \"!score\")\n        {\n            self iprintlnbold(\"Your score: \" + self.score);\n        }\n    }\n}"
+  },
+  "round_start_end": {
+    "description": "Round lifecycle callbacks — fires on game start and end",
+    "category": "gameplay",
+    "code": "watchRound()\n{\n    level waittill(\"start_game\");\n    onRoundStart();\n    level waittill(\"game_ended\");\n    onRoundEnd();\n}\n\nonRoundStart()\n{\n    level.roundTimer = gettime();\n    players = getplayers();\n    for (i = 0; i < players.size; i++)\n        players[i] iprintlnbold(\"Round started!\");\n}\n\nonRoundEnd()\n{\n    elapsed = (gettime() - level.roundTimer) / 1000;\n    println(\"Round lasted \" + elapsed + \" seconds\");\n}"
+  },
+  "timer_system": {
+    "description": "Countdown timer running in a thread, notifies when done",
+    "category": "utility",
+    "variables": { "EVENT": "timer_done" },
+    "code": "startCountdown(seconds)\n{\n    level thread runCountdown(seconds);\n}\n\nrunCountdown(seconds)\n{\n    level endon(\"game_ended\");\n    remaining = seconds;\n    while (remaining > 0)\n    {\n        wait 1;\n        remaining--;\n        if (remaining <= 10)\n        {\n            players = getplayers();\n            for (i = 0; i < players.size; i++)\n                players[i] iprintln(remaining + \"...\");\n        }\n    }\n    level notify(\"timer_done\");\n}"
+  },
+  "hud_element": {
+    "description": "HUD text element — create, update, and destroy a screen element",
+    "category": "hud",
+    "variables": { "FONT_SCALE": "1.5" },
+    "code": "createTimerHud()\n{\n    hud = newHudElem();\n    hud.x = 320;\n    hud.y = 30;\n    hud.alignX = \"center\";\n    hud.alignY = \"top\";\n    hud.horzAlign = \"center\";\n    hud.vertAlign = \"top\";\n    hud.fontScale = 1.5;\n    hud.color = (1, 1, 1);\n    hud.alpha = 1;\n    hud setText(\"00:00\");\n    return hud;\n}\n\nupdateTimerHud(hud, seconds)\n{\n    minutes = int(seconds / 60);\n    secs = seconds % 60;\n    timeStr = minutes + \":\";\n    if (secs < 10) timeStr += \"0\";\n    timeStr += secs;\n    hud setText(timeStr);\n}\n\ndestroyHud(hud)\n{\n    if (isDefined(hud))\n        hud destroy();\n}"
+  },
+  "player_score": {
+    "description": "Score and stat tracking — add points with kill/death recording",
+    "category": "gameplay",
+    "code": "initPlayerStats()\n{\n    if (!isDefined(self.kills))  self.kills  = 0;\n    if (!isDefined(self.deaths)) self.deaths = 0;\n    if (!isDefined(self.score))  self.score  = 0;\n}\n\naddScore(points)\n{\n    if (!isDefined(self.score)) self.score = 0;\n    self.score += points;\n    self iprintln(\"+\" + points + \" pts\");\n}\n\nrecordKill()\n{\n    if (!isDefined(self.kills)) self.kills = 0;\n    self.kills++;\n    self addScore(100);\n}\n\nrecordDeath()\n{\n    if (!isDefined(self.deaths)) self.deaths = 0;\n    self.deaths++;\n}"
   }
 }
