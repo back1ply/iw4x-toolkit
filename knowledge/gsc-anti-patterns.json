@@ -1,0 +1,245 @@
+{
+  "version": "1.0.0",
+  "patterns": [
+    {
+      "id": "AP-001",
+      "category": "syntax",
+      "title": "No function keyword",
+      "wrong": "function init() {\n    iprintln(\"hello\");\n}",
+      "right": "init()\n{\n    iprintln(\"hello\");\n}",
+      "explanation": "IW4 GSC does not use the `function` keyword. Just write the name followed by (). This is the same as CoD4 GSC."
+    },
+    {
+      "id": "AP-002",
+      "category": "syntax",
+      "title": "No var/let/const declarations",
+      "wrong": "var count = 0;\nlet name = \"player\";\nconst MAX = 10;",
+      "right": "count = 0;\nname = \"player\";\nMAX = 10;",
+      "explanation": "IW4 GSC has no variable declaration keywords. All variables are dynamically typed — just assign them."
+    },
+    {
+      "id": "AP-003",
+      "category": "syntax",
+      "title": "No ternary operator",
+      "wrong": "score = (kills > 0) ? kills * 100 : 0;",
+      "right": "if (kills > 0)\n    score = kills * 100;\nelse\n    score = 0;",
+      "explanation": "IW4 GSC does not support the ternary operator ?:. Use if/else."
+    },
+    {
+      "id": "AP-004",
+      "category": "syntax",
+      "title": "No arrow functions",
+      "wrong": "players.forEach(p => doSomething(p));",
+      "right": "players = getplayers();\nfor (i = 0; i < players.size; i++)\n    doSomething(players[i]);",
+      "explanation": "IW4 GSC does not support arrow functions (=>). Use named functions or inline for loops."
+    },
+    {
+      "id": "AP-005",
+      "category": "syntax",
+      "title": "No template literals",
+      "wrong": "msg = `Hello ${self.name}, you have ${self.score} points`;",
+      "right": "msg = \"Hello \" + self.name + \", you have \" + self.score + \" points\";",
+      "explanation": "IW4 GSC does not support template literals (backticks). Use + for string concatenation."
+    },
+    {
+      "id": "AP-006",
+      "category": "arrays",
+      "title": "No .push() — use indexed append",
+      "wrong": "myArray.push(newItem);",
+      "right": "myArray[myArray.size] = newItem;",
+      "explanation": "IW4 GSC arrays have no .push() method. Append by assigning to the index equal to .size."
+    },
+    {
+      "id": "AP-007",
+      "category": "arrays",
+      "title": "No .length — use .size",
+      "wrong": "count = myArray.length;",
+      "right": "count = myArray.size;",
+      "explanation": "IW4 GSC uses .size (not .length) to get the number of elements in an array or string."
+    },
+    {
+      "id": "AP-008",
+      "category": "arrays",
+      "title": "Iterating arrays — use indexed for loop",
+      "wrong": "for (player of getplayers()) {\n    player iprintlnbold(\"hi\");\n}",
+      "right": "players = getplayers();\nfor (i = 0; i < players.size; i++)\n{\n    players[i] iprintlnbold(\"hi\");\n}",
+      "explanation": "IW4 GSC does not support for...of iteration. Always use an indexed for loop with .size."
+    },
+    {
+      "id": "AP-009",
+      "category": "arrays",
+      "title": "No array destructuring",
+      "wrong": "first = myArray[0];\nsecond = myArray[1];",
+      "right": "first = myArray[0];\nsecond = myArray[1];",
+      "explanation": "IW4 GSC does not support destructuring assignment. Access array elements by index individually."
+    },
+    {
+      "id": "AP-010",
+      "category": "objects",
+      "title": "No object literals — use spawnstruct()",
+      "wrong": "data = { kills: 0, deaths: 0, score: 0 };",
+      "right": "data = spawnstruct();\ndata.kills = 0;\ndata.deaths = 0;\ndata.score = 0;",
+      "explanation": "IW4 GSC does not support object literal syntax {key: value}. Create a struct with spawnstruct() then assign properties."
+    },
+    {
+      "id": "AP-011",
+      "category": "objects",
+      "title": "No new keyword — use spawnstruct()",
+      "wrong": "obj = new Object();\nobj.x = 5;",
+      "right": "obj = spawnstruct();\nobj.x = 5;",
+      "explanation": "IW4 GSC does not have a `new` keyword. Use spawnstruct() to create plain data objects."
+    },
+    {
+      "id": "AP-012",
+      "category": "objects",
+      "title": "Check property exists before accessing",
+      "wrong": "if (player.customData.score > 0) {}",
+      "right": "if (isDefined(player.customData) && isDefined(player.customData.score) && player.customData.score > 0) {}",
+      "explanation": "Accessing an undefined property crashes IW4. Always guard with isDefined() before accessing nested properties."
+    },
+    {
+      "id": "AP-013",
+      "category": "objects",
+      "title": "Deleting a property",
+      "wrong": "delete player.tempData;",
+      "right": "player.tempData = undefined;",
+      "explanation": "IW4 GSC has no delete operator. Set the property to undefined to undefine it."
+    },
+    {
+      "id": "AP-014",
+      "category": "types",
+      "title": "No null literal — use isDefined()",
+      "wrong": "if (target == null) {\n    // handle missing target\n}",
+      "right": "if (!isDefined(target)) {\n    // handle missing target\n}",
+      "explanation": "IW4 GSC does not have a 'null' keyword. Use isDefined() or !isDefined() to check if a variable has a value."
+    },
+    {
+      "id": "AP-015",
+      "category": "types",
+      "title": "No strict equality — use == and !=",
+      "wrong": "if (x === 5) {}\nif (name !== \"allies\") {}",
+      "right": "if (x == 5) {}\nif (name != \"allies\") {}",
+      "explanation": "IW4 GSC does not support === or !==. Use == and != instead. All comparisons in IW4 are non-strict."
+    },
+    {
+      "id": "AP-016",
+      "category": "types",
+      "title": "Converting types — use int() and float()",
+      "wrong": "n = parseInt(strValue);\nf = parseFloat(strValue);",
+      "right": "n = int(strValue);\nf = float(strValue);",
+      "explanation": "Use IW4's built-in int() and float() functions for type conversion, not JavaScript's parseInt/parseFloat."
+    },
+    {
+      "id": "AP-017",
+      "category": "types",
+      "title": "Math functions — use built-ins not Math.*",
+      "wrong": "x = Math.floor(3.7);\ny = Math.abs(-5);\nz = Math.random();",
+      "right": "x = int(3.7);\ny = abs(-5);\nz = randomfloat(1);",
+      "explanation": "IW4 GSC has no Math object. Use int() for floor, abs() for absolute value, randomfloat()/randomint() for random numbers."
+    },
+    {
+      "id": "AP-018",
+      "category": "loops",
+      "title": "Infinite loop pattern",
+      "wrong": "while (true) {\n    // game loop\n    wait 0.05;\n}",
+      "right": "for (;;)\n{\n    // game loop\n    wait 0.05;\n}",
+      "explanation": "Both work in IW4, but for(;;) is the conventional infinite loop idiom in GSC. Always include a wait to avoid server freezing."
+    },
+    {
+      "id": "AP-019",
+      "category": "loops",
+      "title": "No forEach or .map()/.filter()",
+      "wrong": "results = players.filter(p => isAlive(p));",
+      "right": "results = [];\nplayers = getplayers();\nfor (i = 0; i < players.size; i++)\n{\n    if (isAlive(players[i]))\n        results[results.size] = players[i];\n}",
+      "explanation": "IW4 GSC has no functional array methods. Build result arrays manually with indexed for loops."
+    },
+    {
+      "id": "AP-020",
+      "category": "loops",
+      "title": "Always wait inside infinite loops",
+      "wrong": "for (;;)\n{\n    checkPlayers(); // no wait — server will freeze!\n}",
+      "right": "for (;;)\n{\n    checkPlayers();\n    wait 0.05; // minimum server frame\n}",
+      "explanation": "Any infinite loop MUST have at least one wait call per iteration. Without it, the server will freeze and disconnect all players."
+    },
+    {
+      "id": "AP-021",
+      "category": "events",
+      "title": "waittill must be called on an entity",
+      "wrong": "waittill(\"connected\");",
+      "right": "level waittill(\"connected\", player);",
+      "explanation": "waittill must always be prefixed with an entity (level, self, game, or a player entity). Bare waittill() is invalid."
+    },
+    {
+      "id": "AP-022",
+      "category": "events",
+      "title": "waittill unpacks into local variables",
+      "wrong": "self waittill(\"damage\");\n// can't access attacker",
+      "right": "self waittill(\"damage\", amount, attacker, sMeansOfDeath);\n// now attacker is available",
+      "explanation": "waittill() passes event data as additional local variables. List them after the event name string to capture them."
+    },
+    {
+      "id": "AP-023",
+      "category": "events",
+      "title": "endon must be called on an entity",
+      "wrong": "endon(\"disconnect\");",
+      "right": "self endon(\"disconnect\");\n// or\nlevel endon(\"game_ended\");",
+      "explanation": "endon must always be prefixed with an entity. It terminates the current thread when the specified event fires on that entity."
+    },
+    {
+      "id": "AP-024",
+      "category": "events",
+      "title": "Use thread for async operations",
+      "wrong": "// This blocks the calling function\nwatchAllPlayers();",
+      "right": "// This runs concurrently\nlevel thread watchAllPlayers();",
+      "explanation": "Use 'thread' to spawn non-blocking concurrent execution. Without it, the calling function is blocked until the callee returns."
+    },
+    {
+      "id": "AP-025",
+      "category": "events",
+      "title": "notify broadcasts an event on an entity",
+      "wrong": "notify(\"round_over\");",
+      "right": "level notify(\"round_over\");\n// listeners: level waittill(\"round_over\")",
+      "explanation": "notify must always be called on an entity. The entity is the channel — waittill listeners on the same entity will wake up."
+    },
+    {
+      "id": "AP-026",
+      "category": "entities",
+      "title": "No 'this' — use 'self'",
+      "wrong": "damagePlayer()\n{\n    this.health -= 10;\n}",
+      "right": "damagePlayer()\n{\n    self.health -= 10;\n}",
+      "explanation": "IW4 GSC has no 'this' keyword. When a function is called on an entity (e.g., player damagePlayer()), use 'self' to refer to that entity."
+    },
+    {
+      "id": "AP-027",
+      "category": "entities",
+      "title": "Check if player is alive with isAlive()",
+      "wrong": "if (player.health > 0) {\n    // player might still be in death animation\n}",
+      "right": "if (isAlive(player)) {\n    // player is truly alive\n}",
+      "explanation": "Use isAlive() instead of checking health > 0. Players can have health > 0 while still in the dying state."
+    },
+    {
+      "id": "AP-028",
+      "category": "entities",
+      "title": "String concatenation with +",
+      "wrong": "msg = \"Score: \".concat(self.score);",
+      "right": "msg = \"Score: \" + self.score;",
+      "explanation": "IW4 GSC supports the + operator for string concatenation. There is no .concat() method."
+    },
+    {
+      "id": "AP-029",
+      "category": "entities",
+      "title": "Printing to players — use iprintln not println",
+      "wrong": "println(\"Round started!\");",
+      "right": "players = getplayers();\nfor (i = 0; i < players.size; i++)\n    players[i] iprintlnbold(\"Round started!\");\n// Or just to self:\nself iprintlnbold(\"Round started!\");",
+      "explanation": "println() only prints to the server console. Use iprintln() for screen messages or iprintlnbold() for bold centered messages to players."
+    },
+    {
+      "id": "AP-030",
+      "category": "entities",
+      "title": "Getting all players — use getplayers()",
+      "wrong": "for (i = 0; i < level.players.size; i++) {}",
+      "right": "players = getplayers();\nfor (i = 0; i < players.size; i++) {}",
+      "explanation": "Always use getplayers() to get the current list of connected players. level.players may not be defined or up to date."
+    }
+  ]
+}
