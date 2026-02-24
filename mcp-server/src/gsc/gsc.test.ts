@@ -431,9 +431,11 @@ function test()
       expect(result.errors.map(e => e.code)).toContain("PAT-022");
     });
 
-    it("PAT-023: catches forEach", async () => {
-      const result = await lint("players.forEach(fn);");
-      expect(result.errors.map(e => e.code)).toContain("PAT-023");
+    it("PAT-023: catches forEach and for...of", async () => {
+      const r1 = await lint("players.forEach(fn);");
+      expect(r1.errors.map(e => e.code)).toContain("PAT-023");
+      const r2 = await lint("for (p of getplayers()) {}");
+      expect(r2.errors.map(e => e.code)).toContain("PAT-023");
     });
 
     it("PAT-024: catches .concat() and .join()", async () => {

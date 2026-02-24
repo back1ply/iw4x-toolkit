@@ -501,11 +501,11 @@ export class GSCLinter {
       }
 
       // PAT-015: No ternary operator
-      if (/[^?!<>=]\?[^?.?]/.test(line)) {
+      if (/\s\?\s/.test(line)) {
         this.errors.push({
           type: "error", code: "PAT-015",
           message: "IW4 GSC does not support the ternary operator (?:). Use if/else instead",
-          line: lineNum, column: Math.max(0, line.search(/[^?!<>=]\?[^?.]/)), length: 1,
+          line: lineNum, column: Math.max(0, line.search(/\s\?\s/) + 1), length: 1,
         });
       }
 
