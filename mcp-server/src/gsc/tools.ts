@@ -44,6 +44,40 @@ let gscBuiltinsCache: Map<string, GscBuiltin> | null = null;
 let templatesCache: Record<string, GscTemplate> | null = null;
 
 /**
+ * IW4 GSC anti-pattern entry
+ */
+interface AntiPattern {
+  id: string;
+  category: string;
+  title: string;
+  wrong: string;
+  right: string;
+  explanation: string;
+}
+
+let antiPatternsCache: AntiPattern[] | null = null;
+
+function loadAntiPatterns(): AntiPattern[] {
+  if (antiPatternsCache) return antiPatternsCache;
+
+  const filePath = getKnowledgeDir("gsc-anti-patterns.json");
+  if (!filePath) {
+    antiPatternsCache = [];
+    return antiPatternsCache;
+  }
+
+  try {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const data = JSON.parse(raw);
+    antiPatternsCache = data.patterns ?? [];
+    return antiPatternsCache!;
+  } catch {
+    antiPatternsCache = [];
+    return antiPatternsCache;
+  }
+}
+
+/**
  * Load GSC builtins from knowledge base (cached after first load)
  */
 function loadGscBuiltins(): Map<string, GscBuiltin> {
@@ -522,6 +556,91 @@ export function registerGscTools(server: McpServer): void {
       const formatted = formatOutline(result, source);
 
       return { content: [{ type: "text", text: formatted }] };
+    }
+  );
+
+  // --- Tool: gsc_anti_patterns ---
+  server.registerTool(
+    "gsc_anti_patterns",
+    {
+      title: "GSC Anti-Patterns Reference",
+      description:
+        "Search IW4 GSC anti-patterns: common mistakes from JS/BO3/modern languages " +
+        "with correct IW4 equivalents. " +
+        "Call this BEFORE writing code to check how to do something correctly in IW4. " +
+        "Returns wrong\u2192right pairs with explanations. " +
+        "Examples: query='push' for array append, query='null' for null checks, " +
+        "query='object' for struct creation, list=true to see all categories.",
+      inputSchema: {
+        query: z.string().optional().describe(
+          "Search term (e.g. 'push', 'null', 'object', 'loop', 'event'). Not required if list=true."
+        ),
+        category: z.string().optional().describe(
+          "Filter by category: syntax, arrays, objects, types, loops, events, entities"
+        ),
+        list: z.boolean().optional().default(false).describe(
+          "If true, list all categories with entry counts instead of searching"
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    async ({ query, category, list }) => {
+      const patterns = loadAntiPatterns();
+
+      if (list || (!query && !category)) {
+        const counts: Record<string, number> = {};
+        for (const p of patterns) {
+          counts[p.category] = (counts[p.category] ?? 0) + 1;
+        }
+        if (Object.keys(counts).length === 0) {
+          return {
+            content: [{ type: "text", text: "No anti-patterns loaded. Check knowledge/gsc-anti-patterns.json." }]
+          };
+        }
+        let out = `\uD83D\uDCDA Anti-pattern categories (${patterns.length} total):\n\n`;
+        for (const [cat, count] of Object.entries(counts).sort()) {
+          out += `  **${cat}** \u2014 ${count} entries\n`;
+        }
+        out += "\nUse query='<term>' to search, or category='<name>' to filter.";
+        return { content: [{ type: "text", text: out }] };
+      }
+
+      const q = query?.toLowerCase() ?? "";
+      const cat = category?.toLowerCase();
+
+      const matches = patterns.filter(p => {
+        const inCat = cat ? p.category === cat : true;
+        const inSearch = q
+          ? p.title.toLowerCase().includes(q) ||
+            p.wrong.toLowerCase().includes(q) ||
+            p.right.toLowerCase().includes(q) ||
+            p.explanation.toLowerCase().includes(q) ||
+            p.id.toLowerCase().includes(q)
+          : true;
+        return inCat && inSearch;
+      });
+
+      if (matches.length === 0) {
+        return {
+          content: [{ type: "text", text: `No patterns found for '${query}'${cat ? ` in category '${cat}'` : ""}.\nUse list=true to see all categories.` }]
+        };
+      }
+
+      let out = `Found ${matches.length} pattern(s):\n\n`;
+      for (const p of matches.slice(0, 10)) {
+        out += `### ${p.id}: ${p.title} [${p.category}]\n\n`;
+        out += `**Wrong:**\n\`\`\`gsc\n${p.wrong}\n\`\`\`\n\n`;
+        out += `**Right:**\n\`\`\`gsc\n${p.right}\n\`\`\`\n\n`;
+        out += `**Why:** ${p.explanation}\n\n---\n\n`;
+      }
+      if (matches.length > 10) {
+        out += `...and ${matches.length - 10} more. Narrow your query.`;
+      }
+
+      return { content: [{ type: "text", text: out }] };
     }
   );
 }

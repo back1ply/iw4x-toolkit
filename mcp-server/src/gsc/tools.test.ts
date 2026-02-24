@@ -647,4 +647,62 @@ describe("GSC Tools", () => {
       expect(text).toContain("❌");
     });
   });
+
+  // ===========================================================================
+  // gsc_anti_patterns Tests
+  // ===========================================================================
+
+  describe("gsc_anti_patterns", () => {
+    it("finds patterns by keyword", async () => {
+      const result = await client.callTool({
+        name: "gsc_anti_patterns",
+        arguments: { query: "push" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain(".size");
+    });
+
+    it("finds patterns by category filter", async () => {
+      const result = await client.callTool({
+        name: "gsc_anti_patterns",
+        arguments: { query: "loop", category: "loops" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("loops");
+    });
+
+    it("lists all categories with list=true", async () => {
+      const result = await client.callTool({
+        name: "gsc_anti_patterns",
+        arguments: { list: true }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("syntax");
+      expect(text).toContain("arrays");
+      expect(text).toContain("events");
+    });
+
+    it("returns no results message for unknown query", async () => {
+      const result = await client.callTool({
+        name: "gsc_anti_patterns",
+        arguments: { query: "xyzzy_nonexistent_abc123" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("No patterns found");
+    });
+
+    it("finds null check pattern", async () => {
+      const result = await client.callTool({
+        name: "gsc_anti_patterns",
+        arguments: { query: "null" }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("isDefined");
+    });
+  });
 });
