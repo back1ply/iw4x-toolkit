@@ -63,6 +63,10 @@ IW4x is a **community client mod** for **Call of Duty: Modern Warfare 2 (2009)**
   https://github.com/iw4x/iw4-server-configs
   Canonical prebuilt server configuration files: `DedicatedServer.bat/.sh`, `server.cfg`, `partyserver.cfg`. The starting-point config set referenced by the official server-hosting docs. 4 stars, updated February 2026.
 
+- **IW4x Client — CHANGELOG.md**
+  https://github.com/iw4x/iw4x-client/blob/main/CHANGELOG.md
+  Full version history documenting every GSC built-in added by IW4x (`FileRead`, `FileWrite`, `HttpGet`, `OnPlayerSay`, `StorageSet`, `ReplaceFunc`, etc.) and every DVAR added per release. The authoritative inventory of IW4x-specific extensions.
+
 ### Community
 
 - **shit-ware/IW4 (Raw Game Files)**
@@ -73,9 +77,29 @@ IW4x is a **community client mod** for **Call of Duty: Modern Warfare 2 (2009)**
   https://github.com/Rex109/CoD4QOL
   Quality-of-life plugin for CoD4 (IW3). Unlocks restricted console variables/DVARs, adds graphics customization (FOV, draw distance, fullbright), and includes a demo browser/manager. 16 releases, updated January 2026. Directly relevant since IW4 inherited many of CoD4's DVAR restrictions and plugin patterns.
 
+- **FreeTheTech101/IW4-Dump-Files**
+  https://github.com/FreeTheTech101/IW4-Dump-Files
+  Near-complete IW4 raw file dump: GSC scripts, configs, weapon files, and CSV data, packaged for direct use with IW4x modding. 39 stars. Useful secondary reference alongside shit-ware/IW4.
+
+- **Rackover/iw4scr**
+  https://github.com/Rackover/iw4scr
+  Scripts and raw config files for IW4/MW2 including per-map load scripts, default configs, and weapon/MP files. Secondary stock script reference.
+
 - **IW4MAdmin**
   https://github.com/RaidMax/IW4M-Admin
   Definitive server administration tool supporting IW4x, Plutonium, CoD4x, H1-Mod, and more. Web interface, plugin system, player management, anti-cheat. 239 stars, latest release February 2026.
+
+- **IW4MAdmin Plugin Store**
+  https://store.raidmax.org/
+  Official plugin marketplace for IW4MAdmin. Hosts subscribable plugins: Discord bridge, Weapon Restrict, Votify, VPN Detection, Ping Limiter, Dynamic Map Reservoir, Cron Manager, and more — each with setup instructions.
+
+- **Ayymoss/BanHub**
+  https://github.com/Ayymoss/BanHub
+  IW4MAdmin plugin for global reputation-based ban sharing between server communities, with an appeals system. 5 stars.
+
+- **Zwambro/iw4madmin-plugin-iw4todiscord**
+  https://github.com/Zwambro/iw4madmin-plugin-iw4todiscord
+  IW4MAdmin plugin that forwards ban, report, chat, and server-status events to Discord webhooks. 5 stars.
 
 - **Muhlex/iw4x-gsc**
   https://github.com/Muhlex/iw4x-gsc
@@ -259,9 +283,37 @@ MW2/IW4 has no official mod tools — the community repurposes the CoD4 (IW3) mo
   https://xlabs-mirror.github.io/gsc_functions
   Tabular reference for IW4x-specific extended built-in functions — `GetPing`, `GetIP`, `Exec`, `PrintConsole`, `ToUpper`, `IsBot`, `StorageSet`, etc. with per-client columns. The only structured reference for these extended builtins.
 
+- **xerxes-at/iw4xscriptdoc**
+  https://github.com/xerxes-at/iw4xscriptdoc
+  WIP MW2 and IW4x GSC documentation in HTML format; forked from M-itch/codscriptdoc. Documents both vanilla MW2 functions and IW4x-added builtins with descriptions and signatures.
+
+- **505e06b2/MW2-GSC-Documentation**
+  https://github.com/505e06b2/MW2-GSC-Documentation
+  MW2 GSC scripting reference covering types, built-in functions, and common patterns. 14 stars. Companion examples repo included.
+
+- **Zeroy Wiki — CoD4 Scripting Reference (index)**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Scripting_Reference
+  Master index of all CoD4 scripting sub-pages: AI, Animation, Client, Damage, DVARs, HUD, Player, Weapons, etc. Function signatures carry over heavily to IW4/MW2.
+
+- **Zeroy Wiki — CoD4 Scripting Reference: Weapons**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Scripting_Reference_-_Weapons
+  All weapon-related GSC functions with signatures: `GetAmmoCount`, `WeaponClipSize`, `MagicBullet`, `WeaponType`, etc.
+
+- **Zeroy Wiki — CoD5 Scripting Reference**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_5:_Scripting_Reference
+  WaW scripting reference index covering the same module structure as CoD4. WaW functions are largely identical to MW2/IW4.
+
+- **Zeroy Wiki — CoD4 Modding hub**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Modding
+  Master hub listing all CoD4 modding tutorials: scripting guides, model import, weapons, Radiant tips, and technical references. Best starting index for adjacent CoD4 content that applies to IW4.
+
 - **UGX-Mods Scripting Guide**
   https://wiki.ugx-mods.com/Modding/World-at-War-Modtools/Script/Scripting-Guide
   WaW/BO1 scripting guide — syntax, loops, CoD utility functions, entity management. Highly applicable to IW4 GSC.
+
+- **UGX-Mods Script Database**
+  https://www.ugx-mods.com/script/
+  Searchable database of community-contributed GSC scripts. Covers WaW/BO1 custom zombies and multiplayer scripting with browsable categories and source downloads.
 
 - **Se7enSins CoD4 Scripting Reference**
   https://www.se7ensins.com/forums/threads/reference-cod4-scripting-reference.467704/
@@ -308,9 +360,37 @@ MW2/IW4 has no official mod tools — the community repurposes the CoD4 (IW3) mo
   https://github.com/ineedbots/iw4_bot_warfare
   Bot Warfare mod for MW2/IW4x. Well-documented with DVAR references and waypoint systems. Also has versions for CoD4x, T6, IW5.
 
+- **SyndiShanX/Synergy-MW2-GSC-Menu**
+  https://github.com/SyndiShanX/Synergy-MW2-GSC-Menu
+  GSC-based in-game mod menu for MW2/IW4x. Reference for GSC menu structure, player/lobby manipulation functions, and common mod menu patterns.
+
 - **DoktorSAS** (GitHub)
   https://github.com/DoktorSAS
   Mapvote scripts for T6, IW5, H1, IW6, plus large GSC code collection across IW3–T7.
+
+- **Muhlex/iw4x-ttt**
+  https://github.com/Muhlex/iw4x-ttt
+  Trouble in Terrorist Town gamemode for MW2/IW4x written in pure GSC. Demonstrates advanced IW4x-specific scripting for a complete custom gamemode.
+
+- **justinabellera/retro-pack**
+  https://github.com/justinabellera/retro-pack
+  Multi-title GSC mod menu covering IW4x (MW2), Plutonium IW5/T5/T6, IW6x, H2M-Mod, and HMW-Mod. Includes trickshot, class editor, and teleport features. Good cross-client scripting reference.
+
+- **505e06b2/EbinModz**
+  https://github.com/505e06b2/EbinModz
+  MW2 GSC mod menu based on GodlyModz V4 with custom game modes. Now archived. Companion to iw4x-EbinMenu — shows menu scripting patterns in a standalone mod format.
+
+- **Draakoor/h2m-gscscripts**
+  https://github.com/Draakoor/h2m-gscscripts
+  Large collection of GSC scripts for h2m-mod (MWR) and IW4x (133 commits). Covers weapon restriction, anti-camp, bot scripts, and killstreak mods — cross-compatible with IW4x.
+
+- **Xevrac/h2m_gscs**
+  https://github.com/Xevrac/h2m_gscs
+  h2m/IW4x GSC utilities: nuke-ends-game logic, bot quota scripts, and server-side quality-of-life patches. 9 stars.
+
+- **kyletimmermans/flashback**
+  https://github.com/kyletimmermans/flashback
+  MW2 GSC mod menu targeting Xbox 360 TU6 with a button-bind era aesthetic. Useful reference for vanilla/console-era menu scripting patterns.
 
 ---
 
@@ -477,22 +557,56 @@ The IW engine modding ecosystem spans many titles. IW4x grew out of the CoD4x (I
   https://www.devraw.net/resources
   Curated list of CoD modding tools: Greyhound, Husky, HydraX, Cordycep, Kobra, GameImageUtil, SExCOD, VKRadiant, and more. BO3-focused but covers multi-game tools.
 
+- **Zeroy BO3 Script Explorer**
+  https://bo3explorer.zeroy.com/
+  Browsable HTML explorer for Black Ops 3 GSC source code. BO3-specific, but documents the full GSC function namespace in a searchable format useful for cross-referencing shared function names and patterns across CoD titles.
+
 ---
 
 ## Community Wikis and Forums
 
+- **PCGamingWiki — Call of Duty: Modern Warfare 2** — https://www.pcgamingwiki.com/wiki/Call_of_Duty:_Modern_Warfare_2 — Documents config file locations, DVAR tweaks (FOV, monkeytoy unlock), IW4x and IW4x-SP client entries, save paths, and known PC issues/fixes.
 - **Zeroy Wiki** — https://wiki.zeroy.com/ — The most comprehensive CoD modding wiki. CoD1 through BO1: fastfile format, d3dbsp, scripting, mapping, weapons, menus. Last edited December 2023.
 - **Plutonium Docs** — https://plutonium.pw/docs/ — Official Plutonium documentation including GSC language guide, how-to scripting, and new features.
 - **Plutonium Forum** — https://forum.plutonium.pw/ — T4/T5/T6/IW5 modding, scripting help, resource threads.
 - **AlterWare Forum** — https://forum.alterware.dev/ — IW4x-SP/IW5/IW6/S1 modding guides and support.
+  - IW4x perks revert guide (OMA/Painkiller): https://forum.alterware.dev/t/how-to-revert-iw4xs-changes-to-one-man-army-oma-painkiller-juiced/712 — Shows how `userraw` GSC overrides work to surgically patch stock IW4x behavior.
 - **CoD4x Forum** — https://cod4x.ovh/ — CoD4 server/client support, scripting, plugin releases. Direct ancestor community to IW4x.
+- **r/IW4x** — https://www.reddit.com/r/IW4x/ — Active Reddit community for IW4x/MW2 with modding questions, guides, and community resources.
 - **CabConModding** — https://cabconmodding.com/ — Large English-language modding forum. 24,000+ BO2 threads, MW scripting section, BO3 mods.
+  - MW2 Scripts subforum: https://cabconmodding.com/forums/call-of-duty-modern-warfare-2-scripts.38/
+  - MW2 Mods subforum: https://cabconmodding.com/forums/call-of-duty-modern-warfare-2-mods.37/
+- **UnknownCheats — MW2/IW4x** — https://www.unknowncheats.me/forum/call-of-duty-6-modern-warfare-2-a/ — Game research forum with IW4x releases including offset dumps, internal mod menus, and DLL injection examples. Useful for understanding runtime function addresses.
+- **NamelessNoobs** — https://namelessnoobs.com/ — Long-running IW4x/MW2 server community (since 2015) hosting servers for CoD4, MW2, MW3, and BO2. Their developers have written IW4x-specific GSC scripting guides on the AlterWare forum.
 - **UGX-Mods Wiki** — https://wiki.ugx-mods.com/ — Zombies-focused modding wiki with scripting guides and zone management.
 - **ZombieModding** — https://zombiemodding.com/ — Custom zombies community (WaW-era). 434,000+ members.
 - **Modme Wiki** — https://wiki.modme.co/ — BO3 modding wiki with scripting guides.
 - **Se7enSins** — https://www.se7ensins.com/forums/ — DVAR lists, scripting references, weapon modding.
 - **CoDJumper** — https://www.codjumper.com/forums/ — CoD4 modding and jump community. Custom menus, scripting tutorials.
+- **NextGenUpdate — MW2 Forums** — https://nextgenupdate.com/forums/call-duty-modern-warfare-2/ — MW2 modding forum with subforums for mods, patches, maps, and GSC scripting. Legacy community resource predating IW4x.
 - **X Labs Mirror (archived)** — https://xlabs-mirror.github.io/ — Archived IW4x/IW6x/S1x documentation (2023). GSC function reference and console commands tables preserved here.
+
+---
+
+## Mod Downloads / Community Hosting
+
+Platforms hosting publicly released IW4x/MW2 mods and assets.
+
+- **GameBanana — MW2 (2009)**
+  https://gamebanana.com/games/3291
+  Community mod hub for MW2 (2009): texture mods, camo packs, ReShade presets, and IW4x-compatible skin mods. Includes tutorials and modding discussions.
+
+- **ModDB — MW2**
+  https://www.moddb.com/games/call-of-duty-modern-warfare-2/downloads
+  Community mod releases for MW2: camo packs, SP/Spec-Ops mods, and the official v1.2.211 update patch. Browse versioned downloads with installation notes.
+
+- **ModDB — Bot Warfare mod page**
+  https://www.moddb.com/mods/bot-warfare
+  Official ModDB hub for Bot Warfare across MW2/IW4x, MW3/Plutonium, CoD4x, and WaW. Includes versioned downloads, installation guides, and user-reported bug workarounds.
+
+- **Nexus Mods — MW2 (2009)**
+  https://www.nexusmods.com/games/codmw2
+  Nexus Mods page for the 2009 MW2: ReShade presets and SP/Spec-Ops mods. Smaller catalogue than GameBanana for this title but another accessible discovery point.
 
 ---
 
