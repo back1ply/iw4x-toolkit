@@ -282,7 +282,10 @@ export function registerKnowledgeTools(server: McpServer): void {
         return errResult(String(data.error));
       }
 
-      const sections = data.sections as Record<string, unknown>;
+      const sections = data.sections as Record<string, unknown> | undefined;
+      if (!sections || typeof sections !== "object") {
+        return errResult("gsc-menu-hud.json: missing or invalid 'sections' key.");
+      }
       const t = topic.toLowerCase().trim();
 
       if (t === "all") {
@@ -292,36 +295,50 @@ export function registerKnowledgeTools(server: McpServer): void {
         return okResult(JSON.stringify(sections[t], null, 2));
       }
       if (t === "setpoint") {
-        const pos = sections.positioning as Record<string, unknown>;
-        return okResult(JSON.stringify(pos.setPoint, null, 2));
+        const pos = sections.positioning as Record<string, unknown> | undefined;
+        const val = pos?.setPoint;
+        if (val === undefined) return errResult("gsc-menu-hud.json: 'positioning.setPoint' not found.");
+        return okResult(JSON.stringify(val, null, 2));
       }
       if (t === "fonts" || t === "font") {
-        const props = sections.properties as Record<string, unknown>;
-        const text = props.text as Record<string, unknown>;
-        return okResult(JSON.stringify(text.font, null, 2));
+        const props = sections.properties as Record<string, unknown> | undefined;
+        const text = props?.text as Record<string, unknown> | undefined;
+        const val = text?.font;
+        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.text.font' not found.");
+        return okResult(JSON.stringify(val, null, 2));
       }
       if (t === "sort") {
-        const layer = sections.layering as Record<string, unknown>;
-        return okResult(JSON.stringify(layer.sort_system, null, 2));
+        const layer = sections.layering as Record<string, unknown> | undefined;
+        const val = layer?.sort_system;
+        if (val === undefined) return errResult("gsc-menu-hud.json: 'layering.sort_system' not found.");
+        return okResult(JSON.stringify(val, null, 2));
       }
       if (t === "color" || t === "colour") {
-        const props = sections.properties as Record<string, unknown>;
-        const vis = props.visual as Record<string, unknown>;
-        return okResult(JSON.stringify(vis.color, null, 2));
+        const props = sections.properties as Record<string, unknown> | undefined;
+        const vis = props?.visual as Record<string, unknown> | undefined;
+        const val = vis?.color;
+        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.visual.color' not found.");
+        return okResult(JSON.stringify(val, null, 2));
       }
       if (t === "alpha") {
-        const props = sections.properties as Record<string, unknown>;
-        const vis = props.visual as Record<string, unknown>;
-        return okResult(JSON.stringify(vis.alpha, null, 2));
+        const props = sections.properties as Record<string, unknown> | undefined;
+        const vis = props?.visual as Record<string, unknown> | undefined;
+        const val = vis?.alpha;
+        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.visual.alpha' not found.");
+        return okResult(JSON.stringify(val, null, 2));
       }
       if (t === "cleanup" || t === "destroy") {
-        const layer = sections.layering as Record<string, unknown>;
-        return okResult(JSON.stringify(layer.cleanup, null, 2));
+        const layer = sections.layering as Record<string, unknown> | undefined;
+        const val = layer?.cleanup;
+        if (val === undefined) return errResult("gsc-menu-hud.json: 'layering.cleanup' not found.");
+        return okResult(JSON.stringify(val, null, 2));
       }
       if (t === "foreground") {
-        const props = sections.properties as Record<string, unknown>;
-        const vis = props.visual as Record<string, unknown>;
-        return okResult(JSON.stringify(vis.foreground, null, 2));
+        const props = sections.properties as Record<string, unknown> | undefined;
+        const vis = props?.visual as Record<string, unknown> | undefined;
+        const val = vis?.foreground;
+        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.visual.foreground' not found.");
+        return okResult(JSON.stringify(val, null, 2));
       }
 
       // Generic property search across all sections
