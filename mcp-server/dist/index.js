@@ -24966,6 +24966,7 @@ import * as fs2 from "node:fs";
 var KNOWLEDGE_CACHE_TTL_MS = 5 * 60 * 1e3;
 var dvarsCache = null;
 var gscRawCache = null;
+var menuHudCache = null;
 function isCacheExpired(cachedAt) {
   return Date.now() - cachedAt > KNOWLEDGE_CACHE_TTL_MS;
 }
@@ -24991,6 +24992,23 @@ function loadGscBuiltins() {
     return raw;
   } catch (e) {
     return JSON.stringify({ error: `Failed to load gsc-builtins.json: ${getErrMsg(e)}` });
+  }
+}
+function loadMenuHud() {
+  const filePath = getKnowledgeDir("gsc-menu-hud.json");
+  if (!filePath) {
+    return JSON.stringify({ error: "gsc-menu-hud.json not found" });
+  }
+  try {
+    const mtime = fs2.statSync(filePath).mtimeMs;
+    if (menuHudCache && menuHudCache.mtime === mtime && !isCacheExpired(menuHudCache.cachedAt)) {
+      return menuHudCache.raw;
+    }
+    const raw = fs2.readFileSync(filePath, "utf-8");
+    menuHudCache = { raw, mtime, cachedAt: Date.now() };
+    return raw;
+  } catch (e) {
+    return JSON.stringify({ error: `Failed to load gsc-menu-hud.json: ${getErrMsg(e)}` });
   }
 }
 function getParsedDvars() {
@@ -25094,6 +25112,116 @@ function registerKnowledgeTools(server2) {
 ${output}${footer}`);
     }
   );
+  server2.registerTool(
+    "gsc_menu_hud",
+    {
+      title: "GSC Menu HUD Reference",
+      description: "Reference for building HUD-element script menus in CoD4/CoD4X and MW2/IW4X GSC. Covers the positioning system (setPoint), all HUD element properties, background/layering patterns, and CoD4 vs IW4X input differences. Call this before writing any HUD menu code. Topics: positioning, properties, layering, setPoint, fonts, sort, color, all.",
+      inputSchema: {
+        topic: external_exports.string().describe(
+          "Topic to look up. One of: 'positioning', 'properties', 'layering', 'setPoint', 'fonts', 'sort', 'color', 'all', or any property name."
+        )
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
+      }
+    },
+    async ({ topic }) => {
+      const raw = loadMenuHud();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        return errResult("Failed to parse gsc-menu-hud.json");
+      }
+      if ("error" in data) {
+        return errResult(String(data.error));
+      }
+      const sections = data.sections;
+      if (!sections || typeof sections !== "object") {
+        return errResult("gsc-menu-hud.json: missing or invalid 'sections' key.");
+      }
+      const t = topic.toLowerCase().trim();
+      if (t === "all") {
+        return okResult(JSON.stringify(sections, null, 2));
+      }
+      if (t === "positioning" || t === "properties" || t === "layering") {
+        return okResult(JSON.stringify(sections[t], null, 2));
+      }
+      if (t === "setpoint") {
+        const pos = sections.positioning;
+        const val = pos?.setPoint;
+        if (val === void 0) return errResult("gsc-menu-hud.json: 'positioning.setPoint' not found.");
+        return okResult(JSON.stringify(val, null, 2));
+      }
+      if (t === "fonts" || t === "font") {
+        const props = sections.properties;
+        const text = props?.text;
+        const val = text?.font;
+        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.text.font' not found.");
+        return okResult(JSON.stringify(val, null, 2));
+      }
+      if (t === "sort") {
+        const layer = sections.layering;
+        const val = layer?.sort_system;
+        if (val === void 0) return errResult("gsc-menu-hud.json: 'layering.sort_system' not found.");
+        return okResult(JSON.stringify(val, null, 2));
+      }
+      if (t === "color" || t === "colour") {
+        const props = sections.properties;
+        const vis = props?.visual;
+        const val = vis?.color;
+        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.visual.color' not found.");
+        return okResult(JSON.stringify(val, null, 2));
+      }
+      if (t === "alpha") {
+        const props = sections.properties;
+        const vis = props?.visual;
+        const val = vis?.alpha;
+        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.visual.alpha' not found.");
+        return okResult(JSON.stringify(val, null, 2));
+      }
+      if (t === "cleanup" || t === "destroy") {
+        const layer = sections.layering;
+        const val = layer?.cleanup;
+        if (val === void 0) return errResult("gsc-menu-hud.json: 'layering.cleanup' not found.");
+        return okResult(JSON.stringify(val, null, 2));
+      }
+      if (t === "foreground") {
+        const props = sections.properties;
+        const vis = props?.visual;
+        const val = vis?.foreground;
+        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.visual.foreground' not found.");
+        return okResult(JSON.stringify(val, null, 2));
+      }
+      const results = {};
+      for (const [sectionName, section] of Object.entries(sections)) {
+        const found = findInSection(section, t);
+        if (found !== null) results[sectionName] = found;
+      }
+      if (Object.keys(results).length > 0) {
+        return okResult(JSON.stringify(results, null, 2));
+      }
+      return okResult(
+        `No match found for topic '${topic}'.
+Valid topics: positioning, properties, layering, setPoint, fonts, sort, color, alpha, foreground, cleanup, all.
+Or use any property name (e.g. 'fontscale', 'glowAlpha').`
+      );
+    }
+  );
+}
+function findInSection(obj, term) {
+  const results = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (key.toLowerCase() === term) {
+      results[key] = value;
+    } else if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      const nested = findInSection(value, term);
+      if (nested !== null) results[key] = nested;
+    }
+  }
+  return Object.keys(results).length > 0 ? results : null;
 }
 
 // src/gsc/tools.ts
@@ -27290,6 +27418,7 @@ export {
   isSafeEntryPath,
   loadDvars,
   loadGscBuiltins,
+  loadMenuHud,
   normalizeEntry,
   openIwd,
   openIwdAsync,
