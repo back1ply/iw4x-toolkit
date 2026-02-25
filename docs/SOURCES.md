@@ -307,6 +307,34 @@ MW2/IW4 has no official mod tools — the community repurposes the CoD4 (IW3) mo
   https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Modding
   Master hub listing all CoD4 modding tutorials: scripting guides, model import, weapons, Radiant tips, and technical references. Best starting index for adjacent CoD4 content that applies to IW4.
 
+- **Zeroy Wiki — CoD4 Scripting Reference: HUD** ⭐
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Scripting_Reference_-_Hud
+  Canonical HUD function reference. Lists all HUD element functions with signatures: `NewClientHudElem`, `NewHudElem`, `NewTeamHudElem`, `SetText`, `SetShader`, `SetPoint`, `SetTimer`, `SetTimerUp`, `SetTenthsTimer`, `SetValue`, `SetClock`, `SetPlayerNameString`, `SetGameTypeString`, `SetWayPoint`, `FadeOverTime`, `MoveOverTime`, `ScaleOverTime`, `SetPulseFX`, `Destroy`, `Reset`, and more.
+
+- **Zeroy Wiki — CoD4 Scripting Reference: Player**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Scripting_Reference_-_Player
+  Complete player entity function index with signatures — all methods callable on player entities.
+
+- **Zeroy Wiki — CoD4 Scripting Reference: Entity**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_4:_Scripting_Reference_-_Entity
+  Complete entity function index: `GetEnt`, `GetEntArray`, `SetModel`, `IsTouching`, `ShowToPlayer`, `Hide`/`Show`, etc.
+
+- **Zeroy Wiki — CoD5 Scripting Syntax and Grammar**
+  https://wiki.zeroy.com/index.php?title=Call_of_Duty_5:_Scripting_Syntax_And_Grammar
+  Detailed GSC syntax reference: what GSC is, file locations, variables/arrays/structs, execution flow, threads, and notifiers. Directly applicable to IW4 (same engine generation).
+
+- **Zeroy Wiki — Category: Call of Duty 4**
+  https://wiki.zeroy.com/index.php?title=Category:Call_of_Duty_4
+  Full category listing all CoD4 wiki articles including `HUD/Key description`, `Scripting Hints`, `Scripting Brushes`, `Introduction to animation`, and many sub-topics not indexed elsewhere.
+
+- **IW4x Wiki — GSC Reference** ⭐
+  https://wiki.iw4x.dev/read/iw4x---overview/gsc.md
+  Official IW4x documentation GSC page. Has a dedicated **HUD section** explicitly covering `newHudElem`, `createFontString`, `setPoint`, `setShader`, `setValue`, `setTimer`, and full HUD element property list. Also documents all IW4x-specific GSC extensions. The most IW4-targeted HUD reference available.
+
+- **Modme Wiki — Scripting Guide**
+  https://wiki.modme.co/wiki/black_ops_3/guides/Scripting-guide.html
+  Community-driven modding wiki covering GSC fundamentals: arrays, entities, self/level, field access. Nominally BO3 but covers patterns identical to IW4 — cited by the IW4x overview page itself as a reference.
+
 - **UGX-Mods Scripting Guide**
   https://wiki.ugx-mods.com/Modding/World-at-War-Modtools/Script/Scripting-Guide
   WaW/BO1 scripting guide — syntax, loops, CoD utility functions, entity management. Highly applicable to IW4 GSC.
@@ -322,6 +350,50 @@ MW2/IW4 has no official mod tools — the community repurposes the CoD4 (IW3) mo
 - **Plutonium GSC Resources Thread**
   https://forum.plutonium.pw/topic/198/resource-gsc-resources-and-helpful-links
   Curated list of GSC resources linking to CabConModding, UGX, Zeroy Wiki, ZombieModding.
+
+### HUD Element Scripting — Tutorials and Threads
+
+Key community tutorials focused on `createFontString` / `newHudElem` / `setPoint` / `setShader` patterns.
+
+- **ItsMods — "Creating a HUD Element/Text (Basics)"** ⭐
+  https://www.itsmods.com/forum/Thread-Tutorial-Creating-a-HUD-Element-Text-Basics.html
+  The most complete HUD-specific tutorial available. Covers `createFontString` (font/fontScale), `setPoint` (4-argument alignment system, all point keywords), `setText`, color codes, `createIcon`/`setShader`, hint messages, killfeed text (`iPrintLn`/`AllClientsPrint`), and notifications. CoD4/MW2 focused.
+
+- **ItsMods — ".Gsc Modding for Beginners"**
+  https://www.itsmods.com/forum/Thread-Tutorial-Gsc-Modding-for-Beginners.html
+  105,000-view sticky beginner tutorial thread for MW2 GSC basics. 88 replies.
+
+- **ItsMods — Modding Tutorials index**
+  https://www.itsmods.com/forum/Forum-Modding-Tutorials.html
+  Multi-part GSC tutorial series: functions, for/while loops, foreach/continue/return, if/else, switch, operations. MW2-targeted, progressive difficulty.
+
+- **CoDJumper — "Scripting for Dummies" (Drofder2004)** ⭐
+  https://www.codjumper.com/forums/viewtopic.php?t=4011
+  Canonical CoD GSC tutorial (originally 2006). Covers variables, functions, loops, waittill/notify/endon, arrays. CoD4-focused; widely referenced across the entire modding community.
+
+- **CoDJumper — Scripting / Function Reference list**
+  https://www.codjumper.com/forums/viewtopic.php?t=2940
+  Community-assembled function list including all HUD functions (`newClientHudElem`, `newHudElem`, `setText`, `setShader`, `setTenthsTimer`, `setTimer`, `scaleOverTime`, `fadeOverTime`) and all HUD element properties (`archived`, `x`, `y`, `alignX`, `alignY`, `font`, `fontScale`, `sort`, `alpha`). Raw reference format.
+
+- **CoDJumper — "Adding a timer to codjumper mod"**
+  https://www.codjumper.com/forums/viewtopic.php?t=14813
+  Working stopwatch HUD implementation: `newClientHudElem`, positional properties, `font`, `fontScale`, `.label` for localized strings.
+
+- **CoDJumper — "Hud .label"**
+  https://www.codjumper.com/forums/viewtopic.php?t=14360
+  Technical thread on the `.label` HUD property (localized string binding) and `setPlayerNameString`. Documents `newClientHudElem` property setup in detail.
+
+- **Plutonium Forum — "Showing my GSC mod to help beginners"**
+  https://forum.plutonium.pw/topic/16815/resource-showing-my-gsc-mod-to-help-beginners
+  Annotated MW2 GSC mod for beginners demonstrating `#include maps\mp\gametypes\_hud_util`, `createFontString`, `setPoint`, `setText`, `createServerFontString`, and timer/killstreak HUD patterns in a complete working mod context.
+
+- **killtube.org — "[Tutorial] Hud elements"**
+  https://killtube.org/archive/index.php/t-1618.html
+  Technical CoD4 scripting thread on HUD elements: `.label`/`setPlayerNameString`, `setValue` vs direct field assignment, `newHudElem`, and edge cases like `endon` on disconnect for HUD threads.
+
+- **killtube.org — Scripting forum archive**
+  https://killtube.org/archive/index.php/f-26.html
+  Archive of killtube.org's CoD scripting subforum. Contains numerous CoD4/CoD2 GSC threads on HUD elements, fontscale limits, custom shaders, sprint HUDs, and weapon functions.
 
 ### Tools
 
@@ -391,6 +463,66 @@ MW2/IW4 has no official mod tools — the community repurposes the CoD4 (IW3) mo
 - **kyletimmermans/flashback**
   https://github.com/kyletimmermans/flashback
   MW2 GSC mod menu targeting Xbox 360 TU6 with a button-bind era aesthetic. Useful reference for vanilla/console-era menu scripting patterns.
+
+- **volkv/CoD4-Default-GSC-Scripts** ⭐
+  https://github.com/volkv/CoD4-Default-GSC-Scripts
+  Complete unmodified CoD4 MP GSC dump including `_hud.gsc`, `_hud_util.gsc`, `_killcam.gsc`, `_rank.gsc`, and all gametype scripts. 9 stars. Primary reference for vanilla HUD elem usage patterns.
+
+- **Joelrau/IW4x_DeathRun**
+  https://github.com/Joelrau/IW4x_DeathRun
+  DeathRun mod for IW4x. GSC-heavy with HUD elements for timers and player status. Contains `createFontString`/`setPoint` usage. 9 stars.
+
+- **simonlfc/MONACO**
+  https://github.com/simonlfc/MONACO
+  IW4x bolts-only sniper mod with custom scoring HUD, popup timers, and score overlays using `createFontString` and `newClientHudElem`. 13 stars. Good HUD scripting reference.
+
+- **sortileges/iw4cine**
+  https://github.com/sortileges/iw4cine
+  Cinematic mod for MW2/IW4x in pure GSC. Heavily uses IW4x-specific builtins including custom HUD display of cinematic controls and state. 27 stars.
+
+- **sortileges/iw4mods**
+  https://github.com/sortileges/iw4mods
+  Collection of IW4x mods including `alpha` (MW2 Alpha 482 HUD concept) and custom `ui` mod — directly HUD-relevant.
+
+- **hosseinpourziyaie/MW2_SCRIPTS**
+  https://github.com/hosseinpourziyaie/MW2_SCRIPTS
+  IW4 GSC server-side scripts including server branding with `createFontString` HUD overlays. Practical real-world usage examples.
+
+- **Zoro-6191/cod4-advanced-scripts**
+  https://github.com/Zoro-6191/cod4-advanced-scripts
+  CoD4 GSC collection including AFK detector with `newClientHudElem`/`setShader` status icon overlay, spray system, and ping display. 17 stars.
+
+- **thamidu/COD4-HUDs-Creator**
+  https://github.com/thamidu/COD4-HUDs-Creator
+  Tool that generates server-side GSC HUD code for CoD4. Directly HUD-focused — produces `newClientHudElem` boilerplate from a visual config.
+
+- **BraXi/CoD4_DeathRun_1.2_Mod**
+  https://github.com/BraXi/CoD4_DeathRun_1.2_Mod
+  Official source of the 2012 CoD4 DeathRun Mod v1.2.1beta. Rich HUD scripting: countdown timers, per-player status displays, and activator HUD elements.
+
+- **dan2k3k4/bp-cod4**
+  https://github.com/dan2k3k4/bp-cod4
+  OpenWarfare-based CoD4 mod (16 stars) with a well-commented `_hud_util.gsc` showing `setParent`, `setPoint`, and reusable HUD element helper functions.
+
+- **plutoniummod/iw5-scripts**
+  https://github.com/plutoniummod/iw5-scripts
+  Official Plutonium MW3 (IW5) scripts dump. Same engine generation as IW4 — `_utility.gsc` includes `createFontString` wrappers useful for cross-referencing the IW4/IW5 HUD API surface.
+
+- **InfinityLoader/IL-GSC**
+  https://github.com/InfinityLoader/IL-GSC
+  Decompiled and formatted GSC/CSC files from multiple CoD titles (MW3 PC and Xbox SP/MP). Includes `_utility.gsc` with `createFontString` and HUD helpers.
+
+- **SyndiShanX/COD-GSC-Source**
+  https://github.com/SyndiShanX/COD-GSC-Source
+  Dumped and formatted GSC/CSC files for multiple CoD titles from the same author as Synergy-MW2-GSC-Menu. Includes decompiled `_utility.gsc` and HUD helper scripts across games.
+
+- **Call-of-Duty-Scripts/CoD4MW**
+  https://github.com/Call-of-Duty-Scripts/CoD4MW
+  CoD4 Modern Warfare script and UI collection.
+
+- **ZECxR3ap3r/gc_server**
+  https://github.com/ZECxR3ap3r/gc_server
+  IW4-targeted server mod for a custom slasher gametype. Uses `createFontString`/`setPoint` for the gametype HUD.
 
 ---
 
@@ -582,7 +714,9 @@ The IW engine modding ecosystem spans many titles. IW4x grew out of the CoD4x (I
 - **ZombieModding** — https://zombiemodding.com/ — Custom zombies community (WaW-era). 434,000+ members.
 - **Modme Wiki** — https://wiki.modme.co/ — BO3 modding wiki with scripting guides.
 - **Se7enSins** — https://www.se7ensins.com/forums/ — DVAR lists, scripting references, weapon modding.
-- **CoDJumper** — https://www.codjumper.com/forums/ — CoD4 modding and jump community. Custom menus, scripting tutorials.
+- **ItsMods** — https://www.itsmods.com/forum/ — MW2/CoD4 modding forum with extensive GSC tutorials including the most complete HUD elem scripting guide available. See HUD tutorial thread linked above.
+- **CoDJumper** — https://www.codjumper.com/forums/ — CoD4 modding and jump community. Custom menus, scripting tutorials. Forum has a comprehensive function reference thread and multiple HUD scripting threads.
+- **killtube.org** — https://killtube.org/ — Legacy CoD2/CoD4 scripting community. Archived forum contains GSC threads on HUD elements, fontscale edge cases, and custom shaders not documented elsewhere.
 - **NextGenUpdate — MW2 Forums** — https://nextgenupdate.com/forums/call-duty-modern-warfare-2/ — MW2 modding forum with subforums for mods, patches, maps, and GSC scripting. Legacy community resource predating IW4x.
 - **X Labs Mirror (archived)** — https://xlabs-mirror.github.io/ — Archived IW4x/IW6x/S1x documentation (2023). GSC function reference and console commands tables preserved here.
 
