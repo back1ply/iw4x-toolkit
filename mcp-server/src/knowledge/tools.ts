@@ -52,6 +52,7 @@ const KNOWLEDGE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let dvarsCache: ParsedDvarsCache | null = null;
 let gscRawCache: RawCache | null = null;
+let menuHudCache: RawCache | null = null;
 
 /**
  * Checks if a cache entry has expired based on TTL.
@@ -91,6 +92,28 @@ export function loadGscBuiltins(): string {
     return raw;
   } catch (e) {
     return JSON.stringify({ error: `Failed to load gsc-builtins.json: ${getErrMsg(e)}` });
+  }
+}
+
+/**
+ * Loads `gsc-menu-hud.json` as a raw JSON string.
+ * Cached by mtime.
+ */
+export function loadMenuHud(): string {
+  const filePath = getKnowledgeDir("gsc-menu-hud.json");
+  if (!filePath) {
+    return JSON.stringify({ error: "gsc-menu-hud.json not found" });
+  }
+  try {
+    const mtime = fs.statSync(filePath).mtimeMs;
+    if (menuHudCache && menuHudCache.mtime === mtime && !isCacheExpired(menuHudCache.cachedAt)) {
+      return menuHudCache.raw;
+    }
+    const raw = fs.readFileSync(filePath, "utf-8");
+    menuHudCache = { raw, mtime, cachedAt: Date.now() };
+    return raw;
+  } catch (e) {
+    return JSON.stringify({ error: `Failed to load gsc-menu-hud.json: ${getErrMsg(e)}` });
   }
 }
 
@@ -225,4 +248,118 @@ export function registerKnowledgeTools(server: McpServer): void {
     },
   );
 
+  // --- Tool: gsc_menu_hud ---
+  server.registerTool(
+    "gsc_menu_hud",
+    {
+      title: "GSC Menu HUD Reference",
+      description:
+        "Reference for building HUD-element script menus in CoD4/CoD4X and MW2/IW4X GSC. " +
+        "Covers the positioning system (setPoint), all HUD element properties, " +
+        "background/layering patterns, and CoD4 vs IW4X input differences. " +
+        "Call this before writing any HUD menu code. " +
+        "Topics: positioning, properties, layering, setPoint, fonts, sort, color, all.",
+      inputSchema: {
+        topic: z.string().describe(
+          "Topic to look up. One of: 'positioning', 'properties', 'layering', " +
+          "'setPoint', 'fonts', 'sort', 'color', 'all', or any property name."
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    async ({ topic }) => {
+      const raw = loadMenuHud();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        return errResult("Failed to parse gsc-menu-hud.json");
+      }
+      if ("error" in data) {
+        return errResult(String(data.error));
+      }
+
+      const sections = data.sections as Record<string, unknown>;
+      const t = topic.toLowerCase().trim();
+
+      if (t === "all") {
+        return okResult(JSON.stringify(sections, null, 2));
+      }
+      if (t === "positioning" || t === "properties" || t === "layering") {
+        return okResult(JSON.stringify(sections[t], null, 2));
+      }
+      if (t === "setpoint") {
+        const pos = sections.positioning as Record<string, unknown>;
+        return okResult(JSON.stringify(pos.setPoint, null, 2));
+      }
+      if (t === "fonts" || t === "font") {
+        const props = sections.properties as Record<string, unknown>;
+        const text = props.text as Record<string, unknown>;
+        return okResult(JSON.stringify(text.font, null, 2));
+      }
+      if (t === "sort") {
+        const layer = sections.layering as Record<string, unknown>;
+        return okResult(JSON.stringify(layer.sort_system, null, 2));
+      }
+      if (t === "color" || t === "colour") {
+        const props = sections.properties as Record<string, unknown>;
+        const vis = props.visual as Record<string, unknown>;
+        return okResult(JSON.stringify(vis.color, null, 2));
+      }
+      if (t === "alpha") {
+        const props = sections.properties as Record<string, unknown>;
+        const vis = props.visual as Record<string, unknown>;
+        return okResult(JSON.stringify(vis.alpha, null, 2));
+      }
+      if (t === "cleanup" || t === "destroy") {
+        const layer = sections.layering as Record<string, unknown>;
+        return okResult(JSON.stringify(layer.cleanup, null, 2));
+      }
+      if (t === "foreground") {
+        const props = sections.properties as Record<string, unknown>;
+        const vis = props.visual as Record<string, unknown>;
+        return okResult(JSON.stringify(vis.foreground, null, 2));
+      }
+
+      // Generic property search across all sections
+      const results: Record<string, unknown> = {};
+      for (const [sectionName, section] of Object.entries(sections)) {
+        const found = findInSection(section as Record<string, unknown>, t);
+        if (found !== null) results[sectionName] = found;
+      }
+      if (Object.keys(results).length > 0) {
+        return okResult(JSON.stringify(results, null, 2));
+      }
+
+      return okResult(
+        `No match found for topic '${topic}'.\n` +
+        `Valid topics: positioning, properties, layering, setPoint, fonts, sort, color, alpha, foreground, cleanup, all.\n` +
+        `Or use any property name (e.g. 'fontscale', 'glowAlpha').`
+      );
+    },
+  );
+
 } // end registerKnowledgeTools
+
+/**
+ * Recursively searches a nested object for a key matching the search term.
+ * Returns the matched entries if found, null otherwise.
+ */
+function findInSection(
+  obj: Record<string, unknown>,
+  term: string,
+): Record<string, unknown> | null {
+  const results: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (key.toLowerCase() === term) {
+      results[key] = value;
+    } else if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      const nested = findInSection(value as Record<string, unknown>, term);
+      if (nested !== null) results[key] = nested;
+    }
+  }
+  return Object.keys(results).length > 0 ? results : null;
+}
