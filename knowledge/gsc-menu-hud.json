@@ -1,0 +1,214 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "description": "HUD element reference for building custom script menus in CoD4/CoD4X and MW2/IW4X GSC",
+    "games": ["CoD4", "CoD4X", "MW2", "IW4X"]
+  },
+  "sections": {
+    "positioning": {
+      "description": "How to position HUD elements on screen. The virtual resolution is always 640x480 regardless of the player's actual screen resolution.",
+      "virtual_resolution": {
+        "width": 640,
+        "height": 480,
+        "note": "All HUD coordinates are in this virtual space. 320,240 is screen center."
+      },
+      "setPoint": {
+        "signature": "elem setPoint(align, relative, x, y)",
+        "description": "Primary positioning API. Places the 'align' anchor of the element at offset (x,y) from the 'relative' point on the screen.",
+        "parameters": {
+          "align": "Which part of this element is the anchor point.",
+          "relative": "Which point on the screen (or parent element) the offset is measured from.",
+          "x": "Horizontal offset in virtual pixels. Negative = left.",
+          "y": "Vertical offset in virtual pixels. Negative = up."
+        },
+        "alignment_strings": [
+          "TOPLEFT", "TOP", "TOPRIGHT",
+          "LEFT", "CENTER", "RIGHT",
+          "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT"
+        ],
+        "examples": [
+          {
+            "description": "Center an element on screen",
+            "code": "elem setPoint(\"CENTER\", \"CENTER\", 0, 0);"
+          },
+          {
+            "description": "Top-right corner with 10px inset",
+            "code": "elem setPoint(\"TOPRIGHT\", \"TOPRIGHT\", -10, 10);"
+          },
+          {
+            "description": "20px below screen center",
+            "code": "elem setPoint(\"CENTER\", \"CENTER\", 0, 20);"
+          },
+          {
+            "description": "Stack option text below a title element",
+            "code": "optElem setPoint(\"TOP\", \"BOTTOM\", 0, 4);"
+          }
+        ]
+      },
+      "direct_properties": {
+        "description": "Lower-level alternative to setPoint. Use when setPoint is unavailable or you need fine-grained control.",
+        "x": { "type": "float", "description": "Horizontal offset from the horzAlign origin." },
+        "y": { "type": "float", "description": "Vertical offset from the vertAlign origin." },
+        "alignX": { "type": "string", "values": ["left", "center", "right"], "description": "Element's own horizontal anchor point." },
+        "alignY": { "type": "string", "values": ["top", "middle", "bottom"], "description": "Element's own vertical anchor point." },
+        "horzAlign": { "type": "string", "values": ["fullscreen", "left", "center", "right"], "description": "Screen edge used as the x origin." },
+        "vertAlign": { "type": "string", "values": ["fullscreen", "top", "middle", "bottom"], "description": "Screen edge used as the y origin." }
+      },
+      "common_formulas": {
+        "true_center": {
+          "description": "Element at exact screen center",
+          "code": "elem setPoint(\"CENTER\", \"CENTER\", 0, 0);"
+        },
+        "top_right_column": {
+          "description": "Start of a right-aligned menu column",
+          "code": "elem setPoint(\"TOPRIGHT\", \"TOPRIGHT\", 0, 0);"
+        },
+        "bottom_bar": {
+          "description": "Full-width bar at the bottom of the screen",
+          "code": "elem setPoint(\"BOTTOM\", \"BOTTOM\", 0, 0);"
+        },
+        "left_margin": {
+          "description": "Left-aligned column with 10px margin",
+          "code": "elem setPoint(\"TOPLEFT\", \"TOPLEFT\", 10, 10);"
+        }
+      }
+    },
+    "properties": {
+      "description": "All settable properties on HUD elements created with newClientHudElem or createFontString.",
+      "creation": {
+        "newClientHudElem": {
+          "signature": "elem = newClientHudElem(player)",
+          "description": "Creates a HUD element visible only to one player. Use for rectangles, shaders, icons. MUST call setParent(level.uiParent) immediately after.",
+          "note": "Called as a free function or on level — NOT on self. Do NOT call setText() on these elements. Use createFontString for text."
+        },
+        "createFontString": {
+          "signature": "elem = self createFontString(fontName, fontScale)",
+          "description": "Creates a text HUD element. Called ON the player (self). Use setText() to set content.",
+          "note": "Do NOT call setShader() on text elements created this way."
+        }
+      },
+      "visual": {
+        "color": {
+          "type": "vector",
+          "syntax": "(R, G, B)",
+          "range": "0.0 to 1.0 per channel",
+          "default": "(1, 1, 1)",
+          "examples": {
+            "red": "(1, 0, 0)",
+            "black": "(0, 0, 0)",
+            "green": "(0, 1, 0)",
+            "white": "(1, 1, 1)"
+          },
+          "wrong": "elem.color = \"red\";",
+          "right": "elem.color = (1, 0, 0);"
+        },
+        "alpha": {
+          "type": "float",
+          "range": "0.0 (fully transparent) to 1.0 (fully opaque)",
+          "default": "1.0",
+          "example": "elem.alpha = 0.7;"
+        },
+        "sort": {
+          "type": "float",
+          "description": "Draw order. Higher values render on top of lower values.",
+          "typical_values": {
+            "background_dim": 1,
+            "menu_panel": 2,
+            "cursor_highlight": 3,
+            "option_text": 4,
+            "tooltip_overlay": 5
+          },
+          "note": "Elements with equal sort values have undefined draw order relative to each other."
+        },
+        "foreground": {
+          "type": "bool",
+          "default": "false",
+          "description": "If true, renders in front of the 3D world. The element is always visible regardless of in-game geometry.",
+          "example": "elem.foreground = true;"
+        },
+        "glowColor": {
+          "type": "vector (R, G, B)",
+          "description": "Text glow color. Only meaningful on text (createFontString) elements.",
+          "example": "elem.glowColor = (1, 0.5, 0);"
+        },
+        "glowAlpha": {
+          "type": "float",
+          "range": "0.0 to 1.0",
+          "description": "Text glow intensity. Only meaningful on text elements.",
+          "example": "elem.glowAlpha = 0.8;"
+        }
+      },
+      "text": {
+        "font": {
+          "type": "string",
+          "valid_values": ["default", "bigfixed", "smallfixed", "hudfixed", "objective", "big", "small"],
+          "wrong": "elem.font = \"Arial\";",
+          "note": "Only these engine font names work. Any other string silently falls back to default or causes errors."
+        },
+        "fontscale": {
+          "type": "float",
+          "description": "Scale multiplier applied to the base font size.",
+          "example": "elem.fontscale = 1.5;"
+        },
+        "label": {
+          "type": "string",
+          "description": "Localized string reference key (e.g. '@MPUI_KILLS'). Automatically reflects locale changes. Set via elem.label = &\"KEY\";"
+        }
+      },
+      "geometry": {
+        "width": {
+          "description": "Set implicitly by setShader(material, width, height). NOT directly assignable as elem.width = N.",
+          "wrong": "elem.width = 200;",
+          "right": "elem setShader(\"white\", 200, 50);"
+        },
+        "height": {
+          "description": "Set implicitly by setShader(material, width, height). NOT directly assignable.",
+          "wrong": "elem.height = 50;",
+          "right": "elem setShader(\"white\", 200, 50);"
+        }
+      },
+      "required_setup": {
+        "setParent": {
+          "signature": "elem setParent(level.uiParent)",
+          "description": "MANDATORY for newClientHudElem. Must be called immediately after creation. Without it, elements may not display or may clip incorrectly.",
+          "example": "rect = newClientHudElem(self);\nrect setParent(level.uiParent);\nrect setShader(\"white\", 200, 300);"
+        }
+      }
+    },
+    "layering": {
+      "description": "How to build layered visual menus with backgrounds, highlights, and text.",
+      "shader_rect": {
+        "signature": "elem setShader(\"white\", width, height)",
+        "description": "Creates a solid-color filled rectangle using the engine's built-in blank texture. Color is then set via elem.color.",
+        "correct_shader_name": "white",
+        "wrong_shader_names": ["rect", "fill", "solidwhite", "box", "solid", "black"],
+        "full_example": "bg = newClientHudElem(self);\nbg setParent(level.uiParent);\nbg setShader(\"white\", 200, 300);\nbg.color = (0, 0, 0);\nbg.alpha = 0.7;\nbg.sort = 1;\nbg setPoint(\"CENTER\", \"CENTER\", 0, 0);"
+      },
+      "sort_system": {
+        "description": "Plan your sort layers before creating elements. Elements with higher sort values always render on top.",
+        "layer_stack_example": [
+          { "layer": "dim overlay",      "sort": 1, "description": "Large semi-transparent black rect over full screen" },
+          { "layer": "menu panel",       "sort": 2, "description": "The menu background panel" },
+          { "layer": "cursor highlight", "sort": 3, "description": "Colored bar showing the selected option" },
+          { "layer": "option text",      "sort": 4, "description": "Text labels for each menu option" },
+          { "layer": "title text",       "sort": 4, "description": "Menu title (same layer as option text is fine)" },
+          { "layer": "tooltip/overlay",  "sort": 5, "description": "Any element that must appear over everything" }
+        ]
+      },
+      "foreground_note": {
+        "description": "foreground = true renders an element over the 3D world at all times. Useful so your menu stays visible mid-game, but can cause visual artifacts if overused."
+      },
+      "cleanup": {
+        "description": "EVERY HUD element created must be explicitly destroyed when the menu closes. Skipping destroy() causes elements to persist and accumulate (visual and memory leak).",
+        "guard_pattern": "self endon(\"disconnect\");\nself endon(\"death\");",
+        "destroy_pattern": "if (isDefined(self.menuBg))     self.menuBg destroy();\nif (isDefined(self.menuTitle))  self.menuTitle destroy();\nif (isDefined(self.menuCursor)) self.menuCursor destroy();\nfor (i = 0; i < self.menuOpts.size; i++)\n    if (isDefined(self.menuOpts[i])) self.menuOpts[i] destroy();"
+      },
+      "cod4_vs_iw4x": {
+        "description": "Key difference in input detection for script menus.",
+        "iw4x_mw2": "notifyOnPlayerCommand(\"ev\", \"+actionslot 1\") then self waittill(\"ev\") — pure GSC, no .menu file needed.",
+        "cod4_iw3": "Requires a compiled .menu file with scriptMenuResponse + waittill(\"menuresponse\", menu, response) in GSC. notifyOnPlayerCommand does NOT exist in stock CoD4.",
+        "cod4x": "CoD4X (community client) backports notifyOnPlayerCommand from IW4, so IW4X-style pure-GSC menus work there too."
+      }
+    }
+  }
+}
