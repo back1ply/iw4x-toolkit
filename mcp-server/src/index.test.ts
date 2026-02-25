@@ -10,6 +10,7 @@ import {
   normalizeEntry,
   loadDvars,
   loadGscBuiltins,
+  loadMenuHud,
   resolveIwdPath,
   ensureBackup,
   atomicWrite,
@@ -1749,5 +1750,131 @@ describe("server", () => {
   it("instantiates without error", () => {
     expect(server).toBeDefined();
     expect(server.server).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unit tests — loadMenuHud
+// ---------------------------------------------------------------------------
+
+describe("loadMenuHud", () => {
+  it("returns valid JSON with the three expected sections", () => {
+    const raw = loadMenuHud();
+    const data = JSON.parse(raw) as { sections: Record<string, unknown> };
+    expect(data.sections).toHaveProperty("positioning");
+    expect(data.sections).toHaveProperty("properties");
+    expect(data.sections).toHaveProperty("layering");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integration tests — gsc_menu_hud tool
+// ---------------------------------------------------------------------------
+
+describe("gsc_menu_hud tool", () => {
+  let client: Client;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    client = new Client({ name: "test-client", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.server.connect(serverTransport);
+    await client.connect(clientTransport);
+    cleanup = async () => {
+      await client.close();
+    };
+  });
+
+  afterAll(async () => {
+    await cleanup?.();
+  });
+
+  it("returns positioning section for topic='positioning'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "positioning" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("setPoint");
+    expect(text).toContain("640");
+  });
+
+  it("returns layering section for topic='layering'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "layering" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("white");
+    expect(text).toContain("sort");
+  });
+
+  it("returns properties section for topic='properties'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "properties" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("newClientHudElem");
+    expect(text).toContain("createFontString");
+  });
+
+  it("returns font list for topic='fonts'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "fonts" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("bigfixed");
+    expect(text).toContain("smallfixed");
+  });
+
+  it("returns sort reference for topic='sort'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "sort" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("sort");
+  });
+
+  it("returns setPoint details for topic='setPoint'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "setPoint" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("TOPLEFT");
+    expect(text).toContain("CENTER");
+  });
+
+  it("returns color details for topic='color'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "color" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("vector");
+  });
+
+  it("returns full data for topic='all'", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "all" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("positioning");
+    expect(text).toContain("properties");
+    expect(text).toContain("layering");
+  });
+
+  it("returns helpful error for unknown topic", async () => {
+    const result = await client.callTool({
+      name: "gsc_menu_hud",
+      arguments: { topic: "nonexistent_xyz" },
+    });
+    const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain("No match found");
+    expect(text).toContain("Valid topics");
   });
 });

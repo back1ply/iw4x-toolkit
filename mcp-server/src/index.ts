@@ -40,7 +40,7 @@ export {
   RATE_LIMITS,
 } from "./utils.js";
 
-export { loadDvars, loadGscBuiltins } from "./knowledge/tools.js";
+export { loadDvars, loadGscBuiltins, loadMenuHud } from "./knowledge/tools.js";
 
 // ---------------------------------------------------------------------------
 // Startup cleanup
