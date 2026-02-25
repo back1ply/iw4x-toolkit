@@ -240,6 +240,150 @@
       "wrong": "for (i = 0; i < level.players.size; i++) {}",
       "right": "players = getplayers();\nfor (i = 0; i < players.size; i++) {}",
       "explanation": "Always use getplayers() to get the current list of connected players. level.players may not be defined or up to date."
+    },
+    {
+      "id": "AP-031",
+      "category": "hud-menu",
+      "title": "Invented HUD creation function",
+      "wrong": "elem = createHudElement(self);\nelem = spawnHudElem(self);\nelem = hudElem(self);",
+      "right": "elem = newClientHudElem(self);\nelem setParent(level.uiParent);",
+      "explanation": "The only valid HUD element creation function is newClientHudElem(player) for player-specific elements, or newHudElem() for all-player elements. Always call setParent(level.uiParent) immediately after."
+    },
+    {
+      "id": "AP-032",
+      "category": "hud-menu",
+      "title": "Wrong shader name for solid rectangle",
+      "wrong": "elem setShader(\"rect\", 200, 50);\nelem setShader(\"fill\", 200, 50);\nelem setShader(\"solidwhite\", 200, 50);",
+      "right": "elem setShader(\"white\", 200, 50);\nelem.color = (0, 0, 0);\nelem.alpha = 0.8;",
+      "explanation": "The built-in blank texture is named 'white'. Use setShader(\"white\", w, h) to create a solid rectangle, then control its color via elem.color. Names like 'rect', 'fill', 'solidwhite', 'box' do not exist."
+    },
+    {
+      "id": "AP-033",
+      "category": "hud-menu",
+      "title": "Wrong button input event in IW4X",
+      "wrong": "self waittill(\"keypress\", key);\nself waittill(\"button_pressed\", btn);\nself waittill(\"onButtonPress\", btn);",
+      "right": "// IW4X / MW2: use notifyOnPlayerCommand\nself notifyOnPlayerCommand(\"menu_up\", \"+actionslot 3\");\nself notifyOnPlayerCommand(\"menu_down\", \"+actionslot 4\");\nself notifyOnPlayerCommand(\"menu_select\", \"+gostand\");\nfor (;;)\n{\n    self waittill(\"menu_up\");\n    // scroll up\n}",
+      "explanation": "In IW4X/MW2, use notifyOnPlayerCommand(eventName, \"+action\") to bind game actions to custom notify events, then waittill on those events. The events 'keypress', 'button_pressed', 'onButtonPress' do not exist as built-in notifies."
+    },
+    {
+      "id": "AP-034",
+      "category": "hud-menu",
+      "title": "openMenu() called on a HUD script menu",
+      "wrong": "self openMenu(\"myCustomHudMenu\");\nself openMenu(\"scriptMenu\");",
+      "right": "// HUD-element menus are NOT opened via openMenu().\n// Call your display function directly:\nself thread DisplayMenu(\"main\");",
+      "explanation": "openMenu() only works with compiled native .menu files registered via precacheMenu(). HUD-element menus built with newClientHudElem are opened by directly calling your custom display/init function. openMenu() on a non-existent menu name silently does nothing."
+    },
+    {
+      "id": "AP-035",
+      "category": "hud-menu",
+      "title": "closeMenu() called on a HUD script menu",
+      "wrong": "self closeMenu();\nself closePopupMenu();",
+      "right": "// Destroy every HUD element manually:\nif (isDefined(self.menuBg))     self.menuBg destroy();\nif (isDefined(self.menuTitle))  self.menuTitle destroy();\nif (isDefined(self.menuCursor)) self.menuCursor destroy();\nfor (i = 0; i < self.menuOpts.size; i++)\n    if (isDefined(self.menuOpts[i])) self.menuOpts[i] destroy();\nself.menuOpen = false;",
+      "explanation": "closeMenu() and closePopupMenu() only affect native .menu file overlays. HUD-element menus must be closed by calling destroy() on every element you created. Missing this causes ghost elements to accumulate."
+    },
+    {
+      "id": "AP-036",
+      "category": "hud-menu",
+      "title": "setText() called on a shader/rect element",
+      "wrong": "bg = newClientHudElem(self);\nbg setShader(\"white\", 200, 50);\nbg setText(\"Menu Title\"); // wrong — bg is a rect",
+      "right": "// Create a separate text element with createFontString:\ntitle = self createFontString(\"default\", 1.5);\ntitle setText(\"Menu Title\");\ntitle.sort = 3;",
+      "explanation": "Elements created with newClientHudElem are for shaders/rectangles. Text must be created with self createFontString(font, scale). These are two separate element types. Calling setText() on a rect element does nothing."
+    },
+    {
+      "id": "AP-037",
+      "category": "hud-menu",
+      "title": "Direct property assignment for HUD text",
+      "wrong": "elem.text = \"Hello\";",
+      "right": "elem setText(\"Hello\");",
+      "explanation": "HUD element text is set via the setText() method, not by assigning to a .text property. Direct assignment is silently ignored."
+    },
+    {
+      "id": "AP-038",
+      "category": "hud-menu",
+      "title": "Missing setParent after newClientHudElem",
+      "wrong": "rect = newClientHudElem(self);\nrect setShader(\"white\", 200, 50);\nrect.color = (0, 0, 0);",
+      "right": "rect = newClientHudElem(self);\nrect setParent(level.uiParent); // REQUIRED\nrect setShader(\"white\", 200, 50);\nrect.color = (0, 0, 0);",
+      "explanation": "setParent(level.uiParent) is mandatory immediately after newClientHudElem(). Without it, the element may not render or may clip incorrectly. This is a silent failure."
+    },
+    {
+      "id": "AP-039",
+      "category": "hud-menu",
+      "title": "Missing endon guards in menu thread",
+      "wrong": "showMenu()\n{\n    // no endon guards\n    bg = newClientHudElem(self);\n    bg setParent(level.uiParent);\n    for (;;) { self waittill(\"menu_select\"); }\n}",
+      "right": "showMenu()\n{\n    self endon(\"disconnect\");\n    self endon(\"death\");\n    bg = newClientHudElem(self);\n    bg setParent(level.uiParent);\n    for (;;) { self waittill(\"menu_select\"); }\n}",
+      "explanation": "Menu threads run per-player. Without endon(\"disconnect\") and endon(\"death\"), the thread keeps running and HUD elements persist as ghosts after the player disconnects or dies. Always add both guards at the top of any player menu thread."
+    },
+    {
+      "id": "AP-040",
+      "category": "hud-menu",
+      "title": "waittill menuresponse without a .menu file",
+      "wrong": "// No .menu file opened, but waiting for menuresponse:\nfor (;;)\n{\n    self waittill(\"menuresponse\", menu, response);\n    // this never fires\n}",
+      "right": "// menuresponse only fires when a native .menu file sends scriptMenuResponse.\n// First open the menu:\nself openMenu(game[\"myMenu\"]);\n// Then wait:\nself waittill(\"menuresponse\", menu, response);",
+      "explanation": "The 'menuresponse' notify only fires when a compiled .menu file executes scriptMenuResponse. Pure HUD-element menus never trigger it. If you're building an HUD menu, use notifyOnPlayerCommand for input instead. If using native .menu files, call openMenu() first."
+    },
+    {
+      "id": "AP-041",
+      "category": "hud-menu",
+      "title": "Invalid setPoint alignment strings",
+      "wrong": "elem setPoint(\"top-left\", \"top-left\", 0, 0);\nelem setPoint(\"centerTop\", \"center\", 0, 0);\nelem setPoint(\"top_right\", \"screen\", 0, 0);",
+      "right": "elem setPoint(\"TOPLEFT\", \"TOPLEFT\", 0, 0);\nelem setPoint(\"TOP\", \"CENTER\", 0, 0);\nelem setPoint(\"TOPRIGHT\", \"TOPRIGHT\", 0, 0);",
+      "explanation": "setPoint() alignment strings are uppercase compound words with no separators: TOPLEFT, TOP, TOPRIGHT, LEFT, CENTER, RIGHT, BOTTOMLEFT, BOTTOM, BOTTOMRIGHT. Hyphenated, camelCase, or lowercase variants are invalid and cause silent positioning failures."
+    },
+    {
+      "id": "AP-042",
+      "category": "hud-menu",
+      "title": "Missing default case in menuresponse switch (CoD4)",
+      "wrong": "self waittill(\"menuresponse\", menu, response);\nswitch (response)\n{\n    case \"option1\":\n        doSomething();\n        break;\n    case \"option2\":\n        doOther();\n        break;\n    // no default — CRASHES CoD4\n}",
+      "right": "self waittill(\"menuresponse\", menu, response);\nswitch (response)\n{\n    case \"option1\":\n        doSomething();\n        break;\n    case \"option2\":\n        doOther();\n        break;\n    default:\n        break; // required in CoD4/IW3\n}",
+      "explanation": "In CoD4/IW3, a switch statement on a menuresponse value without a default: case will crash the script if an unexpected response arrives. Always include default: break; in menuresponse switch blocks."
+    },
+    {
+      "id": "AP-043",
+      "category": "hud-menu",
+      "title": "wait 0 in button polling loop",
+      "wrong": "for (;;)\n{\n    self waittill(\"menu_up\");\n    scrollUp();\n    wait 0; // can freeze or over-fire\n}",
+      "right": "for (;;)\n{\n    self waittill(\"menu_up\");\n    scrollUp();\n    wait 0.05; // debounce: ~3 frames at 60fps\n}",
+      "explanation": "wait 0 yields for exactly one server frame but provides no debounce for button input. In tight menu loops this can cause multiple triggers per button press or contribute to server freezes. Use wait 0.05 (50ms) as a minimum debounce delay after acting on input."
+    },
+    {
+      "id": "AP-044",
+      "category": "hud-menu",
+      "title": "HUD elements not destroyed on menu close",
+      "wrong": "closeMenu()\n{\n    self.menuOpen = false;\n    // forgot to destroy elements — they stay on screen\n}",
+      "right": "closeMenu()\n{\n    self.menuOpen = false;\n    if (isDefined(self.menuBg))     self.menuBg destroy();\n    if (isDefined(self.menuTitle))  self.menuTitle destroy();\n    if (isDefined(self.menuCursor)) self.menuCursor destroy();\n    for (i = 0; i < self.menuOpts.size; i++)\n        if (isDefined(self.menuOpts[i])) self.menuOpts[i] destroy();\n}",
+      "explanation": "HUD elements created with newClientHudElem and createFontString persist until explicitly destroyed. Failing to call destroy() on each element when closing the menu causes them to remain visible on screen and accumulate across menu opens. Always destroy every element in your close/cleanup function."
+    },
+    {
+      "id": "AP-045",
+      "category": "hud-menu",
+      "title": "Invalid font name on HUD text element",
+      "wrong": "elem.font = \"Arial\";\nelem.font = \"helvetica\";\nelem.font = \"courier\";",
+      "right": "elem.font = \"default\";\n// Other valid names: bigfixed, smallfixed, hudfixed, objective, big, small",
+      "explanation": "IW4 GSC only supports a fixed set of engine font names: default, bigfixed, smallfixed, hudfixed, objective, big, small. Arbitrary font names like 'Arial' silently fall back to the default font or cause errors. There is no way to load custom fonts."
+    },
+    {
+      "id": "AP-046",
+      "category": "hud-menu",
+      "title": "HUD color set as a string instead of a vector",
+      "wrong": "elem.color = \"red\";\nelem.color = \"#FF0000\";\nelem.color = \"(1, 0, 0)\";",
+      "right": "elem.color = (1, 0, 0); // red\nelem.color = (0, 0, 0); // black\nelem.color = (1, 1, 1); // white",
+      "explanation": "elem.color must be a 3-component GSC vector (R, G, B) with values from 0.0 to 1.0. String values are silently ignored. Parentheses in GSC denote a vector literal, not a function call."
+    },
+    {
+      "id": "AP-047",
+      "category": "hud-menu",
+      "title": "notifyOnPlayerCommand used in CoD4/IW3",
+      "wrong": "// In a CoD4 (IW3) script:\nself notifyOnPlayerCommand(\"menu_up\", \"+actionslot 3\");\nself waittill(\"menu_up\"); // notifyOnPlayerCommand doesn't exist in IW3",
+      "right": "// CoD4/IW3: use a compiled .menu file for key detection.\n// In your .menu file:\n// execKey \"UPARROW\" { scriptMenuResponse \"up\"; }\n// In GSC:\nself openMenu(game[\"myMenu\"]);\nself waittill(\"menuresponse\", menu, response);\nif (response == \"up\") scrollUp();",
+      "explanation": "notifyOnPlayerCommand() is an IW4/MW2 function. It does NOT exist in stock CoD4 (IW3). In CoD4, button detection for menus requires a compiled .menu file with execKey/scriptMenuResponse, and GSC listens via waittill('menuresponse',...). CoD4X (the community client) backports notifyOnPlayerCommand, so it works there."
+    },
+    {
+      "id": "AP-048",
+      "category": "hud-menu",
+      "title": "openMenu() without precacheMenu() in init",
+      "wrong": "// During gameplay, no prior precache:\nself openMenu(game[\"myMenu\"]); // silently fails or crashes",
+      "right": "// In your init() / onPlayerConnect, before the menu is ever needed:\nprecacheMenu(game[\"myMenu\"]);\n// Later, during gameplay:\nself openMenu(game[\"myMenu\"]);",
+      "explanation": "Native .menu files must be registered with precacheMenu(game[\"menuName\"]) during the init phase (before the game starts / in onPlayerConnect) before they can be opened. Calling openMenu() for an unregistered menu silently does nothing or causes a script error."
     }
   ]
 }
