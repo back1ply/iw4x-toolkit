@@ -706,3 +706,25 @@ describe("GSC Tools", () => {
     });
   });
 });
+
+// ===========================================================================
+// symbols module (unit tests — import directly, no MCP client needed)
+// ===========================================================================
+
+describe("symbols registry", () => {
+  it("starts empty", async () => {
+    const { getStats, clearIndex } = await import("./symbols.js");
+    clearIndex();
+    const stats = getStats();
+    expect(stats.symbols).toBe(0);
+    expect(stats.files).toBe(0);
+    expect(stats.archives).toBe(0);
+    expect(stats.indexedAt).toBeNull();
+  });
+
+  it("hasSymbol returns false when empty", async () => {
+    const { hasSymbol, clearIndex } = await import("./symbols.js");
+    clearIndex();
+    expect(hasSymbol("init")).toBe(false);
+  });
+});
