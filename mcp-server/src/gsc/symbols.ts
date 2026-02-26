@@ -166,7 +166,12 @@ export function buildIndex(
       const outlineResult = outline(source);
       if (outlineResult.functions.length === 0) continue;
 
+      const fileKey = `${resolved}::${entryName}`;
+      if (fileSet.has(fileKey)) continue; // skip already-indexed files to prevent duplicates on re-index
+
       archiveFiles.add(entryName);
+      fileSet.add(fileKey);     // mark as indexed BEFORE the fn loop
+      archiveSet.add(resolved); // same
 
       for (const fn of outlineResult.functions) {
         const key = fn.name.toLowerCase();
@@ -175,10 +180,7 @@ export function buildIndex(
         symbolCache.set(key, existing);
         archiveSymbols++;
 
-        // Maintain secondary maps for O(1) stats and file lookup
-        const fileKey = `${resolved}::${entryName}`;
-        fileSet.add(fileKey);
-        archiveSet.add(resolved);
+        // Maintain fileToSymbols map
         const normalizedFile = entryName.toLowerCase();
         const fileSyms = fileToSymbols.get(normalizedFile) ?? new Set<string>();
         fileSyms.add(key);
