@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import AdmZip from "adm-zip";
 import { outline } from "./outline.js";
-import { openIwd } from "../utils.js";
+import { openIwd, isSafeEntryPath } from "../utils.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,6 +50,12 @@ export interface BuildIndexResult {
 
 /** Map from lowercase function name → all locations where it is defined */
 const symbolCache = new Map<string, SymbolEntry[]>();
+/** Set of "archive::file" keys — for O(1) stats */
+const fileSet = new Set<string>();
+/** Set of archive paths — for O(1) stats */
+const archiveSet = new Set<string>();
+/** Map from normalized file path suffix → Set of lowercase function names */
+const fileToSymbols = new Map<string, Set<string>>();
 let indexedAt: Date | null = null;
 
 // ---------------------------------------------------------------------------
@@ -61,6 +67,9 @@ let indexedAt: Date | null = null;
  */
 export function clearIndex(): void {
   symbolCache.clear();
+  fileSet.clear();
+  archiveSet.clear();
+  fileToSymbols.clear();
   indexedAt = null;
 }
 
@@ -85,12 +94,14 @@ export function lookupSymbol(name: string): SymbolEntry[] {
  */
 export function symbolsForFile(fileSuffix: string): Set<string> {
   const normalized = fileSuffix.toLowerCase().replace(/\\/g, "/");
+  // Direct lookup first
+  const direct = fileToSymbols.get(normalized);
+  if (direct) return new Set(direct);
+  // Suffix scan fallback for partial paths (e.g. "utility.gsc" matching "maps/utility.gsc")
   const result = new Set<string>();
-  for (const [name, entries] of symbolCache) {
-    for (const entry of entries) {
-      if (entry.file.toLowerCase().endsWith(normalized)) {
-        result.add(name);
-      }
+  for (const [filePath, syms] of fileToSymbols) {
+    if (filePath.endsWith(normalized)) {
+      for (const s of syms) result.add(s);
     }
   }
   return result;
@@ -100,21 +111,12 @@ export function symbolsForFile(fileSuffix: string): Set<string> {
  * Current index statistics.
  */
 export function getStats(): IndexStats {
-  let files = 0;
-  const seen = new Set<string>();
-  for (const entries of symbolCache.values()) {
-    for (const e of entries) {
-      const key = `${e.archive}::${e.file}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        files++;
-      }
-    }
-  }
-  const archives = new Set(
-    [...symbolCache.values()].flatMap(es => es.map(e => e.archive))
-  ).size;
-  return { symbols: symbolCache.size, files, archives, indexedAt };
+  return {
+    symbols: symbolCache.size,
+    files: fileSet.size,
+    archives: archiveSet.size,
+    indexedAt,
+  };
 }
 
 /**
@@ -129,7 +131,12 @@ export function buildIndex(
   clear = false
 ): BuildIndexResult {
   const prevCount = symbolCache.size;
-  if (clear) symbolCache.clear();
+  if (clear) {
+    symbolCache.clear();
+    fileSet.clear();
+    archiveSet.clear();
+    fileToSymbols.clear();
+  }
 
   const perArchive: ArchiveStat[] = [];
 
@@ -167,6 +174,15 @@ export function buildIndex(
         existing.push({ name: fn.name, file: entryName, archive: resolved });
         symbolCache.set(key, existing);
         archiveSymbols++;
+
+        // Maintain secondary maps for O(1) stats and file lookup
+        const fileKey = `${resolved}::${entryName}`;
+        fileSet.add(fileKey);
+        archiveSet.add(resolved);
+        const normalizedFile = entryName.toLowerCase();
+        const fileSyms = fileToSymbols.get(normalizedFile) ?? new Set<string>();
+        fileSyms.add(key);
+        fileToSymbols.set(normalizedFile, fileSyms);
       }
     }
 
@@ -177,7 +193,9 @@ export function buildIndex(
     });
   }
 
-  indexedAt = new Date();
+  if (perArchive.length > 0) {
+    indexedAt = new Date();
+  }
 
   return {
     stats: getStats(),
@@ -204,15 +222,18 @@ export function resolveInclude(
 
   // 1. Try disk
   if (hintDir) {
-    const diskPath = path.join(hintDir, withExt);
-    if (fs.existsSync(diskPath)) {
-      try {
-        const source = fs.readFileSync(diskPath, "utf-8");
-        const outlineResult = outline(source);
-        const symbols = new Set(outlineResult.functions.map(f => f.name.toLowerCase()));
-        return { symbols, source: "disk" };
-      } catch {
-        // fall through to cache
+    // Guard against path traversal in include paths
+    if (isSafeEntryPath(withExt)) {
+      const diskPath = path.join(hintDir, withExt);
+      if (fs.existsSync(diskPath)) {
+        try {
+          const source = fs.readFileSync(diskPath, "utf-8");
+          const outlineResult = outline(source);
+          const symbols = new Set(outlineResult.functions.map(f => f.name.toLowerCase()));
+          return { symbols, source: "disk" };
+        } catch {
+          // fall through to cache
+        }
       }
     }
   }
