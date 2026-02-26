@@ -26880,16 +26880,17 @@ function buildIndex(iwdPaths, clear = false) {
       }
       const outlineResult = outline(source);
       if (outlineResult.functions.length === 0) continue;
+      const fileKey = `${resolved}::${entryName}`;
+      if (fileSet.has(fileKey)) continue;
       archiveFiles.add(entryName);
+      fileSet.add(fileKey);
+      archiveSet.add(resolved);
       for (const fn of outlineResult.functions) {
         const key = fn.name.toLowerCase();
         const existing = symbolCache.get(key) ?? [];
         existing.push({ name: fn.name, file: entryName, archive: resolved });
         symbolCache.set(key, existing);
         archiveSymbols++;
-        const fileKey = `${resolved}::${entryName}`;
-        fileSet.add(fileKey);
-        archiveSet.add(resolved);
         const normalizedFile = entryName.toLowerCase();
         const fileSyms = fileToSymbols.get(normalizedFile) ?? /* @__PURE__ */ new Set();
         fileSyms.add(key);
