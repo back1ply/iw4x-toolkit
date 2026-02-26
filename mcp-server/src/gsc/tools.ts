@@ -13,6 +13,7 @@ import * as path from "node:path";
 import { lint, fix, LintResult, LintError, LintOptions } from "./linter.js";
 import { outline, formatOutline } from "./outline.js";
 import { getKnowledgeDir } from "../utils.js";
+import { buildIndex, getStats, clearIndex } from "./symbols.js";
 
 /**
  * GSC builtin function metadata
@@ -639,6 +640,76 @@ export function registerGscTools(server: McpServer): void {
       if (matches.length > 10) {
         out += `...and ${matches.length - 10} more. Narrow your query.`;
       }
+
+      return { content: [{ type: "text", text: out }] };
+    }
+  );
+
+  // --- Tool: iwd_index_symbols ---
+  server.registerTool(
+    "iwd_index_symbols",
+    {
+      title: "Index GSC Symbols from IWD Archives",
+      description:
+        "Scans one or more IWD archives and indexes every GSC function definition " +
+        "into an in-memory symbol registry. " +
+        "Run this once before gsc_find_orphans to enable cross-archive symbol resolution. " +
+        "Accepts .iwd file paths or directories containing .iwd files. " +
+        "The index persists for the duration of the MCP server session.",
+      inputSchema: {
+        paths: z.array(z.string()).describe(
+          "Paths to .iwd files or directories containing .iwd files to index"
+        ),
+        clear: z.boolean().optional().default(false).describe(
+          "If true, clear the existing index before scanning (default: false — adds to existing)"
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: false,
+      },
+    },
+    async ({ paths, clear }) => {
+      // Expand directories to .iwd files
+      const iwdPaths: string[] = [];
+      for (const p of paths) {
+        const resolved = path.resolve(p);
+        if (!fs.existsSync(resolved)) {
+          continue;
+        }
+        const stat = fs.statSync(resolved);
+        if (stat.isDirectory()) {
+          const entries = fs.readdirSync(resolved);
+          for (const entry of entries) {
+            if (entry.toLowerCase().endsWith(".iwd")) {
+              iwdPaths.push(path.join(resolved, entry));
+            }
+          }
+        } else if (resolved.toLowerCase().endsWith(".iwd")) {
+          iwdPaths.push(resolved);
+        }
+      }
+
+      const prevStats = getStats();
+      const result = buildIndex(iwdPaths, clear);
+
+      // Format output
+      let out = `Indexed ${result.stats.symbols} symbols across ${result.stats.files} files in ${result.stats.archives} archive(s)`;
+      if (result.perArchive.length === 0) {
+        out += ".\nNo valid .iwd archives found in provided paths.";
+      } else {
+        out += ":\n";
+        for (const a of result.perArchive) {
+          const name = path.basename(a.archive);
+          out += `  ${name.padEnd(40)} — ${a.symbols} symbols (${a.files} files)\n`;
+        }
+      }
+
+      if (result.stats.symbols === 0) {
+        out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
+      }
+
+      out += `\nReplaced previous index (was ${prevStats.symbols} symbols).`;
 
       return { content: [{ type: "text", text: out }] };
     }

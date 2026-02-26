@@ -705,6 +705,31 @@ describe("GSC Tools", () => {
       expect(text).toContain("isDefined");
     });
   });
+
+  describe("iwd_index_symbols", () => {
+    it("returns 0 symbols for a non-existent path", async () => {
+      const result = await client.callTool({
+        name: "iwd_index_symbols",
+        arguments: { paths: ["/nonexistent/path.iwd"] }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("0 symbols");
+    });
+
+    it("clears and reports replaced count when clear=true", async () => {
+      await client.callTool({
+        name: "iwd_index_symbols",
+        arguments: { paths: [], clear: true }
+      });
+      const result = await client.callTool({
+        name: "iwd_index_symbols",
+        arguments: { paths: [], clear: true }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("0 symbols");
+      expect(text).toMatch(/replaced|previous/i);
+    });
+  });
 });
 
 // ===========================================================================
