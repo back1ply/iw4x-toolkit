@@ -10,10 +10,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { lint, fix, LintResult, LintError, LintOptions } from "./linter.js";
+import { lint, fix, LintResult, LintError, LintOptions, getKnownBuiltins } from "./linter.js";
 import { outline, formatOutline } from "./outline.js";
-import { getKnowledgeDir } from "../utils.js";
-import { buildIndex, getStats } from "./symbols.js";
+import { getKnowledgeDir, openIwd } from "../utils.js";
+import { buildIndex, getStats, resolveInclude, hasSymbol } from "./symbols.js";
+import { tokenize, TokenType } from "./tokenizer.js";
 
 /**
  * GSC builtin function metadata
@@ -721,6 +722,208 @@ export function registerGscTools(server: McpServer): void {
 
       if (clear || prevStats.symbols > 0) {
         out += `\nReplaced previous index (was ${prevStats.symbols} symbols).`;
+      }
+
+      return { content: [{ type: "text", text: out }] };
+    }
+  );
+
+  // --- Tool: gsc_find_orphans ---
+  server.registerTool(
+    "gsc_find_orphans",
+    {
+      title: "Find Orphaned GSC Function Calls",
+      description:
+        "Statically analyzes a GSC file and reports every function call that cannot be resolved: " +
+        "not defined locally, not in any #include, not a known IW4 builtin, " +
+        "and not in the symbol index (run iwd_index_symbols first for cross-archive resolution). " +
+        "Converts the 'one crash at a time' Promod porting cycle into a single batch fix.",
+      inputSchema: {
+        content: z.string().optional().describe(
+          "GSC source code to analyze. Either this or path must be provided."
+        ),
+        path: z.string().optional().describe(
+          "Path to a .gsc file on disk. Either this or content must be provided."
+        ),
+        iwd: z.string().optional().describe(
+          "Path to an IWD archive. If provided, reads the file specified by path from inside this archive."
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    async ({ content, path: filePath, iwd }) => {
+      // --- 1. Load source ---
+      let source: string;
+      let hintDir: string | undefined;
+
+      if (content) {
+        source = content;
+      } else if (filePath && iwd) {
+        const resolved = path.resolve(iwd);
+        const iwdResult = openIwd(resolved);
+        if (!iwdResult.ok) {
+          return { content: [{ type: "text", text: `❌ ${iwdResult.error}` }] };
+        }
+        const zip = iwdResult.value;
+        const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
+        const entry = zip.getEntry(normalized);
+        if (!entry) {
+          return { content: [{ type: "text", text: `❌ Entry not found in archive: ${normalized}` }] };
+        }
+        try {
+          source = entry.getData().toString("utf-8");
+        } catch (e) {
+          return { content: [{ type: "text", text: `❌ Failed to read entry: ${e}` }] };
+        }
+      } else if (filePath) {
+        const resolved = path.resolve(filePath);
+        if (!fs.existsSync(resolved)) {
+          return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
+        }
+        try {
+          source = fs.readFileSync(resolved, "utf-8");
+          hintDir = path.dirname(resolved);
+        } catch (e) {
+          return { content: [{ type: "text", text: `❌ Failed to read file: ${e}` }] };
+        }
+      } else {
+        return { content: [{ type: "text", text: "❌ Either content or path must be provided" }] };
+      }
+
+      // --- 2. Load builtins ---
+      const builtins = await getKnownBuiltins();
+
+      // --- 3. Collect local function definitions and includes via outline ---
+      const outlineResult = outline(source);
+      const localFunctions = new Set(outlineResult.functions.map(f => f.name.toLowerCase()));
+
+      // --- 4. Resolve #include symbols ---
+      const includedFunctions = new Set<string>();
+      const unresolvedIncludes: string[] = [];
+
+      for (const inc of outlineResult.includes) {
+        const resolved = resolveInclude(inc.path, hintDir);
+        if (resolved.source === "unresolved") {
+          unresolvedIncludes.push(inc.path);
+        } else {
+          for (const sym of resolved.symbols) {
+            includedFunctions.add(sym);
+          }
+        }
+      }
+
+      // --- 5. Find all call sites via tokenizer ---
+      // A call site: IDENTIFIER followed by LEFT_PAREN (at brace depth > 0 or confirmed not a def)
+      // Skip: function definitions (IDENTIFIER LEFT_PAREN ... RIGHT_PAREN LEFT_BRACE at depth 0)
+      // Skip: [[ptr]]() — function pointer calls, not statically resolvable
+      const { tokens } = tokenize(source);
+
+      interface CallSite { name: string; line: number }
+      const callSites: CallSite[] = [];
+      let ptrCallCount = 0;
+      let braceDepth = 0;
+
+      function nextReal(from: number): number {
+        for (let k = from; k < tokens.length; k++) {
+          const t = tokens[k];
+          if (
+            t.type !== TokenType.COMMENT &&
+            t.type !== TokenType.BLOCK_COMMENT &&
+            t.type !== TokenType.EOF
+          ) return k;
+        }
+        return -1;
+      }
+
+      for (let i = 0; i < tokens.length; i++) {
+        const tok = tokens[i];
+
+        if (tok.type === TokenType.LEFT_BRACE) { braceDepth++; continue; }
+        if (tok.type === TokenType.RIGHT_BRACE) { braceDepth = Math.max(0, braceDepth - 1); continue; }
+
+        // Skip [[ptr]]() patterns
+        if (tok.type === TokenType.LEFT_BRACKET && tokens[i + 1]?.type === TokenType.LEFT_BRACKET) {
+          ptrCallCount++;
+          while (i < tokens.length - 1 && !(tokens[i].type === TokenType.RIGHT_BRACKET && tokens[i + 1]?.type === TokenType.RIGHT_BRACKET)) i++;
+          i += 1; // skip second ]
+          continue;
+        }
+
+        if (tok.type !== TokenType.IDENTIFIER) continue;
+
+        const nxt = nextReal(i + 1);
+        if (nxt === -1 || tokens[nxt].type !== TokenType.LEFT_PAREN) continue;
+
+        // At depth 0: check if this is a function definition (closing paren followed by LEFT_BRACE)
+        if (braceDepth === 0) {
+          let j = nxt + 1;
+          let depth = 1;
+          while (j < tokens.length && depth > 0) {
+            if (tokens[j].type === TokenType.LEFT_PAREN) depth++;
+            else if (tokens[j].type === TokenType.RIGHT_PAREN) depth--;
+            j++;
+          }
+          const afterParen = nextReal(j);
+          if (afterParen !== -1 && tokens[afterParen].type === TokenType.LEFT_BRACE) {
+            continue; // function definition — skip
+          }
+        }
+
+        callSites.push({ name: tok.value, line: tok.line });
+      }
+
+      // --- 6. Classify call sites ---
+      const indexStats = getStats();
+      interface Orphan { name: string; line: number }
+      const orphans: Orphan[] = [];
+
+      for (const call of callSites) {
+        const lower = call.name.toLowerCase();
+        if (
+          !localFunctions.has(lower) &&
+          !includedFunctions.has(lower) &&
+          !builtins.has(lower) &&
+          !hasSymbol(lower)
+        ) {
+          orphans.push({ name: call.name, line: call.line });
+        }
+      }
+
+      // --- 7. Format output ---
+      const fileName = filePath ? path.basename(filePath) : "<inline>";
+      const uniqueOrphans = new Set(orphans.map(o => o.name.toLowerCase())).size;
+
+      let out: string;
+      if (orphans.length === 0) {
+        out = `✅ 0 orphaned calls in ${fileName}.\nAll function calls are resolved (local, includes, builtins, or symbol index).`;
+      } else {
+        out = `Found ${orphans.length} orphaned call(s) (${uniqueOrphans} unique) in ${fileName}\n`;
+        if (indexStats.symbols === 0) {
+          out += `⚠️  Symbol index is empty — run iwd_index_symbols first to reduce false positives.\n`;
+        } else {
+          out += `Symbol index: ${indexStats.symbols} symbols — indexed at ${indexStats.indexedAt?.toLocaleTimeString() ?? "unknown"}\n`;
+        }
+        out += "\n";
+        const seenInOutput = new Set<string>();
+        for (const o of orphans) {
+          const isDup = seenInOutput.has(o.name.toLowerCase());
+          seenInOutput.add(o.name.toLowerCase());
+          out += `  Line ${String(o.line).padStart(4)}  ${o.name}()${isDup ? "  (duplicate)" : ""}\n`;
+        }
+      }
+
+      if (unresolvedIncludes.length > 0) {
+        out += `\nUnresolved includes (symbols unknown — not on disk, not in index):\n`;
+        for (const inc of unresolvedIncludes) {
+          out += `  ${inc}\n`;
+        }
+      }
+
+      if (ptrCallCount > 0) {
+        out += `\nNote: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped — not statically resolvable.\n`;
       }
 
       return { content: [{ type: "text", text: out }] };

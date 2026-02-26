@@ -706,6 +706,42 @@ describe("GSC Tools", () => {
     });
   });
 
+  describe("gsc_find_orphans", () => {
+    it("reports no orphans for a clean file with only builtins", async () => {
+      const result = await client.callTool({
+        name: "gsc_find_orphans",
+        arguments: {
+          content: `init()\n{\n    iprintln("hello");\n    wait(1);\n}`
+        }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("0 orphaned");
+    });
+
+    it("detects an orphaned call to an unknown function", async () => {
+      const result = await client.callTool({
+        name: "gsc_find_orphans",
+        arguments: {
+          content: `init()\n{\n    promod_someUnknownFunc();\n    iprintln("done");\n}`
+        }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("promod_someUnknownFunc");
+      expect(text).toMatch(/orphan|not.*found|unresolved/i);
+    });
+
+    it("does not flag locally defined functions as orphans", async () => {
+      const result = await client.callTool({
+        name: "gsc_find_orphans",
+        arguments: {
+          content: `init()\n{\n    helper();\n}\nhelper()\n{\n    iprintln("i am local");\n}`
+        }
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("0 orphaned");
+    });
+  });
+
   describe("iwd_index_symbols", () => {
     it("returns 0 symbols for a non-existent path", async () => {
       const result = await client.callTool({
