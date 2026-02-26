@@ -2986,7 +2986,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve6.call(this, root, ref);
+      let _sch = resolve7.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3013,7 +3013,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve6(root, ref) {
+    function resolve7(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3228,8 +3228,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path7) {
-      let input = path7;
+    function removeDotSegments(path8) {
+      let input = path8;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3428,8 +3428,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path7, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
+        const [path8, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -3588,7 +3588,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve6(baseURI, relativeURI, options) {
+    function resolve7(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3815,7 +3815,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve6,
+      resolve: resolve7,
       resolveComponent,
       equal,
       serialize,
@@ -6791,12 +6791,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs4, exportName) {
+    function addFormats(ajv, list, fs5, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs4[f]);
+        ajv.addFormat(f, fs5[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7130,25 +7130,25 @@ var require_utils2 = __commonJS({
       }
       mkdirSync(folder);
     };
-    Utils.prototype.writeFileTo = function(path7, content, overwrite, attr) {
+    Utils.prototype.writeFileTo = function(path8, content, overwrite, attr) {
       const self = this;
-      if (self.fs.existsSync(path7)) {
+      if (self.fs.existsSync(path8)) {
         if (!overwrite) return false;
-        var stat = self.fs.statSync(path7);
+        var stat = self.fs.statSync(path8);
         if (stat.isDirectory()) {
           return false;
         }
       }
-      var folder = pth.dirname(path7);
+      var folder = pth.dirname(path8);
       if (!self.fs.existsSync(folder)) {
         self.makeDir(folder);
       }
       var fd;
       try {
-        fd = self.fs.openSync(path7, "w", 438);
+        fd = self.fs.openSync(path8, "w", 438);
       } catch (e) {
-        self.fs.chmodSync(path7, 438);
-        fd = self.fs.openSync(path7, "w", 438);
+        self.fs.chmodSync(path8, 438);
+        fd = self.fs.openSync(path8, "w", 438);
       }
       if (fd) {
         try {
@@ -7157,31 +7157,31 @@ var require_utils2 = __commonJS({
           self.fs.closeSync(fd);
         }
       }
-      self.fs.chmodSync(path7, attr || 438);
+      self.fs.chmodSync(path8, attr || 438);
       return true;
     };
-    Utils.prototype.writeFileToAsync = function(path7, content, overwrite, attr, callback) {
+    Utils.prototype.writeFileToAsync = function(path8, content, overwrite, attr, callback) {
       if (typeof attr === "function") {
         callback = attr;
         attr = void 0;
       }
       const self = this;
-      self.fs.exists(path7, function(exist) {
+      self.fs.exists(path8, function(exist) {
         if (exist && !overwrite) return callback(false);
-        self.fs.stat(path7, function(err2, stat) {
+        self.fs.stat(path8, function(err2, stat) {
           if (exist && stat.isDirectory()) {
             return callback(false);
           }
-          var folder = pth.dirname(path7);
+          var folder = pth.dirname(path8);
           self.fs.exists(folder, function(exists) {
             if (!exists) self.makeDir(folder);
-            self.fs.open(path7, "w", 438, function(err3, fd) {
+            self.fs.open(path8, "w", 438, function(err3, fd) {
               if (err3) {
-                self.fs.chmod(path7, 438, function() {
-                  self.fs.open(path7, "w", 438, function(err4, fd2) {
+                self.fs.chmod(path8, 438, function() {
+                  self.fs.open(path8, "w", 438, function(err4, fd2) {
                     self.fs.write(fd2, content, 0, content.length, 0, function() {
                       self.fs.close(fd2, function() {
-                        self.fs.chmod(path7, attr || 438, function() {
+                        self.fs.chmod(path8, attr || 438, function() {
                           callback(true);
                         });
                       });
@@ -7191,13 +7191,13 @@ var require_utils2 = __commonJS({
               } else if (fd) {
                 self.fs.write(fd, content, 0, content.length, 0, function() {
                   self.fs.close(fd, function() {
-                    self.fs.chmod(path7, attr || 438, function() {
+                    self.fs.chmod(path8, attr || 438, function() {
                       callback(true);
                     });
                   });
                 });
               } else {
-                self.fs.chmod(path7, attr || 438, function() {
+                self.fs.chmod(path8, attr || 438, function() {
                   callback(true);
                 });
               }
@@ -7206,7 +7206,7 @@ var require_utils2 = __commonJS({
         });
       });
     };
-    Utils.prototype.findFiles = function(path7) {
+    Utils.prototype.findFiles = function(path8) {
       const self = this;
       function findSync(dir, pattern, recursive) {
         if (typeof pattern === "boolean") {
@@ -7215,16 +7215,16 @@ var require_utils2 = __commonJS({
         }
         let files = [];
         self.fs.readdirSync(dir).forEach(function(file) {
-          const path8 = pth.join(dir, file);
-          const stat = self.fs.statSync(path8);
-          if (!pattern || pattern.test(path8)) {
-            files.push(pth.normalize(path8) + (stat.isDirectory() ? self.sep : ""));
+          const path9 = pth.join(dir, file);
+          const stat = self.fs.statSync(path9);
+          if (!pattern || pattern.test(path9)) {
+            files.push(pth.normalize(path9) + (stat.isDirectory() ? self.sep : ""));
           }
-          if (stat.isDirectory() && recursive) files = files.concat(findSync(path8, pattern, recursive));
+          if (stat.isDirectory() && recursive) files = files.concat(findSync(path9, pattern, recursive));
         });
         return files;
       }
-      return findSync(path7, void 0, true);
+      return findSync(path8, void 0, true);
     };
     Utils.prototype.findFilesAsync = function(dir, cb) {
       const self = this;
@@ -7279,14 +7279,14 @@ var require_utils2 = __commonJS({
           return "UNSUPPORTED (" + method + ")";
       }
     };
-    Utils.canonical = function(path7) {
-      if (!path7) return "";
-      const safeSuffix = pth.posix.normalize("/" + path7.split("\\").join("/"));
+    Utils.canonical = function(path8) {
+      if (!path8) return "";
+      const safeSuffix = pth.posix.normalize("/" + path8.split("\\").join("/"));
       return pth.join(".", safeSuffix);
     };
-    Utils.zipnamefix = function(path7) {
-      if (!path7) return "";
-      const safeSuffix = pth.posix.normalize("/" + path7.split("\\").join("/"));
+    Utils.zipnamefix = function(path8) {
+      if (!path8) return "";
+      const safeSuffix = pth.posix.normalize("/" + path8.split("\\").join("/"));
       return pth.posix.join(".", safeSuffix);
     };
     Utils.findLast = function(arr, callback) {
@@ -7303,9 +7303,9 @@ var require_utils2 = __commonJS({
       prefix = pth.resolve(pth.normalize(prefix));
       var parts = name.split("/");
       for (var i = 0, l = parts.length; i < l; i++) {
-        var path7 = pth.normalize(pth.join(prefix, parts.slice(i, l).join(pth.sep)));
-        if (path7.indexOf(prefix) === 0) {
-          return path7;
+        var path8 = pth.normalize(pth.join(prefix, parts.slice(i, l).join(pth.sep)));
+        if (path8.indexOf(prefix) === 0) {
+          return path8;
         }
       }
       return pth.normalize(pth.join(prefix, pth.basename(name)));
@@ -7345,8 +7345,8 @@ var require_utils2 = __commonJS({
 var require_fattr = __commonJS({
   "node_modules/adm-zip/util/fattr.js"(exports, module) {
     var pth = __require("path");
-    module.exports = function(path7, { fs: fs4 }) {
-      var _path = path7 || "", _obj = newAttr(), _stat = null;
+    module.exports = function(path8, { fs: fs5 }) {
+      var _path = path8 || "", _obj = newAttr(), _stat = null;
       function newAttr() {
         return {
           directory: false,
@@ -7357,8 +7357,8 @@ var require_fattr = __commonJS({
           atime: 0
         };
       }
-      if (_path && fs4.existsSync(_path)) {
-        _stat = fs4.statSync(_path);
+      if (_path && fs5.existsSync(_path)) {
+        _stat = fs5.statSync(_path);
         _obj.directory = _stat.isDirectory();
         _obj.mtime = _stat.mtime;
         _obj.atime = _stat.atime;
@@ -8733,8 +8733,8 @@ var require_adm_zip = __commonJS({
         return null;
       }
       function fixPath(zipPath) {
-        const { join, normalize, sep: sep2 } = pth.posix;
-        return join(".", normalize(sep2 + zipPath.split("\\").join(sep2) + sep2));
+        const { join: join3, normalize, sep: sep2 } = pth.posix;
+        return join3(".", normalize(sep2 + zipPath.split("\\").join(sep2) + sep2));
       }
       function filenameFilter(filterfn) {
         if (filterfn instanceof RegExp) {
@@ -9129,10 +9129,10 @@ var require_adm_zip = __commonJS({
          * @param {function|string} [props.namefix] - optional function to help fix filename
          */
         addLocalFolderPromise: function(localPath2, props) {
-          return new Promise((resolve6, reject) => {
+          return new Promise((resolve7, reject) => {
             this.addLocalFolderAsync2(Object.assign({ localPath: localPath2 }, props), (err2, done) => {
               if (err2) reject(err2);
-              if (done) resolve6(this);
+              if (done) resolve7(this);
             });
           });
         },
@@ -9319,12 +9319,12 @@ var require_adm_zip = __commonJS({
           keepOriginalPermission = get_Bool(false, keepOriginalPermission);
           overwrite = get_Bool(false, overwrite);
           if (!callback) {
-            return new Promise((resolve6, reject) => {
+            return new Promise((resolve7, reject) => {
               this.extractAllToAsync(targetPath, overwrite, keepOriginalPermission, function(err2) {
                 if (err2) {
                   reject(err2);
                 } else {
-                  resolve6(this);
+                  resolve7(this);
                 }
               });
             });
@@ -9422,11 +9422,11 @@ var require_adm_zip = __commonJS({
                  */
         writeZipPromise: function(targetFileName, props) {
           const { overwrite, perm } = Object.assign({ overwrite: true }, props);
-          return new Promise((resolve6, reject) => {
+          return new Promise((resolve7, reject) => {
             if (!targetFileName && opts.filename) targetFileName = opts.filename;
             if (!targetFileName) reject("ADM-ZIP: ZIP File Name Missing");
             this.toBufferPromise().then((zipData) => {
-              const ret = (done) => done ? resolve6(done) : reject("ADM-ZIP: Wasn't able to write zip file");
+              const ret = (done) => done ? resolve7(done) : reject("ADM-ZIP: Wasn't able to write zip file");
               filetools.writeFileToAsync(targetFileName, zipData, overwrite, perm, ret);
             }, reject);
           });
@@ -9435,8 +9435,8 @@ var require_adm_zip = __commonJS({
          * @returns {Promise<Buffer>} A promise to the Buffer.
          */
         toBufferPromise: function() {
-          return new Promise((resolve6, reject) => {
-            _zip.toAsyncBuffer(resolve6, reject);
+          return new Promise((resolve7, reject) => {
+            _zip.toAsyncBuffer(resolve7, reject);
           });
         },
         /**
@@ -9938,8 +9938,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path7, errorMaps, issueData } = params;
-  const fullPath = [...path7, ...issueData.path || []];
+  const { data, path: path8, errorMaps, issueData } = params;
+  const fullPath = [...path8, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -10055,11 +10055,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path7, key) {
+  constructor(parent, value, path8, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path7;
+    this._path = path8;
     this._key = key;
   }
   get path() {
@@ -13696,10 +13696,10 @@ function assignProp(target, prop, value) {
     configurable: true
   });
 }
-function getElementAtPath(obj, path7) {
-  if (!path7)
+function getElementAtPath(obj, path8) {
+  if (!path8)
     return obj;
-  return path7.reduce((acc, key) => acc?.[key], obj);
+  return path8.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -14019,11 +14019,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path7, issues) {
+function prefixIssues(path8, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path7);
+    iss.path.unshift(path8);
     return iss;
   });
 }
@@ -21532,7 +21532,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
+        await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -21549,7 +21549,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve6, reject) => {
+    return new Promise((resolve7, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -21627,7 +21627,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve6(parseResult.data);
+            resolve7(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -21888,12 +21888,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve6, reject) => {
+    return new Promise((resolve7, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve6, interval);
+      const timeoutId = setTimeout(resolve7, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -22852,7 +22852,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve6) => setTimeout(resolve6, pollInterval));
+      await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -23495,12 +23495,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve6) => {
+    return new Promise((resolve7) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve6();
+        resolve7();
       } else {
-        this._stdout.once("drain", resolve6);
+        this._stdout.once("drain", resolve7);
       }
     });
   }
@@ -24523,9 +24523,9 @@ Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`
         );
       }
       const resolvedSrc = path3.resolve(source_dir);
-      const fs4 = await import("node:fs/promises");
+      const fs5 = await import("node:fs/promises");
       try {
-        const stat = await fs4.stat(resolvedSrc);
+        const stat = await fs5.stat(resolvedSrc);
         if (!stat.isDirectory()) {
           return errResult(
             `Error: source_dir is not a directory: ${resolvedSrc}`
@@ -24540,8 +24540,8 @@ Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`
           `[dry_run] Would pack directory ${resolvedSrc} into new archive ${resolvedDst}`
         );
       }
-      const { existsSync: existsSync3 } = await import("node:fs");
-      if (existsSync3(resolvedDst)) {
+      const { existsSync: existsSync4 } = await import("node:fs");
+      if (existsSync4(resolvedDst)) {
         await ensureBackup(resolvedDst);
       }
       const { default: AdmZip2 } = await Promise.resolve().then(() => __toESM(require_adm_zip(), 1));
@@ -24570,9 +24570,9 @@ Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`
     },
     async ({ source_dir, dest_path, dry_run }) => {
       const resolvedSrc = path3.resolve(source_dir);
-      const fs4 = await import("node:fs/promises");
+      const fs5 = await import("node:fs/promises");
       try {
-        const stat = await fs4.stat(resolvedSrc);
+        const stat = await fs5.stat(resolvedSrc);
         if (!stat.isDirectory()) {
           return errResult(
             `Error: source_dir is not a directory: ${resolvedSrc}`
@@ -24880,9 +24880,9 @@ import * as path5 from "node:path";
 async function copyToDestination(sourceDir, destDir, dryRun, label) {
   const resolvedSrc = path5.resolve(sourceDir);
   const resolvedDst = path5.resolve(destDir);
-  const fs4 = await import("node:fs/promises");
+  const fs5 = await import("node:fs/promises");
   try {
-    const stat = await fs4.stat(resolvedSrc);
+    const stat = await fs5.stat(resolvedSrc);
     if (!stat.isDirectory()) {
       return errResult(
         `Error: source_dir is not a directory: ${resolvedSrc}`
@@ -24898,7 +24898,7 @@ async function copyToDestination(sourceDir, destDir, dryRun, label) {
     );
   }
   try {
-    await fs4.cp(resolvedSrc, resolvedDst, { recursive: true, force: true });
+    await fs5.cp(resolvedSrc, resolvedDst, { recursive: true, force: true });
     return okResult(
       `Synced loose files from ${resolvedSrc}
     \u2192 ${resolvedDst}`
@@ -25225,8 +25225,8 @@ function findInSection(obj, term) {
 }
 
 // src/gsc/tools.ts
-import * as fs3 from "node:fs";
-import * as path6 from "node:path";
+import * as fs4 from "node:fs";
+import * as path7 from "node:path";
 
 // src/gsc/tokenizer.ts
 var GSC_KEYWORDS = /* @__PURE__ */ new Set([
@@ -26821,6 +26821,120 @@ function formatOutline(result, source) {
   return out.trimEnd();
 }
 
+// src/gsc/symbols.ts
+import * as fs3 from "node:fs";
+import * as path6 from "node:path";
+var symbolCache = /* @__PURE__ */ new Map();
+var fileSet = /* @__PURE__ */ new Set();
+var archiveSet = /* @__PURE__ */ new Set();
+var fileToSymbols = /* @__PURE__ */ new Map();
+var indexedAt = null;
+function hasSymbol(name) {
+  return symbolCache.has(name.toLowerCase());
+}
+function symbolsForFile(fileSuffix) {
+  const normalized = fileSuffix.toLowerCase().replace(/\\/g, "/");
+  const direct = fileToSymbols.get(normalized);
+  if (direct) return new Set(direct);
+  const result = /* @__PURE__ */ new Set();
+  for (const [filePath, syms] of fileToSymbols) {
+    if (filePath.endsWith(normalized)) {
+      for (const s of syms) result.add(s);
+    }
+  }
+  return result;
+}
+function getStats() {
+  return {
+    symbols: symbolCache.size,
+    files: fileSet.size,
+    archives: archiveSet.size,
+    indexedAt
+  };
+}
+function buildIndex(iwdPaths, clear = false) {
+  const prevCount = symbolCache.size;
+  if (clear) {
+    symbolCache.clear();
+    fileSet.clear();
+    archiveSet.clear();
+    fileToSymbols.clear();
+  }
+  const perArchive = [];
+  for (const iwdPath of iwdPaths) {
+    const resolved = path6.resolve(iwdPath);
+    const result = openIwd(resolved);
+    if (!result.ok) continue;
+    const zip = result.value;
+    const entries = zip.getEntries();
+    let archiveSymbols = 0;
+    const archiveFiles = /* @__PURE__ */ new Set();
+    for (const entry of entries) {
+      const entryName = entry.entryName.replace(/\\/g, "/");
+      if (!entryName.toLowerCase().endsWith(".gsc")) continue;
+      let source;
+      try {
+        source = entry.getData().toString("utf-8");
+      } catch {
+        continue;
+      }
+      const outlineResult = outline(source);
+      if (outlineResult.functions.length === 0) continue;
+      archiveFiles.add(entryName);
+      for (const fn of outlineResult.functions) {
+        const key = fn.name.toLowerCase();
+        const existing = symbolCache.get(key) ?? [];
+        existing.push({ name: fn.name, file: entryName, archive: resolved });
+        symbolCache.set(key, existing);
+        archiveSymbols++;
+        const fileKey = `${resolved}::${entryName}`;
+        fileSet.add(fileKey);
+        archiveSet.add(resolved);
+        const normalizedFile = entryName.toLowerCase();
+        const fileSyms = fileToSymbols.get(normalizedFile) ?? /* @__PURE__ */ new Set();
+        fileSyms.add(key);
+        fileToSymbols.set(normalizedFile, fileSyms);
+      }
+    }
+    perArchive.push({
+      archive: resolved,
+      symbols: archiveSymbols,
+      files: archiveFiles.size
+    });
+  }
+  if (perArchive.length > 0) {
+    indexedAt = /* @__PURE__ */ new Date();
+  }
+  return {
+    stats: getStats(),
+    perArchive,
+    replaced: prevCount
+  };
+}
+function resolveInclude(includePath, hintDir) {
+  const normalized = includePath.replace(/\\/g, "/");
+  const withExt = normalized.endsWith(".gsc") ? normalized : normalized + ".gsc";
+  if (hintDir) {
+    if (isSafeEntryPath(withExt)) {
+      const diskPath = path6.join(hintDir, withExt);
+      if (fs3.existsSync(diskPath)) {
+        try {
+          const source = fs3.readFileSync(diskPath, "utf-8");
+          const outlineResult = outline(source);
+          const symbols = new Set(outlineResult.functions.map((f) => f.name.toLowerCase()));
+          return { symbols, source: "disk" };
+        } catch {
+        }
+      }
+    }
+  }
+  const fromCache = symbolsForFile(withExt);
+  if (fromCache.size > 0) {
+    return { symbols: fromCache, source: "cache" };
+  }
+  return { symbols: /* @__PURE__ */ new Set(), source: "unresolved" };
+}
+
 // src/gsc/tools.ts
 var gscBuiltinsCache = null;
 var templatesCache = null;
@@ -26833,7 +26947,7 @@ function loadAntiPatterns() {
     return antiPatternsCache;
   }
   try {
-    const raw = fs3.readFileSync(filePath, "utf-8");
+    const raw = fs4.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw);
     antiPatternsCache = data.patterns ?? [];
     return antiPatternsCache;
@@ -26850,7 +26964,7 @@ function loadGscBuiltins2() {
     return gscBuiltinsCache;
   }
   try {
-    const raw = fs3.readFileSync(filePath, "utf-8");
+    const raw = fs4.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw);
     const funcs = /* @__PURE__ */ new Map();
     if (data.functions) {
@@ -26873,7 +26987,7 @@ function loadTemplates() {
     return templatesCache;
   }
   try {
-    const raw = fs3.readFileSync(filePath, "utf-8");
+    const raw = fs4.readFileSync(filePath, "utf-8");
     templatesCache = JSON.parse(raw);
     return templatesCache;
   } catch {
@@ -26952,8 +27066,8 @@ function registerGscTools(server2) {
     async ({ path: filePath, content, check_undefined, check_patterns }) => {
       let source;
       if (filePath) {
-        const resolved = path6.resolve(filePath);
-        if (!fs3.existsSync(resolved)) {
+        const resolved = path7.resolve(filePath);
+        if (!fs4.existsSync(resolved)) {
           return {
             content: [{
               type: "text",
@@ -26970,7 +27084,7 @@ function registerGscTools(server2) {
           };
         }
         try {
-          source = fs3.readFileSync(resolved, "utf-8");
+          source = fs4.readFileSync(resolved, "utf-8");
         } catch (e) {
           return {
             content: [{
@@ -27165,14 +27279,14 @@ ${code}
     async ({ path: filePath, content, write_back }) => {
       let source;
       if (filePath) {
-        const resolved = path6.resolve(filePath);
-        if (!fs3.existsSync(resolved)) {
+        const resolved = path7.resolve(filePath);
+        if (!fs4.existsSync(resolved)) {
           return {
             content: [{ type: "text", text: `\u274C File not found: ${resolved}` }]
           };
         }
         try {
-          source = fs3.readFileSync(resolved, "utf-8");
+          source = fs4.readFileSync(resolved, "utf-8");
         } catch (e) {
           return {
             content: [{ type: "text", text: `\u274C Error reading file: ${e}` }]
@@ -27203,7 +27317,7 @@ ${result.fixedCode}
 \`\`\``;
         if (write_back && filePath) {
           try {
-            fs3.writeFileSync(path6.resolve(filePath), result.fixedCode, "utf-8");
+            fs4.writeFileSync(path7.resolve(filePath), result.fixedCode, "utf-8");
             output += `
 
 \u270D\uFE0F  Written back to: ${filePath}`;
@@ -27238,14 +27352,14 @@ ${result.fixedCode}
     async ({ path: filePath, content }) => {
       let source;
       if (filePath) {
-        const resolved = path6.resolve(filePath);
-        if (!fs3.existsSync(resolved)) {
+        const resolved = path7.resolve(filePath);
+        if (!fs4.existsSync(resolved)) {
           return {
             content: [{ type: "text", text: `\u274C File not found: ${resolved}` }]
           };
         }
         try {
-          source = fs3.readFileSync(resolved, "utf-8");
+          source = fs4.readFileSync(resolved, "utf-8");
         } catch (e) {
           return {
             content: [{ type: "text", text: `\u274C Error reading file: ${e}` }]
@@ -27350,23 +27464,260 @@ ${p.right}
       return { content: [{ type: "text", text: out }] };
     }
   );
+  server2.registerTool(
+    "iwd_index_symbols",
+    {
+      title: "Index GSC Symbols from IWD Archives",
+      description: "Scans one or more IWD archives and indexes every GSC function definition into an in-memory symbol registry. Run this once before gsc_find_orphans to enable cross-archive symbol resolution. Accepts .iwd file paths or directories containing .iwd files. The index persists for the duration of the MCP server session.",
+      inputSchema: {
+        paths: external_exports.array(external_exports.string()).describe(
+          "Paths to .iwd files or directories containing .iwd files to index"
+        ),
+        clear: external_exports.boolean().optional().default(false).describe(
+          "If true, clear the existing index before scanning (default: false \u2014 adds to existing)"
+        )
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: false
+      }
+    },
+    async ({ paths, clear }) => {
+      const iwdPaths = [];
+      for (const p of paths) {
+        const resolved = path7.resolve(p);
+        if (!fs4.existsSync(resolved)) {
+          continue;
+        }
+        let stat;
+        try {
+          stat = fs4.statSync(resolved);
+        } catch {
+          continue;
+        }
+        if (stat.isDirectory()) {
+          let dirEntries;
+          try {
+            dirEntries = fs4.readdirSync(resolved);
+          } catch {
+            continue;
+          }
+          for (const entry of dirEntries) {
+            if (entry.toLowerCase().endsWith(".iwd")) {
+              iwdPaths.push(path7.join(resolved, entry));
+            }
+          }
+        } else if (resolved.toLowerCase().endsWith(".iwd")) {
+          iwdPaths.push(resolved);
+        }
+      }
+      const prevStats = getStats();
+      const result = buildIndex(iwdPaths, clear);
+      let out = `Indexed ${result.stats.symbols} symbols across ${result.stats.files} files in ${result.stats.archives} archive(s)`;
+      if (result.perArchive.length === 0) {
+        out += ".\nNo valid .iwd archives found in provided paths.";
+      } else {
+        out += ":\n";
+        for (const a of result.perArchive) {
+          const name = path7.basename(a.archive);
+          out += `  ${name.padEnd(40)} \u2014 ${a.symbols} symbols (${a.files} files)
+`;
+        }
+      }
+      if (result.stats.symbols === 0) {
+        out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
+      }
+      if (clear || prevStats.symbols > 0) {
+        out += `
+Replaced previous index (was ${prevStats.symbols} symbols).`;
+      }
+      return { content: [{ type: "text", text: out }] };
+    }
+  );
+  server2.registerTool(
+    "gsc_find_orphans",
+    {
+      title: "Find Orphaned GSC Function Calls",
+      description: "Statically analyzes a GSC file and reports every function call that cannot be resolved: not defined locally, not in any #include, not a known IW4 builtin, and not in the symbol index (run iwd_index_symbols first for cross-archive resolution). Converts the 'one crash at a time' Promod porting cycle into a single batch fix.",
+      inputSchema: {
+        content: external_exports.string().optional().describe(
+          "GSC source code to analyze. Either this or path must be provided."
+        ),
+        path: external_exports.string().optional().describe(
+          "Path to a .gsc file on disk. Either this or content must be provided."
+        ),
+        iwd: external_exports.string().optional().describe(
+          "Path to an IWD archive. If provided, reads the file specified by path from inside this archive."
+        )
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
+      }
+    },
+    async ({ content, path: filePath, iwd }) => {
+      let source;
+      let hintDir;
+      if (content) {
+        source = content;
+      } else if (filePath && iwd) {
+        const resolved = path7.resolve(iwd);
+        const iwdResult = openIwd(resolved);
+        if (!iwdResult.ok) {
+          return { content: [{ type: "text", text: `\u274C ${iwdResult.error}` }] };
+        }
+        const zip = iwdResult.value;
+        const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
+        const entry = zip.getEntry(normalized);
+        if (!entry) {
+          return { content: [{ type: "text", text: `\u274C Entry not found in archive: ${normalized}` }] };
+        }
+        try {
+          source = entry.getData().toString("utf-8");
+        } catch (e) {
+          return { content: [{ type: "text", text: `\u274C Failed to read entry: ${e}` }] };
+        }
+      } else if (filePath) {
+        const resolved = path7.resolve(filePath);
+        if (!fs4.existsSync(resolved)) {
+          return { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] };
+        }
+        try {
+          source = fs4.readFileSync(resolved, "utf-8");
+          hintDir = path7.dirname(resolved);
+        } catch (e) {
+          return { content: [{ type: "text", text: `\u274C Failed to read file: ${e}` }] };
+        }
+      } else {
+        return { content: [{ type: "text", text: "\u274C Either content or path must be provided" }] };
+      }
+      const builtins = await getKnownBuiltins();
+      const outlineResult = outline(source);
+      const localFunctions = new Set(outlineResult.functions.map((f) => f.name.toLowerCase()));
+      const includedFunctions = /* @__PURE__ */ new Set();
+      const unresolvedIncludes = [];
+      for (const inc of outlineResult.includes) {
+        const resolved = resolveInclude(inc.path, hintDir);
+        if (resolved.source === "unresolved") {
+          unresolvedIncludes.push(inc.path);
+        } else {
+          for (const sym of resolved.symbols) {
+            includedFunctions.add(sym);
+          }
+        }
+      }
+      const { tokens } = tokenize(source);
+      const callSites = [];
+      let ptrCallCount = 0;
+      let braceDepth = 0;
+      function nextReal(from) {
+        for (let k = from; k < tokens.length; k++) {
+          const t = tokens[k];
+          if (t.type !== "COMMENT" /* COMMENT */ && t.type !== "BLOCK_COMMENT" /* BLOCK_COMMENT */ && t.type !== "EOF" /* EOF */) return k;
+        }
+        return -1;
+      }
+      for (let i = 0; i < tokens.length; i++) {
+        const tok = tokens[i];
+        if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
+          braceDepth++;
+          continue;
+        }
+        if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+          braceDepth = Math.max(0, braceDepth - 1);
+          continue;
+        }
+        if (tok.type === "LEFT_BRACKET" /* LEFT_BRACKET */ && tokens[i + 1]?.type === "LEFT_BRACKET" /* LEFT_BRACKET */) {
+          ptrCallCount++;
+          while (i < tokens.length - 1 && !(tokens[i].type === "RIGHT_BRACKET" /* RIGHT_BRACKET */ && tokens[i + 1]?.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */)) i++;
+          i += 1;
+          continue;
+        }
+        if (tok.type !== "IDENTIFIER" /* IDENTIFIER */) continue;
+        const nxt = nextReal(i + 1);
+        if (nxt === -1 || tokens[nxt].type !== "LEFT_PAREN" /* LEFT_PAREN */) continue;
+        if (braceDepth === 0) {
+          let j = nxt + 1;
+          let depth = 1;
+          while (j < tokens.length && depth > 0) {
+            if (tokens[j].type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
+            else if (tokens[j].type === "RIGHT_PAREN" /* RIGHT_PAREN */) depth--;
+            j++;
+          }
+          const afterParen = nextReal(j);
+          if (afterParen !== -1 && tokens[afterParen].type === "LEFT_BRACE" /* LEFT_BRACE */) {
+            continue;
+          }
+        }
+        callSites.push({ name: tok.value, line: tok.line });
+      }
+      const indexStats = getStats();
+      const orphans = [];
+      for (const call of callSites) {
+        const lower = call.name.toLowerCase();
+        if (!localFunctions.has(lower) && !includedFunctions.has(lower) && !builtins.has(lower) && !hasSymbol(lower)) {
+          orphans.push({ name: call.name, line: call.line });
+        }
+      }
+      const fileName = filePath ? path7.basename(filePath) : "<inline>";
+      const uniqueOrphans = new Set(orphans.map((o) => o.name.toLowerCase())).size;
+      let out;
+      if (orphans.length === 0) {
+        out = `\u2705 0 orphaned calls in ${fileName}.
+All function calls are resolved (local, includes, builtins, or symbol index).`;
+      } else {
+        out = `Found ${orphans.length} orphaned call(s) (${uniqueOrphans} unique) in ${fileName}
+`;
+        if (indexStats.symbols === 0) {
+          out += `\u26A0\uFE0F  Symbol index is empty \u2014 run iwd_index_symbols first to reduce false positives.
+`;
+        } else {
+          out += `Symbol index: ${indexStats.symbols} symbols \u2014 indexed at ${indexStats.indexedAt?.toLocaleTimeString() ?? "unknown"}
+`;
+        }
+        out += "\n";
+        const seenInOutput = /* @__PURE__ */ new Set();
+        for (const o of orphans) {
+          const isDup = seenInOutput.has(o.name.toLowerCase());
+          seenInOutput.add(o.name.toLowerCase());
+          out += `  Line ${String(o.line).padStart(4)}  ${o.name}()${isDup ? "  (duplicate)" : ""}
+`;
+        }
+      }
+      if (unresolvedIncludes.length > 0) {
+        out += `
+Unresolved includes (symbols unknown \u2014 not on disk, not in index):
+`;
+        for (const inc of unresolvedIncludes) {
+          out += `  ${inc}
+`;
+        }
+      }
+      if (ptrCallCount > 0) {
+        out += `
+Note: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped \u2014 not statically resolvable.
+`;
+      }
+      return { content: [{ type: "text", text: out }] };
+    }
+  );
 }
 
 // src/index.ts
 async function cleanupOrphanedTempFiles() {
-  const fs4 = await import("node:fs/promises");
-  const path7 = await import("node:path");
+  const fs5 = await import("node:fs/promises");
+  const path8 = await import("node:path");
   const cwd = process.cwd();
   try {
-    const entries = await fs4.readdir(cwd, { withFileTypes: true });
+    const entries = await fs5.readdir(cwd, { withFileTypes: true });
     let cleaned = 0;
     for (const entry of entries) {
       if (entry.isFile() && entry.name.endsWith(".tmp")) {
         try {
-          const fullPath = path7.join(cwd, entry.name);
-          const stat = await fs4.stat(fullPath);
+          const fullPath = path8.join(cwd, entry.name);
+          const stat = await fs5.stat(fullPath);
           if (Date.now() - stat.mtimeMs > 36e5) {
-            await fs4.unlink(fullPath);
+            await fs5.unlink(fullPath);
             cleaned++;
           }
         } catch {
