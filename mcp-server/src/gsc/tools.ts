@@ -13,7 +13,7 @@ import * as path from "node:path";
 import { lint, fix, LintResult, LintError, LintOptions } from "./linter.js";
 import { outline, formatOutline } from "./outline.js";
 import { getKnowledgeDir } from "../utils.js";
-import { buildIndex, getStats, clearIndex } from "./symbols.js";
+import { buildIndex, getStats } from "./symbols.js";
 
 /**
  * GSC builtin function metadata
@@ -677,10 +677,20 @@ export function registerGscTools(server: McpServer): void {
         if (!fs.existsSync(resolved)) {
           continue;
         }
-        const stat = fs.statSync(resolved);
+        let stat: fs.Stats;
+        try {
+          stat = fs.statSync(resolved);
+        } catch {
+          continue; // unreadable path — skip silently
+        }
         if (stat.isDirectory()) {
-          const entries = fs.readdirSync(resolved);
-          for (const entry of entries) {
+          let dirEntries: string[];
+          try {
+            dirEntries = fs.readdirSync(resolved);
+          } catch {
+            continue; // unreadable directory — skip silently
+          }
+          for (const entry of dirEntries) {
             if (entry.toLowerCase().endsWith(".iwd")) {
               iwdPaths.push(path.join(resolved, entry));
             }
@@ -709,7 +719,9 @@ export function registerGscTools(server: McpServer): void {
         out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
       }
 
-      out += `\nReplaced previous index (was ${prevStats.symbols} symbols).`;
+      if (clear || prevStats.symbols > 0) {
+        out += `\nReplaced previous index (was ${prevStats.symbols} symbols).`;
+      }
 
       return { content: [{ type: "text", text: out }] };
     }
