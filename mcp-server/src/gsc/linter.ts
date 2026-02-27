@@ -11,6 +11,7 @@
 
 import { tokenize, Token, TokenType, TokenizeResult } from "./tokenizer.js";
 import { getKnowledgeDir, MAX_LINE_LENGTH_WARNING } from "../utils.js";
+import { outline } from "./outline.js";
 
 // ---------------------------------------------------------------------------
 // Core builtins that are always available (no file I/O needed)
@@ -220,6 +221,9 @@ export class GSCLinter {
 
     // First pass: collect defined functions and variables
     this.collectDefinitions();
+
+    // Check for case-insensitive function name collisions (always on)
+    this.checkCaseCollisions();
 
     // Second pass: check usage (if enabled)
     if (this.options.checkUndefined !== false) {
@@ -766,6 +770,42 @@ export class GSCLinter {
       "u", "v", "forward", "right", "up",
     ];
     return props.includes(name.toLowerCase());
+  }
+
+  /**
+   * Detect case-insensitive function name collisions.
+   * GSC is case-insensitive — two definitions of isAlive / isalive cause a compile crash.
+   */
+  private checkCaseCollisions(): void {
+    const outlineResult = outline(this.source);
+
+    // Group definitions by lowercase name
+    const byLower = new Map<string, Array<{ original: string; line: number }>>();
+    for (const fn of outlineResult.functions) {
+      const lower = fn.name.toLowerCase();
+      const group = byLower.get(lower) ?? [];
+      group.push({ original: fn.name, line: fn.line });
+      byLower.set(lower, group);
+    }
+
+    for (const [, group] of byLower) {
+      if (group.length < 2) continue;
+      // Check if any two entries have different original casing
+      const originals = new Set(group.map(g => g.original));
+      if (originals.size < 2) continue;
+
+      // Report all duplicate lines except the first
+      const [first, ...rest] = group;
+      for (const dup of rest) {
+        this.errors.push({
+          type: "error",
+          code: "DEF-001",
+          message: `Function name collision: '${dup.original}' (line ${dup.line}) and '${first.original}' (line ${first.line}) are the same name in GSC (case-insensitive)`,
+          line: dup.line,
+          column: 0,
+        });
+      }
+    }
   }
 }
 
