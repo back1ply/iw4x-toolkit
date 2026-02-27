@@ -25765,6 +25765,218 @@ function tokenize(source) {
   return tokenizer.tokenize(source);
 }
 
+// src/gsc/outline.ts
+function outline(source) {
+  const { tokens } = tokenize(source);
+  const sourceLines = source.split("\n");
+  const len = tokens.length;
+  const functions = [];
+  const includes = [];
+  const threads = [];
+  const events = [];
+  const seenProps = /* @__PURE__ */ new Map();
+  let braceDepth = 0;
+  function nextOf(from) {
+    for (let k = from; k < len; k++) {
+      const t = tokens[k];
+      if (t.type !== "COMMENT" /* COMMENT */ && t.type !== "BLOCK_COMMENT" /* BLOCK_COMMENT */ && t.type !== "EOF" /* EOF */) {
+        return k;
+      }
+    }
+    return -1;
+  }
+  for (let i = 0; i < len; i++) {
+    const tok = tokens[i];
+    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
+      braceDepth++;
+      continue;
+    }
+    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (braceDepth === 0 && tok.type === "IDENTIFIER" /* IDENTIFIER */) {
+      const parenIdx = nextOf(i + 1);
+      if (parenIdx === -1 || tokens[parenIdx].type !== "LEFT_PAREN" /* LEFT_PAREN */) continue;
+      const params = [];
+      let j = parenIdx + 1;
+      let depth = 1;
+      while (j < len && depth > 0) {
+        const t = tokens[j];
+        if (t.type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
+        else if (t.type === "RIGHT_PAREN" /* RIGHT_PAREN */) {
+          depth--;
+          if (depth === 0) break;
+        } else if (depth === 1 && t.type === "IDENTIFIER" /* IDENTIFIER */) {
+          params.push(t.value);
+        }
+        j++;
+      }
+      const braceIdx = nextOf(j + 1);
+      if (braceIdx !== -1 && tokens[braceIdx].type === "LEFT_BRACE" /* LEFT_BRACE */) {
+        functions.push({ name: tok.value, params, line: tok.line });
+        i = braceIdx - 1;
+      }
+      continue;
+    }
+    if (tok.type === "HASH" /* HASH */ && (tok.value === "include" || tok.value.startsWith("using"))) {
+      const lineIdx = tok.line - 1;
+      if (lineIdx >= 0 && lineIdx < sourceLines.length) {
+        const lineText = sourceLines[lineIdx];
+        const m = lineText.match(/#\w+\s+(.+?)(?:\s*;.*)?$/);
+        if (m) {
+          includes.push({ path: m[1].trim(), line: tok.line });
+        }
+      }
+      continue;
+    }
+    if (tok.type === "KEYWORD" /* KEYWORD */ && tok.value === "thread") {
+      let entity = null;
+      if (i > 0) {
+        const prev = tokens[i - 1];
+        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
+          entity = prev.value;
+        }
+      }
+      const nxt = nextOf(i + 1);
+      if (nxt !== -1) {
+        let funcName = "";
+        let j = nxt;
+        while (j < len && tokens[j].type !== "LEFT_PAREN" /* LEFT_PAREN */ && tokens[j].type !== "SEMICOLON" /* SEMICOLON */ && tokens[j].type !== "EOF" /* EOF */) {
+          funcName += tokens[j].value;
+          j++;
+        }
+        funcName = funcName.trim();
+        if (funcName) {
+          threads.push({ funcName, entity, line: tok.line });
+        }
+      }
+      continue;
+    }
+    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "waittill" || tok.value === "notify" || tok.value === "endon" || tok.value === "waittillmatch")) {
+      let entity = null;
+      if (i > 0) {
+        const prev = tokens[i - 1];
+        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
+          entity = prev.value;
+        }
+      }
+      let eventName = null;
+      const nxt = nextOf(i + 1);
+      if (nxt !== -1 && tokens[nxt].type === "LEFT_PAREN" /* LEFT_PAREN */) {
+        const argIdx = nextOf(nxt + 1);
+        if (argIdx !== -1 && tokens[argIdx].type === "STRING" /* STRING */) {
+          eventName = tokens[argIdx].value;
+        }
+      }
+      events.push({
+        type: tok.value,
+        entity,
+        eventName,
+        line: tok.line
+      });
+      continue;
+    }
+    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "level" || tok.value === "self" || tok.value === "game")) {
+      const dotIdx = nextOf(i + 1);
+      if (dotIdx === -1 || tokens[dotIdx].type !== "DOT" /* DOT */) continue;
+      const propIdx = nextOf(dotIdx + 1);
+      if (propIdx === -1 || tokens[propIdx].type !== "IDENTIFIER" /* IDENTIFIER */) continue;
+      const eqIdx = nextOf(propIdx + 1);
+      if (eqIdx !== -1 && tokens[eqIdx].type === "EQUAL" /* EQUAL */) {
+        const key = `${tok.value}.${tokens[propIdx].value}`;
+        if (!seenProps.has(key)) {
+          seenProps.set(key, {
+            object: tok.value,
+            property: tokens[propIdx].value,
+            line: tok.line
+          });
+        }
+      }
+    }
+  }
+  return {
+    functions,
+    includes,
+    threads,
+    events,
+    props: Array.from(seenProps.values())
+  };
+}
+function formatOutline(result, source) {
+  const totalLines = source.split("\n").length;
+  let out = `\u{1F4CB} GSC Outline (${totalLines} lines)
+
+`;
+  if (result.includes.length > 0) {
+    out += `\u{1F4E6} Includes (${result.includes.length}):
+`;
+    for (const inc of result.includes) {
+      out += `  #include ${inc.path}
+`;
+    }
+    out += "\n";
+  }
+  if (result.functions.length > 0) {
+    out += `\u{1F527} Functions (${result.functions.length}):
+`;
+    const nameWidth = Math.max(...result.functions.map((f) => f.name.length + f.params.join(", ").length + 2));
+    for (const fn of result.functions) {
+      const sig = `${fn.name}(${fn.params.join(", ")})`;
+      out += `  ${sig.padEnd(Math.min(nameWidth, 40))}  line ${fn.line}
+`;
+    }
+    out += "\n";
+  } else {
+    out += `\u{1F527} Functions: none found
+
+`;
+  }
+  if (result.threads.length > 0) {
+    const seen = /* @__PURE__ */ new Set();
+    const unique = result.threads.filter((t) => {
+      if (seen.has(t.funcName)) return false;
+      seen.add(t.funcName);
+      return true;
+    });
+    out += `\u{1F9F5} Threads spawned (${result.threads.length} calls, ${unique.length} unique):
+`;
+    for (const t of unique) {
+      const prefix = t.entity ? `${t.entity} thread ` : "thread ";
+      out += `  ${prefix}${t.funcName}()  line ${t.line}
+`;
+    }
+    out += "\n";
+  }
+  if (result.events.length > 0) {
+    out += `\u{1F4E1} Events (${result.events.length}):
+`;
+    for (const ev of result.events) {
+      const eventLabel = ev.eventName ? `"${ev.eventName}"` : "(dynamic)";
+      const entityLabel = ev.entity ? `${ev.entity} ` : "";
+      out += `  ${ev.type.padEnd(12)}  ${entityLabel}${eventLabel}  line ${ev.line}
+`;
+    }
+    out += "\n";
+  }
+  if (result.props.length > 0) {
+    out += `\u{1F511} Shared state (${result.props.length} unique properties, first assignment):
+`;
+    const byObj = {};
+    for (const p of result.props) {
+      (byObj[p.object] ??= []).push(p);
+    }
+    for (const obj of ["level", "self", "game"]) {
+      if (!byObj[obj]) continue;
+      for (const p of byObj[obj]) {
+        out += `  ${obj}.${p.property.padEnd(24)}  line ${p.line}
+`;
+      }
+    }
+  }
+  return out.trimEnd();
+}
+
 // src/gsc/linter.ts
 var CORE_BUILTINS = [
   // IO
@@ -26004,6 +26216,7 @@ var GSCLinter = class {
     }
     this.tokens = tokenizeResult.tokens;
     this.collectDefinitions();
+    this.checkCaseCollisions();
     if (this.options.checkUndefined !== false) {
       this.analyzeUsage();
     }
@@ -26488,6 +26701,37 @@ var GSCLinter = class {
     ];
     return props.includes(name.toLowerCase());
   }
+  /**
+   * Detect case-insensitive function name collisions.
+   * GSC is case-insensitive — two definitions of isAlive / isalive cause a compile crash.
+   */
+  checkCaseCollisions() {
+    const outlineResult = outline(this.source);
+    const byLower = /* @__PURE__ */ new Map();
+    for (const fn of outlineResult.functions) {
+      const lower = fn.name.toLowerCase();
+      const group = byLower.get(lower) ?? [];
+      group.push({ original: fn.name, line: fn.line });
+      byLower.set(lower, group);
+    }
+    for (const [, group] of byLower) {
+      if (group.length < 2) continue;
+      const originals = new Set(group.map((g) => g.original));
+      if (originals.size < 2) continue;
+      const [first, ...rest] = group;
+      for (const dup of rest) {
+        if (dup.original === first.original) continue;
+        this.errors.push({
+          type: "error",
+          code: "DEF-001",
+          message: `Function name collision: '${dup.original}' (line ${dup.line}) and '${first.original}' (line ${first.line}) are the same name in GSC (case-insensitive)`,
+          line: dup.line,
+          column: 0
+          // outline() does not expose column positions
+        });
+      }
+    }
+  }
 };
 async function lint(source, options) {
   const linter = new GSCLinter();
@@ -26607,218 +26851,6 @@ function countBrackets(code) {
     unmatchedParens: Math.max(0, parens),
     unmatchedBrackets: Math.max(0, brackets)
   };
-}
-
-// src/gsc/outline.ts
-function outline(source) {
-  const { tokens } = tokenize(source);
-  const sourceLines = source.split("\n");
-  const len = tokens.length;
-  const functions = [];
-  const includes = [];
-  const threads = [];
-  const events = [];
-  const seenProps = /* @__PURE__ */ new Map();
-  let braceDepth = 0;
-  function nextOf(from) {
-    for (let k = from; k < len; k++) {
-      const t = tokens[k];
-      if (t.type !== "COMMENT" /* COMMENT */ && t.type !== "BLOCK_COMMENT" /* BLOCK_COMMENT */ && t.type !== "EOF" /* EOF */) {
-        return k;
-      }
-    }
-    return -1;
-  }
-  for (let i = 0; i < len; i++) {
-    const tok = tokens[i];
-    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
-      braceDepth++;
-      continue;
-    }
-    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
-      braceDepth = Math.max(0, braceDepth - 1);
-      continue;
-    }
-    if (braceDepth === 0 && tok.type === "IDENTIFIER" /* IDENTIFIER */) {
-      const parenIdx = nextOf(i + 1);
-      if (parenIdx === -1 || tokens[parenIdx].type !== "LEFT_PAREN" /* LEFT_PAREN */) continue;
-      const params = [];
-      let j = parenIdx + 1;
-      let depth = 1;
-      while (j < len && depth > 0) {
-        const t = tokens[j];
-        if (t.type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
-        else if (t.type === "RIGHT_PAREN" /* RIGHT_PAREN */) {
-          depth--;
-          if (depth === 0) break;
-        } else if (depth === 1 && t.type === "IDENTIFIER" /* IDENTIFIER */) {
-          params.push(t.value);
-        }
-        j++;
-      }
-      const braceIdx = nextOf(j + 1);
-      if (braceIdx !== -1 && tokens[braceIdx].type === "LEFT_BRACE" /* LEFT_BRACE */) {
-        functions.push({ name: tok.value, params, line: tok.line });
-        i = braceIdx - 1;
-      }
-      continue;
-    }
-    if (tok.type === "HASH" /* HASH */ && (tok.value === "include" || tok.value.startsWith("using"))) {
-      const lineIdx = tok.line - 1;
-      if (lineIdx >= 0 && lineIdx < sourceLines.length) {
-        const lineText = sourceLines[lineIdx];
-        const m = lineText.match(/#\w+\s+(.+?)(?:\s*;.*)?$/);
-        if (m) {
-          includes.push({ path: m[1].trim(), line: tok.line });
-        }
-      }
-      continue;
-    }
-    if (tok.type === "KEYWORD" /* KEYWORD */ && tok.value === "thread") {
-      let entity = null;
-      if (i > 0) {
-        const prev = tokens[i - 1];
-        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
-          entity = prev.value;
-        }
-      }
-      const nxt = nextOf(i + 1);
-      if (nxt !== -1) {
-        let funcName = "";
-        let j = nxt;
-        while (j < len && tokens[j].type !== "LEFT_PAREN" /* LEFT_PAREN */ && tokens[j].type !== "SEMICOLON" /* SEMICOLON */ && tokens[j].type !== "EOF" /* EOF */) {
-          funcName += tokens[j].value;
-          j++;
-        }
-        funcName = funcName.trim();
-        if (funcName) {
-          threads.push({ funcName, entity, line: tok.line });
-        }
-      }
-      continue;
-    }
-    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "waittill" || tok.value === "notify" || tok.value === "endon" || tok.value === "waittillmatch")) {
-      let entity = null;
-      if (i > 0) {
-        const prev = tokens[i - 1];
-        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
-          entity = prev.value;
-        }
-      }
-      let eventName = null;
-      const nxt = nextOf(i + 1);
-      if (nxt !== -1 && tokens[nxt].type === "LEFT_PAREN" /* LEFT_PAREN */) {
-        const argIdx = nextOf(nxt + 1);
-        if (argIdx !== -1 && tokens[argIdx].type === "STRING" /* STRING */) {
-          eventName = tokens[argIdx].value;
-        }
-      }
-      events.push({
-        type: tok.value,
-        entity,
-        eventName,
-        line: tok.line
-      });
-      continue;
-    }
-    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "level" || tok.value === "self" || tok.value === "game")) {
-      const dotIdx = nextOf(i + 1);
-      if (dotIdx === -1 || tokens[dotIdx].type !== "DOT" /* DOT */) continue;
-      const propIdx = nextOf(dotIdx + 1);
-      if (propIdx === -1 || tokens[propIdx].type !== "IDENTIFIER" /* IDENTIFIER */) continue;
-      const eqIdx = nextOf(propIdx + 1);
-      if (eqIdx !== -1 && tokens[eqIdx].type === "EQUAL" /* EQUAL */) {
-        const key = `${tok.value}.${tokens[propIdx].value}`;
-        if (!seenProps.has(key)) {
-          seenProps.set(key, {
-            object: tok.value,
-            property: tokens[propIdx].value,
-            line: tok.line
-          });
-        }
-      }
-    }
-  }
-  return {
-    functions,
-    includes,
-    threads,
-    events,
-    props: Array.from(seenProps.values())
-  };
-}
-function formatOutline(result, source) {
-  const totalLines = source.split("\n").length;
-  let out = `\u{1F4CB} GSC Outline (${totalLines} lines)
-
-`;
-  if (result.includes.length > 0) {
-    out += `\u{1F4E6} Includes (${result.includes.length}):
-`;
-    for (const inc of result.includes) {
-      out += `  #include ${inc.path}
-`;
-    }
-    out += "\n";
-  }
-  if (result.functions.length > 0) {
-    out += `\u{1F527} Functions (${result.functions.length}):
-`;
-    const nameWidth = Math.max(...result.functions.map((f) => f.name.length + f.params.join(", ").length + 2));
-    for (const fn of result.functions) {
-      const sig = `${fn.name}(${fn.params.join(", ")})`;
-      out += `  ${sig.padEnd(Math.min(nameWidth, 40))}  line ${fn.line}
-`;
-    }
-    out += "\n";
-  } else {
-    out += `\u{1F527} Functions: none found
-
-`;
-  }
-  if (result.threads.length > 0) {
-    const seen = /* @__PURE__ */ new Set();
-    const unique = result.threads.filter((t) => {
-      if (seen.has(t.funcName)) return false;
-      seen.add(t.funcName);
-      return true;
-    });
-    out += `\u{1F9F5} Threads spawned (${result.threads.length} calls, ${unique.length} unique):
-`;
-    for (const t of unique) {
-      const prefix = t.entity ? `${t.entity} thread ` : "thread ";
-      out += `  ${prefix}${t.funcName}()  line ${t.line}
-`;
-    }
-    out += "\n";
-  }
-  if (result.events.length > 0) {
-    out += `\u{1F4E1} Events (${result.events.length}):
-`;
-    for (const ev of result.events) {
-      const eventLabel = ev.eventName ? `"${ev.eventName}"` : "(dynamic)";
-      const entityLabel = ev.entity ? `${ev.entity} ` : "";
-      out += `  ${ev.type.padEnd(12)}  ${entityLabel}${eventLabel}  line ${ev.line}
-`;
-    }
-    out += "\n";
-  }
-  if (result.props.length > 0) {
-    out += `\u{1F511} Shared state (${result.props.length} unique properties, first assignment):
-`;
-    const byObj = {};
-    for (const p of result.props) {
-      (byObj[p.object] ??= []).push(p);
-    }
-    for (const obj of ["level", "self", "game"]) {
-      if (!byObj[obj]) continue;
-      for (const p of byObj[obj]) {
-        out += `  ${obj}.${p.property.padEnd(24)}  line ${p.line}
-`;
-      }
-    }
-  }
-  return out.trimEnd();
 }
 
 // src/gsc/symbols.ts
@@ -27697,6 +27729,93 @@ Unresolved includes (symbols unknown \u2014 not on disk, not in index):
       if (ptrCallCount > 0) {
         out += `
 Note: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped \u2014 not statically resolvable.
+`;
+      }
+      return { content: [{ type: "text", text: out }] };
+    }
+  );
+  server2.registerTool(
+    "dvar_integrity_check",
+    {
+      title: "DVAR Integrity Check",
+      description: "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string literals against the known IW4x/MW2 DVAR database (1900+ entries). Reports unknown names that are likely typos or unsupported DVARs. Skips dynamic (non-literal) arguments silently. Use path or content as input (same as gsc_lint).",
+      inputSchema: {
+        path: external_exports.string().optional().describe(
+          "Path to .gsc / .gsh file. Either this or content must be provided."
+        ),
+        content: external_exports.string().optional().describe(
+          "Raw GSC source code. Either this or path must be provided."
+        )
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true
+      }
+    },
+    async ({ path: filePath, content }) => {
+      let source;
+      if (filePath) {
+        const resolved = path7.resolve(filePath);
+        if (!fs4.existsSync(resolved)) {
+          return { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] };
+        }
+        try {
+          source = fs4.readFileSync(resolved, "utf-8");
+        } catch (e) {
+          return { content: [{ type: "text", text: `\u274C Error reading file: ${e}` }] };
+        }
+      } else if (content) {
+        source = content;
+      } else {
+        return { content: [{ type: "text", text: "\u274C Either path or content must be provided." }] };
+      }
+      const DVAR_CALL_RE = /\b(getDvar|getDvarInt|getDvarFloat|getDvarVector|setDvar|setDvarifuninitialized)\s*\(\s*"([^"]+)"/gi;
+      const lines = source.split("\n");
+      const accesses = [];
+      for (let i = 0; i < lines.length; i++) {
+        let match;
+        DVAR_CALL_RE.lastIndex = 0;
+        while ((match = DVAR_CALL_RE.exec(lines[i])) !== null) {
+          accesses.push({ fn: match[1], name: match[2], line: i + 1 });
+        }
+      }
+      if (accesses.length === 0) {
+        return { content: [{ type: "text", text: "\u2705 No DVAR string literal accesses found." }] };
+      }
+      const knownDvars = await getKnownDvars();
+      const known = [];
+      const unknown2 = [];
+      for (const a of accesses) {
+        if (knownDvars.has(a.name.toLowerCase())) {
+          known.push(a);
+        } else {
+          unknown2.push(a);
+        }
+      }
+      const fileName = filePath ? path7.basename(filePath) : "<inline>";
+      let out = `DVAR integrity check: ${fileName}
+`;
+      out += `Scanned ${accesses.length} DVAR access(es) \u2014 ${known.length} known, ${unknown2.length} unknown
+
+`;
+      if (unknown2.length > 0) {
+        out += `\u26A0\uFE0F  Unknown DVARs (possible typos or unsupported):
+`;
+        for (const a of unknown2) {
+          out += `  line ${a.line}: ${a.fn}("${a.name}")
+`;
+        }
+        out += "\n";
+      } else {
+        out += `\u2705 All DVAR names are valid.
+
+`;
+      }
+      if (known.length > 0) {
+        out += `\u2713 Known DVARs (${known.length}):
+`;
+        const uniqueKnown = [...new Set(known.map((a) => a.name))];
+        out += `  ${uniqueKnown.join(", ")}
 `;
       }
       return { content: [{ type: "text", text: out }] };
