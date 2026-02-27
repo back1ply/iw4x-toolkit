@@ -445,4 +445,49 @@ function test()
       expect(r2.errors.map(e => e.code)).toContain("PAT-024");
     });
   });
+
+  describe("Case-Insensitive Collision Detection", () => {
+    it("reports DEF-001 when two functions share a name differing only in case", async () => {
+      const result = await lint(`
+isAlive()
+{
+  return true;
+}
+
+isalive()
+{
+  return false;
+}
+`);
+      const collisions = result.errors.filter(e => e.code === "DEF-001");
+      expect(collisions.length).toBeGreaterThan(0);
+    });
+
+    it("does not report DEF-001 for functions with genuinely different names", async () => {
+      const result = await lint(`
+isAlive()
+{
+  return true;
+}
+
+isDead()
+{
+  return false;
+}
+`);
+      const collisions = result.errors.filter(e => e.code === "DEF-001");
+      expect(collisions).toHaveLength(0);
+    });
+
+    it("does not report DEF-001 when a function name appears only once", async () => {
+      const result = await lint(`
+myFunc()
+{
+  iprintln("hi");
+}
+`);
+      const collisions = result.errors.filter(e => e.code === "DEF-001");
+      expect(collisions).toHaveLength(0);
+    });
+  });
 });
