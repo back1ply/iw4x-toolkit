@@ -797,12 +797,13 @@ export class GSCLinter {
       // Report all duplicate lines except the first
       const [first, ...rest] = group;
       for (const dup of rest) {
+        if (dup.original === first.original) continue; // exact duplicate, not a casing collision
         this.errors.push({
           type: "error",
           code: "DEF-001",
           message: `Function name collision: '${dup.original}' (line ${dup.line}) and '${first.original}' (line ${first.line}) are the same name in GSC (case-insensitive)`,
           line: dup.line,
-          column: 0,
+          column: 0, // outline() does not expose column positions
         });
       }
     }
