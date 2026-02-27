@@ -10,7 +10,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { lint, fix, LintResult, LintError, LintOptions, getKnownBuiltins } from "./linter.js";
+import { lint, fix, LintResult, LintError, LintOptions, getKnownBuiltins, getKnownDvars } from "./linter.js";
 import { outline, formatOutline } from "./outline.js";
 import { getKnowledgeDir, openIwd } from "../utils.js";
 import { buildIndex, getStats, resolveInclude, hasSymbol } from "./symbols.js";
@@ -924,6 +924,115 @@ export function registerGscTools(server: McpServer): void {
 
       if (ptrCallCount > 0) {
         out += `\nNote: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped — not statically resolvable.\n`;
+      }
+
+      return { content: [{ type: "text", text: out }] };
+    }
+  );
+
+  // --- Tool: dvar_integrity_check ---
+  server.registerTool(
+    "dvar_integrity_check",
+    {
+      title: "DVAR Integrity Check",
+      description:
+        "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string " +
+        "literals against the known IW4x/MW2 DVAR database (1900+ entries). " +
+        "Reports unknown names that are likely typos or unsupported DVARs. " +
+        "Skips dynamic (non-literal) arguments silently. " +
+        "Use path or content as input (same as gsc_lint).",
+      inputSchema: {
+        path: z.string().optional().describe(
+          "Path to .gsc / .gsh file. Either this or content must be provided."
+        ),
+        content: z.string().optional().describe(
+          "Raw GSC source code. Either this or path must be provided."
+        ),
+      },
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+      },
+    },
+    async ({ path: filePath, content }) => {
+      // --- 1. Load source ---
+      let source: string;
+      if (filePath) {
+        const resolved = path.resolve(filePath);
+        if (!fs.existsSync(resolved)) {
+          return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
+        }
+        try {
+          source = fs.readFileSync(resolved, "utf-8");
+        } catch (e) {
+          return { content: [{ type: "text", text: `❌ Error reading file: ${e}` }] };
+        }
+      } else if (content) {
+        source = content;
+      } else {
+        return { content: [{ type: "text", text: "❌ Either path or content must be provided." }] };
+      }
+
+      // --- 2. Extract DVAR accesses via regex ---
+      // Matches: getDvar("name"), getDvarInt("name"), getDvarFloat("name"),
+      //          getDvarVector("name"), setDvar("name", ...), setDvarifuninitialized("name", ...)
+      const DVAR_CALL_RE = /\b(getDvar|getDvarInt|getDvarFloat|getDvarVector|setDvar|setDvarifuninitialized)\s*\(\s*"([^"]+)"/gi;
+
+      interface DvarAccess {
+        fn: string;
+        name: string;
+        line: number;
+      }
+
+      const lines = source.split("\n");
+      const accesses: DvarAccess[] = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        let match: RegExpExecArray | null;
+        DVAR_CALL_RE.lastIndex = 0;
+        while ((match = DVAR_CALL_RE.exec(lines[i])) !== null) {
+          accesses.push({ fn: match[1], name: match[2], line: i + 1 });
+        }
+      }
+
+      if (accesses.length === 0) {
+        return { content: [{ type: "text", text: "✅ No DVAR string literal accesses found." }] };
+      }
+
+      // --- 3. Classify ---
+      const knownDvars = await getKnownDvars();
+
+      const known: DvarAccess[] = [];
+      const unknown: DvarAccess[] = [];
+
+      for (const a of accesses) {
+        if (knownDvars.has(a.name.toLowerCase())) {
+          known.push(a);
+        } else {
+          unknown.push(a);
+        }
+      }
+
+      // --- 4. Format output ---
+      const fileName = filePath ? path.basename(filePath) : "<inline>";
+      let out = `DVAR integrity check: ${fileName}\n`;
+      out += `Scanned ${accesses.length} DVAR access(es) — ${known.length} known, ${unknown.length} unknown\n\n`;
+
+      if (unknown.length > 0) {
+        out += `⚠️  Unknown DVARs (possible typos or unsupported):\n`;
+        for (const a of unknown) {
+          out += `  line ${a.line}: ${a.fn}("${a.name}")\n`;
+        }
+        out += "\n";
+      } else {
+        out += `✅ All DVAR names are valid.\n\n`;
+      }
+
+      if (known.length > 0) {
+        out += `✓ Known DVARs (${known.length}):\n`;
+        // Deduplicate for summary
+        const uniqueKnown = [...new Set(known.map(a => a.name))];
+        out += `  ${uniqueKnown.join(", ")}\n`;
       }
 
       return { content: [{ type: "text", text: out }] };
