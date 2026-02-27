@@ -766,6 +766,89 @@ describe("GSC Tools", () => {
       expect(text).toMatch(/replaced|previous/i);
     });
   });
+
+  // ===========================================================================
+  // dvar_integrity_check Tests
+  // ===========================================================================
+
+  describe("dvar_integrity_check", () => {
+    it("reports unknown DVAR names as potential typos", async () => {
+      const result = await client.callTool({
+        name: "dvar_integrity_check",
+        arguments: {
+          content: `
+init()
+{
+  val = getDvar("sv_maxcliants");
+}
+`
+        }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("sv_maxcliants");
+      expect(text.toLowerCase()).toMatch(/unknown|typo|not found/);
+    });
+
+    it("recognises known DVARs", async () => {
+      const result = await client.callTool({
+        name: "dvar_integrity_check",
+        arguments: {
+          content: `
+init()
+{
+  val = getDvarInt("sv_maxclients");
+}
+`
+        }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("sv_maxclients");
+      expect(text.toLowerCase()).toMatch(/known|valid|found/);
+    });
+
+    it("skips dynamic (non-literal) DVAR arguments silently", async () => {
+      const result = await client.callTool({
+        name: "dvar_integrity_check",
+        arguments: {
+          content: `
+init()
+{
+  name = "sv_maxclients";
+  val = getDvar(name);
+}
+`
+        }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      // No string literal DVAR access — should not report any unknown DVARs
+      expect(text).not.toContain("unknown");
+    });
+
+    it("handles content with no DVAR calls gracefully", async () => {
+      const result = await client.callTool({
+        name: "dvar_integrity_check",
+        arguments: { content: 'init() { iprintln("hello"); }' }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text.toLowerCase()).toContain("no dvar");
+    });
+
+    it("accepts a file path", async () => {
+      const gscPath = path.join(tmpDir, "test.gsc");
+      fs.writeFileSync(gscPath, `init() { x = getDvar("sv_maxclients"); }`);
+      const result = await client.callTool({
+        name: "dvar_integrity_check",
+        arguments: { path: gscPath }
+      });
+      expect(result.isError).toBeFalsy();
+      const text = getResultText(result as any);
+      expect(text).toContain("sv_maxclients");
+    });
+  });
 });
 
 // ===========================================================================
