@@ -426,6 +426,10 @@ Key community tutorials focused on `createFontString` / `newHudElem` / `setPoint
   https://github.com/Scobalula/Cerberus-Repo
   GSC/CSC decompiler for BO2 and BO3 only. 66 stars. Not applicable to IW4.
 
+- **Kyasuta/bo2_gsc_compiler**
+  https://github.com/Kyasuta/bo2_gsc_compiler
+  Compiler for Black Ops 2 GSC scripts. 6 stars, updated February 2026. T6-specific, not applicable to IW4.
+
 ### Script collections
 
 - **INeedBots/iw4_bot_warfare**
@@ -507,6 +511,10 @@ Key community tutorials focused on `createFontString` / `newHudElem` / `setPoint
 - **plutoniummod/iw5-scripts**
   https://github.com/plutoniummod/iw5-scripts
   Official Plutonium MW3 (IW5) scripts dump. Same engine generation as IW4 — `_utility.gsc` includes `createFontString` wrappers useful for cross-referencing the IW4/IW5 HUD API surface.
+
+- **Resxt/Plutonium-IW5-Scripts**
+  https://github.com/Resxt/Plutonium-IW5-Scripts
+  Community GSC scripts for Plutonium MW3 (IW5). Practical reference for IW5 server-side scripting patterns.
 
 - **InfinityLoader/IL-GSC**
   https://github.com/InfinityLoader/IL-GSC
