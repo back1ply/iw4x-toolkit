@@ -167,6 +167,10 @@ AlterWare is the primary active hub for IW4-SP, IW5-Mod (MW3), IW6-Mod (Ghosts),
   https://www.se7ensins.com/forums/threads/ultimate-dvar-list-from-shaders-to-commands-to-dvar-lists-warning-big-lists.926425/
   Cross-game DVAR compilation including shaders, commands, and per-game lists.
 
+- **MW2 Vars (Se7enSins)**
+  https://www.se7ensins.com/forums/threads/mw2-vars.1870610/
+  MW2-specific DVAR/variable list thread on Se7enSins forums.
+
 - **CoD4 Custom DVARs Guide (Zeroy Wiki)**
   https://wiki.zeroy.com/index.php?title=Call_of_Duty_4%3A_Custom_Dvars
   How to create, validate, and use custom DVARs in GSC scripts. Concepts apply to IW4.

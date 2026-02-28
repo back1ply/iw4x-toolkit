@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "game": "IW4 (Call of Duty: Modern Warfare 2)",
   "source": "bloodbourne/M2-dvars-list + IW4 engine research",
-  "total": 1731,
+  "total": 1978,
   "dvars": [
     {
       "name": "actionSlotsHide",
@@ -16,7 +16,7 @@
       "fps_impact": null
     },
     {
-      "name": "activeAction =",
+      "name": "activeAction",
       "type": "string",
       "default": "",
       "flags": [],
@@ -278,6 +278,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "aim_lockon_pitch_strength",
+      "type": "float",
+      "default": "0.6",
+      "flags": [],
+      "category": "aim_assist",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Configures aim assist setting: lockon_pitch_strength",
+      "fps_impact": "none"
     },
     {
       "name": "aim_lockon_region_height",
@@ -742,6 +753,32 @@
       "fps_impact": null
     },
     {
+      "name": "bg_bounces",
+      "type": "string",
+      "default": "disabled",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Enables player bouncing off surfaces",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_bouncesAllAngles",
+      "type": "string",
+      "default": "disabled",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Enables bouncing from all surface angles",
+      "fps_impact": "low"
+    },
+    {
       "name": "bg_bulletExplDmgFactor",
       "type": "bool",
       "default": "1",
@@ -764,6 +801,41 @@
       "fps_impact": null
     },
     {
+      "name": "bg_bulletRange",
+      "type": "int",
+      "default": "8192",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Controls shared physics/gameplay setting: bulletRange",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_bunnyHopAuto",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Enables automatic bunny hopping",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_climbAnything",
+      "type": "int",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Allows players to climb any surface",
+      "fps_impact": "low"
+    },
+    {
       "name": "bg_debugProne",
       "type": "bool",
       "default": "0",
@@ -773,6 +845,54 @@
       "context": "shared",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "bg_disableBarrierClips",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Disables barrier clip volumes on the map",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_disableDoubleTaps",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Disables double-tap stance changes",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_disableLandingSlowdown",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Disables speed reduction upon landing",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_elevators",
+      "type": "string",
+      "default": "normal",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Controls elevator movement behavior for players",
+      "fps_impact": "low"
     },
     {
       "name": "bg_fallDamageMaxHeight",
@@ -885,6 +1005,17 @@
       "fps_impact": null
     },
     {
+      "name": "bg_lean",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Controls shared physics/gameplay setting: lean",
+      "fps_impact": "low"
+    },
+    {
       "name": "bg_legYawTolerance",
       "type": "int",
       "default": "20",
@@ -918,6 +1049,28 @@
       "fps_impact": null
     },
     {
+      "name": "bg_playerCollision",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Enables collision between players",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_playerEjection",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Enables ejection of overlapping players",
+      "fps_impact": "low"
+    },
+    {
       "name": "bg_prone_yawcap",
       "type": "int",
       "default": "85",
@@ -927,6 +1080,52 @@
       "context": "shared",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "bg_refill_grenade_launcher_with_onemanarmy",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Refills grenade launcher when using One Man Army",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_replace_painkiller_with_adrenaline",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Replaces Painkiller perk effect with adrenaline",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_rocketJump",
+      "type": "int",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Enables rocket jump mechanic",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bg_rocketJumpScale",
+      "type": "int",
+      "default": "64",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Controls shared physics/gameplay setting: rocketJumpScale",
+      "fps_impact": "low"
     },
     {
       "name": "bg_shieldHitEncodeHeightVM",
@@ -1710,6 +1909,17 @@
       "fps_impact": null
     },
     {
+      "name": "bg_surfacePenetration",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Enables bullet surface penetration through geometry",
+      "fps_impact": "low"
+    },
+    {
       "name": "bg_swingSpeed",
       "type": "float",
       "default": "0.2",
@@ -1961,6 +2171,28 @@
       "context": "shared",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "bg_weaponOffHandFix",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "physics",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Controls shared physics/gameplay setting: weaponOffHandFix",
+      "fps_impact": "low"
+    },
+    {
+      "name": "bug_name",
+      "type": "string",
+      "default": "bug0",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: bug_name",
+      "fps_impact": "none"
     },
     {
       "name": "bullet_penetration_enabled",
@@ -2249,6 +2481,28 @@
       "fps_impact": "low"
     },
     {
+      "name": "cg_bloodLimit",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "gore",
+      "context": "client",
+      "description": "Controls client game setting: bloodLimit",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_bloodLimitMsec",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "gore",
+      "context": "client",
+      "description": "Controls client game setting: bloodLimitMsec",
+      "fps_impact": "none"
+    },
+    {
       "name": "cg_brass",
       "type": "bool",
       "default": "1",
@@ -2291,6 +2545,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_chatWidth",
+      "type": "int",
+      "default": "52",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: chatWidth",
+      "fps_impact": "none"
     },
     {
       "name": "cg_chatWithOtherTeams",
@@ -2614,6 +2879,28 @@
       "fps_impact": null
     },
     {
+      "name": "cg_drawdecals",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: drawdecals",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_drawDisconnect",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: drawDisconnect",
+      "fps_impact": "none"
+    },
+    {
       "name": "cg_drawFPS",
       "type": "string",
       "default": "Off",
@@ -2634,6 +2921,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_drawFriendlyFireCrosshair",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "crosshair",
+      "context": "client",
+      "description": "Controls client game setting: drawFriendlyFireCrosshair",
+      "fps_impact": "none"
     },
     {
       "name": "cg_drawFriendlyNames",
@@ -2667,6 +2965,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_drawLagometer",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: drawLagometer",
+      "fps_impact": "none"
     },
     {
       "name": "cg_drawMantleHint",
@@ -2799,6 +3108,39 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_drawVersion",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: drawVersion",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_drawVersionX",
+      "type": "int",
+      "default": "10",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: drawVersionX",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_drawVersionY",
+      "type": "int",
+      "default": "455",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: drawVersionY",
+      "fps_impact": "none"
     },
     {
       "name": "cg_drawViewpos",
@@ -2975,6 +3317,28 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_fontIconAutocomplete",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: fontIconAutocomplete",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_fontIconAutocompleteHint",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: fontIconAutocompleteHint",
+      "fps_impact": "none"
     },
     {
       "name": "cg_footsteps",
@@ -3505,6 +3869,39 @@
       "fps_impact": null
     },
     {
+      "name": "cg_hudObjectiveMaxRange",
+      "type": "int",
+      "default": "2048",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Sets HUD element property: ObjectiveMaxRange",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_hudObjectiveMinAlpha",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Sets HUD element property: ObjectiveMinAlpha",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_hudObjectiveMinHeight",
+      "type": "int",
+      "default": "-70",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Sets HUD element property: ObjectiveMinHeight",
+      "fps_impact": "none"
+    },
+    {
       "name": "cg_hudObjectiveTextScale",
       "type": "float",
       "default": "0.3",
@@ -3780,6 +4177,17 @@
       "fps_impact": null
     },
     {
+      "name": "cg_marks",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: marks",
+      "fps_impact": "none"
+    },
+    {
       "name": "cg_marks_ents_player_only",
       "type": "bool",
       "default": "0",
@@ -3789,6 +4197,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_marksLimit",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: marksLimit",
+      "fps_impact": "none"
     },
     {
       "name": "cg_minCullBulletDist",
@@ -3802,6 +4221,30 @@
       "fps_impact": null
     },
     {
+      "name": "cg_newColors",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: newColors",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cg_noclip_scaler",
+      "type": "int",
+      "default": "3",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Sets speed multiplier for noclip mode",
+      "fps_impact": "none"
+    },
+    {
       "name": "cg_nopredict",
       "type": "bool",
       "default": "0",
@@ -3811,6 +4254,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_noTaunt",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: noTaunt",
+      "fps_impact": "none"
     },
     {
       "name": "cg_overheadIconSize",
@@ -3954,6 +4408,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cg_recoilMultiplier",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Controls client game setting: recoilMultiplier",
+      "fps_impact": "none"
     },
     {
       "name": "cg_remoteMissileKillCamBackDist",
@@ -4605,6 +5070,19 @@
       "fps_impact": null
     },
     {
+      "name": "cg_ufo_scaler",
+      "type": "int",
+      "default": "6",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "client_game",
+      "subcategory": "hud",
+      "context": "client",
+      "description": "Sets speed multiplier for UFO/fly mode",
+      "fps_impact": "none"
+    },
+    {
       "name": "cg_viewVehicleInfluence",
       "type": "bool",
       "default": "1",
@@ -4847,6 +5325,17 @@
       "fps_impact": null
     },
     {
+      "name": "cl_allowDownload",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: allowDownload",
+      "fps_impact": "none"
+    },
+    {
       "name": "cl_analog_attack_threshold",
       "type": "float",
       "default": "0.8",
@@ -4867,6 +5356,28 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cl_anonymous",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: anonymous",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cl_autoRecord",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: autoRecord",
+      "fps_impact": "none"
     },
     {
       "name": "cl_bypassMouseInput",
@@ -4902,6 +5413,17 @@
       "fps_impact": null
     },
     {
+      "name": "cl_debug_rumbles",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: debug_rumbles",
+      "fps_impact": "none"
+    },
+    {
       "name": "cl_demoBackJump",
       "type": "int",
       "default": "20000",
@@ -4933,6 +5455,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cl_demosKeep",
+      "type": "int",
+      "default": "200",
+      "flags": [],
+      "category": "client",
+      "subcategory": "demo",
+      "context": "client",
+      "description": "Controls client networking/input setting: demosKeep",
+      "fps_impact": "none"
     },
     {
       "name": "cl_demoSlowTimescaleSpeed",
@@ -5023,6 +5556,17 @@
       "fps_impact": null
     },
     {
+      "name": "cl_maxppf",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: maxppf",
+      "fps_impact": "none"
+    },
+    {
       "name": "cl_migrationTimeout",
       "type": "int",
       "default": "40",
@@ -5034,7 +5578,18 @@
       "fps_impact": null
     },
     {
-      "name": "cl_motdString =",
+      "name": "cl_modVidRestart",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: modVidRestart",
+      "fps_impact": "none"
+    },
+    {
+      "name": "cl_motdString",
       "type": "string",
       "default": "",
       "flags": [],
@@ -5078,6 +5633,17 @@
       "fps_impact": null
     },
     {
+      "name": "cl_notifyFriendState",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: notifyFriendState",
+      "fps_impact": "none"
+    },
+    {
       "name": "cl_packetdup",
       "type": "bool",
       "default": "1",
@@ -5109,6 +5675,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cl_rumbleScale",
+      "type": "float",
+      "default": "0.6",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: rumbleScale",
+      "fps_impact": "none"
     },
     {
       "name": "cl_serverStatusResendTime",
@@ -5199,6 +5776,17 @@
       "fps_impact": null
     },
     {
+      "name": "cl_timeNudge",
+      "type": "int",
+      "default": "-15",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: timeNudge",
+      "fps_impact": "none"
+    },
+    {
       "name": "cl_timeout",
       "type": "int",
       "default": "20",
@@ -5208,6 +5796,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "cl_updateAvailable",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: updateAvailable",
+      "fps_impact": "none"
     },
     {
       "name": "cl_voice",
@@ -5221,6 +5820,17 @@
       "fps_impact": null
     },
     {
+      "name": "cl_wwwDownload",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client",
+      "subcategory": "network",
+      "context": "client",
+      "description": "Controls client networking/input setting: wwwDownload",
+      "fps_impact": "none"
+    },
+    {
       "name": "cl_yawspeed",
       "type": "int",
       "default": "140",
@@ -5230,6 +5840,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "clanName",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: clanName",
+      "fps_impact": "none"
     },
     {
       "name": "clientSideEffects",
@@ -5254,6 +5875,17 @@
       "fps_impact": null
     },
     {
+      "name": "com_busyWait",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "system",
+      "subcategory": "performance",
+      "context": "shared",
+      "description": "Enables busy-wait loop for frame timing (affects CPU usage)",
+      "fps_impact": "medium"
+    },
+    {
       "name": "com_cinematicEndInWhite",
       "type": "bool",
       "default": "0",
@@ -5265,7 +5897,7 @@
       "fps_impact": null
     },
     {
-      "name": "com_errorResolveCommand =",
+      "name": "com_errorResolveCommand",
       "type": "string",
       "default": "",
       "flags": [],
@@ -5285,6 +5917,28 @@
       "context": "shared",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "com_introPlayed",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "system",
+      "subcategory": "performance",
+      "context": "shared",
+      "description": "Controls engine system setting: introPlayed",
+      "fps_impact": "none"
+    },
+    {
+      "name": "com_logFilter",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "system",
+      "subcategory": "performance",
+      "context": "shared",
+      "description": "Controls engine system setting: logFilter",
+      "fps_impact": "none"
     },
     {
       "name": "com_maxfps",
@@ -5373,6 +6027,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "compassDebug",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client_game",
+      "subcategory": "minimap",
+      "context": "client",
+      "description": "Configures minimap/compass display: Debug",
+      "fps_impact": "none"
     },
     {
       "name": "compassECoordCutoff",
@@ -6134,7 +6799,7 @@
       "fps_impact": null
     },
     {
-      "name": "con_gameMsgWindow3Filter =",
+      "name": "con_gameMsgWindow3Filter",
       "type": "string",
       "default": "",
       "flags": [],
@@ -6220,6 +6885,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "con_maxfps",
+      "type": "int",
+      "default": "125",
+      "flags": [],
+      "category": "client",
+      "subcategory": "console",
+      "context": "client",
+      "description": "Controls developer console setting: maxfps",
+      "fps_impact": "none"
     },
     {
       "name": "con_minicon",
@@ -6409,6 +7085,28 @@
       "fps_impact": null
     },
     {
+      "name": "customTitle",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: customTitle",
+      "fps_impact": "none"
+    },
+    {
+      "name": "debugOverlay",
+      "type": "string",
+      "default": "Off",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: debugOverlay",
+      "fps_impact": "none"
+    },
+    {
       "name": "developer",
       "type": "bool",
       "default": "0",
@@ -6431,15 +7129,15 @@
       "fps_impact": null
     },
     {
-      "name": "didyouknow",
-      "type": "string",
-      "default": "@PLATFORM_DYK_IW4_MSG17",
+      "name": "disable_tank_shock_minspec",
+      "type": "bool",
+      "default": "0",
       "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: disable_tank_shock_minspec",
+      "fps_impact": "none"
     },
     {
       "name": "drawEntityCount",
@@ -6539,6 +7237,17 @@
       "context": "unknown",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "drew_notes",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: drew_notes",
+      "fps_impact": "none"
     },
     {
       "name": "dynEnt_active",
@@ -6761,7 +7470,7 @@
       "fps_impact": null
     },
     {
-      "name": "fs_basegame =",
+      "name": "fs_basegame",
       "type": "string",
       "default": "",
       "flags": [],
@@ -6783,7 +7492,7 @@
       "fps_impact": null
     },
     {
-      "name": "fs_cdpath =",
+      "name": "fs_cdpath",
       "type": "string",
       "default": "",
       "flags": [],
@@ -6816,7 +7525,7 @@
       "fps_impact": null
     },
     {
-      "name": "fs_game =",
+      "name": "fs_game",
       "type": "string",
       "default": "",
       "flags": [],
@@ -6996,7 +7705,7 @@
       "fps_impact": null
     },
     {
-      "name": "fx_profileFilter =",
+      "name": "fx_profileFilter",
       "type": "string",
       "default": "",
       "flags": [],
@@ -7029,6 +7738,17 @@
       "fps_impact": null
     },
     {
+      "name": "fx_sort",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "effects",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls effects system setting: sort",
+      "fps_impact": "low"
+    },
+    {
       "name": "fx_visMinTraceDist",
       "type": "int",
       "default": "80",
@@ -7049,6 +7769,127 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "g_antilag",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Enables anti-lag hit detection compensation",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_banIPs",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: banIPs",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_clonePlayerMaxVelocity",
+      "type": "int",
+      "default": "80",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: clonePlayerMaxVelocity",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_ColorBlind_EnemyTeam",
+      "type": "string",
+      "default": "0.658824 0.0862745 0.145098 1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: ColorBlind_EnemyTeam",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_ColorBlind_MyTeam",
+      "type": "string",
+      "default": "1 0.858824 0.12549 1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: ColorBlind_MyTeam",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_deadChat",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: deadChat",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_dropForwardSpeed",
+      "type": "int",
+      "default": "10",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: dropForwardSpeed",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_dropHorzSpeedRand",
+      "type": "int",
+      "default": "100",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: dropHorzSpeedRand",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_dropUpSpeedBase",
+      "type": "int",
+      "default": "10",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: dropUpSpeedBase",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_dropUpSpeedRand",
+      "type": "int",
+      "default": "5",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: dropUpSpeedRand",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_firstLaunch",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: firstLaunch",
+      "fps_impact": "none"
     },
     {
       "name": "g_gametype",
@@ -7084,15 +7925,92 @@
       "fps_impact": null
     },
     {
-      "name": "g_logsync",
-      "type": "int",
-      "default": "2",
+      "name": "g_loadingInitialZones",
+      "type": "bool",
+      "default": "1",
       "flags": [],
-      "category": "game",
-      "subcategory": "general",
+      "category": "server",
+      "subcategory": "gameplay",
       "context": "server",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls server-side gameplay setting: loadingInitialZones",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_log",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: log",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_logSync",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: logSync",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_oldVoting",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: oldVoting",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_partybalance",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: partybalance",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_playerCollisionEjectSpeed",
+      "type": "int",
+      "default": "25",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: playerCollisionEjectSpeed",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_radiusDamageMax",
+      "type": "int",
+      "default": "256",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: radiusDamageMax",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_redCrosshairs",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: redCrosshairs",
+      "fps_impact": "none"
     },
     {
       "name": "g_synchronousClients",
@@ -7104,6 +8022,39 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "g_useGear",
+      "type": "bool",
+      "default": "1\t\t\t\t\t\t ",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: useGear",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_voiceChatTalkingDuration",
+      "type": "int",
+      "default": "500",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: voiceChatTalkingDuration",
+      "fps_impact": "none"
+    },
+    {
+      "name": "g_voteAbstainWeight",
+      "type": "float",
+      "default": "0.5",
+      "flags": [],
+      "category": "server",
+      "subcategory": "gameplay",
+      "context": "server",
+      "description": "Controls server-side gameplay setting: voteAbstainWeight",
+      "fps_impact": "none"
     },
     {
       "name": "gameMode",
@@ -7324,6 +8275,303 @@
       "context": "shared",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "gpad_allow_force_feedback",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad allow_force_feedback behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_button_deadzone",
+      "type": "float",
+      "default": "0.13",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad button_deadzone behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_button_lstick_deflect_max",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad button_lstick_deflect_max behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_button_release_delay",
+      "type": "int",
+      "default": "50",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad button_release_delay behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_button_release_delay_enabled",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad button_release_delay_enabled behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_button_release_delay_scale",
+      "type": "float",
+      "default": "3.5",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad button_release_delay_scale behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_button_release_delay_sprint_only",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad button_release_delay_sprint_only behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_button_rstick_deflect_max",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad button_rstick_deflect_max behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_buttonConfig",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad buttonConfig behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_buttonsConfig",
+      "type": "string",
+      "default": "buttons_default",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad buttonsConfig behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_debug",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad debug behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_enabled",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad enabled behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_force_xinput_only",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad force_xinput_only behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_in_use",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad in_use behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_lockon_enabled",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad lockon_enabled behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_menu_scroll_delay_first",
+      "type": "int",
+      "default": "420",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad menu_scroll_delay_first behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_menu_scroll_delay_rest",
+      "type": "int",
+      "default": "210",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad menu_scroll_delay_rest behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_present",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad present behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_rumble",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Enables gamepad force feedback/rumble",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_slowdown_enabled",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad slowdown_enabled behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_stick_deadzone_max",
+      "type": "float",
+      "default": "0.01",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad stick_deadzone_max behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_stick_deadzone_min",
+      "type": "float",
+      "default": "0.2",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad stick_deadzone_min behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_stick_pressed",
+      "type": "float",
+      "default": "0.4",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad stick_pressed behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_stick_pressed_hysteresis",
+      "type": "float",
+      "default": "0.1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad stick_pressed_hysteresis behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_sticksConfig",
+      "type": "string",
+      "default": "thumbstick_default",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad sticksConfig behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_style",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad style behaviour",
+      "fps_impact": "none"
+    },
+    {
+      "name": "gpad_use_hold_time",
+      "type": "int",
+      "default": "250",
+      "flags": [],
+      "category": "input",
+      "subcategory": "gamepad",
+      "context": "client",
+      "description": "Configures gamepad use_hold_time behaviour",
+      "fps_impact": "none"
     },
     {
       "name": "heli_barrelMaxVelocity",
@@ -7557,6 +8805,17 @@
       "fps_impact": null
     },
     {
+      "name": "in_gpuSync",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "mouse_keyboard",
+      "context": "client",
+      "description": "Game DVAR controlling: in_gpuSync",
+      "fps_impact": "none"
+    },
+    {
       "name": "in_mouse",
       "type": "bool",
       "default": "1",
@@ -7568,6 +8827,28 @@
       "fps_impact": null
     },
     {
+      "name": "input_invertPitch",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "mouse_keyboard",
+      "context": "client",
+      "description": "Game DVAR controlling: input_invertPitch",
+      "fps_impact": "none"
+    },
+    {
+      "name": "input_viewSensitivity",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "mouse_keyboard",
+      "context": "client",
+      "description": "Game DVAR controlling: input_viewSensitivity",
+      "fps_impact": "none"
+    },
+    {
       "name": "intro",
       "type": "bool",
       "default": "0",
@@ -7577,6 +8858,28 @@
       "context": "unknown",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "iw4x_fail2ban_location",
+      "type": "string",
+      "default": "/var/log/iw4x.log",
+      "flags": [],
+      "category": "iw4x",
+      "subcategory": "system",
+      "context": "shared",
+      "description": "Path to the log file used by fail2ban integration",
+      "fps_impact": "none"
+    },
+    {
+      "name": "iw4x_onelog",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "iw4x",
+      "subcategory": "system",
+      "context": "shared",
+      "description": "Merges all log output into a single file",
+      "fps_impact": "none"
     },
     {
       "name": "iwnet_debug",
@@ -8019,64 +9322,9 @@
       "fps_impact": null
     },
     {
-      "name": "lobby_animationSpeed",
-      "type": "int",
-      "default": "30",
-      "flags": [],
-      "category": "lobby",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "lobby_animationTilesHigh",
-      "type": "int",
-      "default": "4",
-      "flags": [],
-      "category": "lobby",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "lobby_animationTilesWide",
-      "type": "int",
-      "default": "8",
-      "flags": [],
-      "category": "lobby",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "lobby_numAnimationFrames",
-      "type": "int",
-      "default": "30",
-      "flags": [],
-      "category": "lobby",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
       "name": "lobby_partySearchWaitTime",
       "type": "int",
       "default": "1000",
-      "flags": [],
-      "category": "lobby",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "lobby_searchingPartyColor",
-      "type": "float",
-      "default": "0.941177",
       "flags": [],
       "category": "lobby",
       "subcategory": "general",
@@ -8305,6 +9553,28 @@
       "fps_impact": null
     },
     {
+      "name": "m_rawinput",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "input",
+      "subcategory": "mouse_keyboard",
+      "context": "client",
+      "description": "Controls mouse input setting: rawinput",
+      "fps_impact": "none"
+    },
+    {
+      "name": "m_rawinput_verbose",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "input",
+      "subcategory": "mouse_keyboard",
+      "context": "client",
+      "description": "Controls mouse input setting: rawinput_verbose",
+      "fps_impact": "none"
+    },
+    {
       "name": "m_side",
       "type": "float",
       "default": "0.25",
@@ -8415,7 +9685,7 @@
       "fps_impact": null
     },
     {
-      "name": "mapname =",
+      "name": "mapname",
       "type": "string",
       "default": "",
       "flags": [],
@@ -8558,6 +9828,17 @@
       "fps_impact": null
     },
     {
+      "name": "min_spec_ai",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: min_spec_ai",
+      "fps_impact": "none"
+    },
+    {
       "name": "missileRemoteFOV",
       "type": "int",
       "default": "15",
@@ -8600,6 +9881,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "mod_force_download_server",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: mod_force_download_server",
+      "fps_impact": "none"
     },
     {
       "name": "monkeytoy",
@@ -8800,7 +10092,7 @@
       "fps_impact": null
     },
     {
-      "name": "name =",
+      "name": "name",
       "type": "string",
       "default": "",
       "flags": [],
@@ -8809,6 +10101,28 @@
       "context": "unknown",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "net_discoveryPortRangeMax",
+      "type": "int",
+      "default": "35000",
+      "flags": [],
+      "category": "network",
+      "subcategory": "server",
+      "context": "shared",
+      "description": "Configures network setting: discoveryPortRangeMax",
+      "fps_impact": "none"
+    },
+    {
+      "name": "net_discoveryPortRangeMin",
+      "type": "int",
+      "default": "25000",
+      "flags": [],
+      "category": "network",
+      "subcategory": "server",
+      "context": "shared",
+      "description": "Configures network setting: discoveryPortRangeMin",
+      "fps_impact": "none"
     },
     {
       "name": "net_ip",
@@ -8831,6 +10145,17 @@
       "context": "shared",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "net_natFix",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "network",
+      "subcategory": "server",
+      "context": "shared",
+      "description": "Configures network setting: natFix",
+      "fps_impact": "none"
     },
     {
       "name": "net_noipx",
@@ -8877,6 +10202,39 @@
       "fps_impact": null
     },
     {
+      "name": "net_serverDeadTimeout",
+      "type": "int",
+      "default": "60",
+      "flags": [],
+      "category": "network",
+      "subcategory": "server",
+      "context": "shared",
+      "description": "Configures network setting: serverDeadTimeout",
+      "fps_impact": "none"
+    },
+    {
+      "name": "net_serverFrames",
+      "type": "int",
+      "default": "30",
+      "flags": [],
+      "category": "network",
+      "subcategory": "server",
+      "context": "shared",
+      "description": "Configures network setting: serverFrames",
+      "fps_impact": "none"
+    },
+    {
+      "name": "net_serverQueryLimit",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "network",
+      "subcategory": "server",
+      "context": "shared",
+      "description": "Configures network setting: serverQueryLimit",
+      "fps_impact": "none"
+    },
+    {
       "name": "net_showprofile",
       "type": "bool",
       "default": "0",
@@ -8899,7 +10257,7 @@
       "fps_impact": null
     },
     {
-      "name": "net_socksPassword =",
+      "name": "net_socksPassword",
       "type": "string",
       "default": "",
       "flags": [],
@@ -8921,7 +10279,7 @@
       "fps_impact": null
     },
     {
-      "name": "net_socksServer =",
+      "name": "net_socksServer",
       "type": "string",
       "default": "",
       "flags": [],
@@ -8932,7 +10290,7 @@
       "fps_impact": null
     },
     {
-      "name": "net_socksUsername =",
+      "name": "net_socksUsername",
       "type": "string",
       "default": "",
       "flags": [],
@@ -8943,7 +10301,7 @@
       "fps_impact": null
     },
     {
-      "name": "nextdemo =",
+      "name": "nextdemo",
       "type": "string",
       "default": "",
       "flags": [],
@@ -8954,7 +10312,7 @@
       "fps_impact": null
     },
     {
-      "name": "nextmap =",
+      "name": "nextmap",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9284,6 +10642,17 @@
       "fps_impact": null
     },
     {
+      "name": "party_enable",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "network",
+      "subcategory": "party",
+      "context": "shared",
+      "description": "Controls party/lobby setting: enable",
+      "fps_impact": "none"
+    },
+    {
       "name": "party_firstSubpartyIndex",
       "type": "bool",
       "default": "0",
@@ -9295,7 +10664,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_gamesize =",
+      "name": "party_gamesize",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9317,7 +10686,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_gametype =",
+      "name": "party_gametype",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9350,7 +10719,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_hostname =",
+      "name": "party_hostname",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9372,7 +10741,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_kickplayerquestion =",
+      "name": "party_kickplayerquestion",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9394,7 +10763,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_lobbyPlayerCount =",
+      "name": "party_lobbyPlayerCount",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9405,7 +10774,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_mapname =",
+      "name": "party_mapname",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9416,7 +10785,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_mappacks =",
+      "name": "party_mappacks",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9526,7 +10895,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_partyPlayerCount =",
+      "name": "party_partyPlayerCount",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9625,7 +10994,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_statusString =",
+      "name": "party_statusString",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9713,7 +11082,7 @@
       "fps_impact": null
     },
     {
-      "name": "party_vetoStatus =",
+      "name": "party_vetoStatus",
       "type": "string",
       "default": "",
       "flags": [],
@@ -9812,7 +11181,7 @@
       "fps_impact": null
     },
     {
-      "name": "password =",
+      "name": "password",
       "type": "string",
       "default": "",
       "flags": [],
@@ -10791,6 +12160,39 @@
       "fps_impact": null
     },
     {
+      "name": "ping_default_min",
+      "type": "int",
+      "default": "50",
+      "flags": [],
+      "category": "network",
+      "subcategory": "matchmaking",
+      "context": "client",
+      "description": "Game DVAR controlling: ping_default_min",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ping_increment",
+      "type": "int",
+      "default": "10",
+      "flags": [],
+      "category": "network",
+      "subcategory": "matchmaking",
+      "context": "client",
+      "description": "Game DVAR controlling: ping_increment",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ping_searches_per",
+      "type": "int",
+      "default": "2",
+      "flags": [],
+      "category": "network",
+      "subcategory": "matchmaking",
+      "context": "client",
+      "description": "Game DVAR controlling: ping_searches_per",
+      "fps_impact": "none"
+    },
+    {
       "name": "player_adsExitDelay",
       "type": "bool",
       "default": "0",
@@ -10978,6 +12380,17 @@
       "fps_impact": null
     },
     {
+      "name": "player_duckedSpeedScale",
+      "type": "float",
+      "default": "0.65",
+      "flags": [],
+      "category": "player",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Game DVAR controlling: player_duckedSpeedScale",
+      "fps_impact": "none"
+    },
+    {
       "name": "player_footstepsThreshhold",
       "type": "bool",
       "default": "0",
@@ -11152,6 +12565,17 @@
       "context": "shared",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "player_proneSpeedScale",
+      "type": "float",
+      "default": "0.15",
+      "flags": [],
+      "category": "player",
+      "subcategory": "movement",
+      "context": "shared",
+      "description": "Game DVAR controlling: player_proneSpeedScale",
+      "fps_impact": "none"
     },
     {
       "name": "player_runThreshhold",
@@ -11363,7 +12787,7 @@
       "fps_impact": null
     },
     {
-      "name": "privateMatch_joinPassword =",
+      "name": "privateMatch_joinPassword",
       "type": "string",
       "default": "",
       "flags": [],
@@ -11374,64 +12798,9 @@
       "fps_impact": null
     },
     {
-      "name": "privateMatch_serverPassword =",
+      "name": "privateMatch_serverPassword",
       "type": "string",
       "default": "",
-      "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "profileMenuOption_blacklevel",
-      "type": "bool",
-      "default": "0",
-      "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "profileMenuOption_gamma",
-      "type": "float",
-      "default": "0.8",
-      "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "profileMenuOption_safeAreaHorz",
-      "type": "float",
-      "default": "0.85",
-      "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "profileMenuOption_safeAreaVert",
-      "type": "float",
-      "default": "0.85",
-      "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "profileMenuOption_volume",
-      "type": "float",
-      "default": "0.8",
       "flags": [],
       "category": "misc",
       "subcategory": "general",
@@ -11495,6 +12864,50 @@
       "fps_impact": null
     },
     {
+      "name": "r_arb_texture_env_dot3",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: arb_texture_env_dot3",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_arb_vertex_buffer_object",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: arb_vertex_buffer_object",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_arb_vertex_program",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: arb_vertex_program",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_arcadia_culldist",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: arcadia_culldist",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_aspectRatio",
       "type": "string",
       "default": "auto",
@@ -11504,6 +12917,94 @@
       "context": "client",
       "description": "Aspect ratio mode (auto, standard, wide 16:10, wide 16:9)",
       "fps_impact": "none"
+    },
+    {
+      "name": "r_ati_element_array",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: ati_element_array",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_ati_fragment_shader",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: ati_fragment_shader",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_ati_fsaa_samples",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "antialiasing",
+      "context": "client",
+      "description": "Controls renderer setting: ati_fsaa_samples",
+      "fps_impact": "high"
+    },
+    {
+      "name": "r_ati_pntriangles",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: ati_pntriangles",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_ati_truform_normalmode",
+      "type": "string",
+      "default": "CUBIC",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: ati_truform_normalmode",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_ati_truform_pointmode",
+      "type": "string",
+      "default": "CUBIC",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: ati_truform_pointmode",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_ati_truform_tess",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: ati_truform_tess",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_ati_vertex_array_object",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: ati_vertex_array_object",
+      "fps_impact": "medium"
     },
     {
       "name": "r_atlasAnimFPS",
@@ -11548,6 +13049,17 @@
       "context": "client",
       "description": "Screen blur amount (0 = off)",
       "fps_impact": "low"
+    },
+    {
+      "name": "r_blur_allowed",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "post_process",
+      "context": "client",
+      "description": "Controls renderer setting: blur_allowed",
+      "fps_impact": "high"
     },
     {
       "name": "r_brightness",
@@ -11616,6 +13128,28 @@
       "fps_impact": null
     },
     {
+      "name": "r_colorbits",
+      "type": "int",
+      "default": "32",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: colorbits",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_colorBlind",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: colorBlind",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_colorMap",
       "type": "string",
       "default": "Unchanged",
@@ -11625,6 +13159,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_compressmodels",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "models",
+      "context": "client",
+      "description": "Controls renderer setting: compressmodels",
+      "fps_impact": "low"
     },
     {
       "name": "r_contrast",
@@ -11638,7 +13183,18 @@
       "fps_impact": "none"
     },
     {
-      "name": "r_customMode =",
+      "name": "r_customAspectRatio",
+      "type": "float",
+      "default": "1.77778",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: customAspectRatio",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_customMode",
       "type": "string",
       "default": "",
       "flags": [],
@@ -11647,6 +13203,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_dcburning_culldist",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: dcburning_culldist",
+      "fps_impact": "low"
     },
     {
       "name": "r_debugLineWidth",
@@ -11671,6 +13238,17 @@
       "fps_impact": null
     },
     {
+      "name": "r_depthbits",
+      "type": "int",
+      "default": "16",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: depthbits",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_depthPrepass",
       "type": "string",
       "default": "None",
@@ -11680,6 +13258,17 @@
       "context": "client",
       "description": "Depth pre-pass mode (None, Partial, Full). Can improve or hurt FPS depending on GPU.",
       "fps_impact": "medium"
+    },
+    {
+      "name": "r_depthPrepassModels",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "models",
+      "context": "client",
+      "description": "Controls renderer setting: depthPrepassModels",
+      "fps_impact": "low"
     },
     {
       "name": "r_desaturation",
@@ -11891,6 +13480,45 @@
       "fps_impact": null
     },
     {
+      "name": "r_drawAabbTrees",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "antialiasing",
+      "context": "client",
+      "description": "Draws AABB tree debug geometry",
+      "fps_impact": "high"
+    },
+    {
+      "name": "r_drawClipmap",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "debug",
+      "context": "client",
+      "description": "Draws clipmap collision debug overlay",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_drawDebugDistance",
+      "type": "int",
+      "default": "1000",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "debug",
+      "context": "client",
+      "description": "Controls renderer setting: drawDebugDistance",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_drawDecals",
       "type": "bool",
       "default": "1",
@@ -11902,6 +13530,71 @@
       "fps_impact": "low"
     },
     {
+      "name": "r_drawLights",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "lighting",
+      "context": "client",
+      "description": "Draws dynamic light debug visualization",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_drawModelBoundingBoxes",
+      "type": "string",
+      "default": "Disabled",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "debug",
+      "context": "client",
+      "description": "Draws bounding boxes around all models",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_drawModelNames",
+      "type": "string",
+      "default": "Disabled",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "debug",
+      "context": "client",
+      "description": "Draws model names above entities",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_drawRunners",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "debug",
+      "context": "client",
+      "description": "Draws runner path debug overlay",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_drawSceneModelCollisions",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "debug",
+      "context": "client",
+      "description": "Draws collision meshes for scene models",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_drawSun",
       "type": "bool",
       "default": "1",
@@ -11910,6 +13603,19 @@
       "subcategory": "sun",
       "context": "client",
       "description": "Enable/disable sun rendering",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_drawTriggers",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "debug",
+      "context": "client",
+      "description": "Draws trigger volume outlines",
       "fps_impact": "low"
     },
     {
@@ -11968,6 +13674,17 @@
       "fps_impact": null
     },
     {
+      "name": "r_envmapspecular",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: envmapspecular",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_envMapSunIntensity",
       "type": "int",
       "default": "2",
@@ -11979,6 +13696,94 @@
       "fps_impact": null
     },
     {
+      "name": "r_ext_compiled_vertex_array",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: ext_compiled_vertex_array",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_ext_compress_textures",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: ext_compress_textures",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_ext_compressed_textures",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: ext_compressed_textures",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_ext_multitexture",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: ext_multitexture",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_ext_NV_fog_dist",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "fog",
+      "context": "client",
+      "description": "Controls renderer setting: ext_NV_fog_dist",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_ext_texture_env_add",
+      "type": "int",
+      "default": "1 ",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: ext_texture_env_add",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_ext_texture_filter_anisotropic",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: ext_texture_filter_anisotropic",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_ext_transform_hint",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: ext_transform_hint",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_fastSkin",
       "type": "bool",
       "default": "0",
@@ -11988,6 +13793,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_fastsky",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "sky",
+      "context": "client",
+      "description": "Controls renderer setting: fastsky",
+      "fps_impact": "low"
     },
     {
       "name": "r_filmAltShader",
@@ -12146,6 +13962,19 @@
       "fps_impact": "high"
     },
     {
+      "name": "r_forceTechnique",
+      "type": "bool",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Forces a specific render technique for all surfaces",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_fullbright",
       "type": "bool",
       "default": "0",
@@ -12291,6 +14120,28 @@
       "fps_impact": null
     },
     {
+      "name": "r_gpuSync2",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: gpuSync2",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_gulag_lessdrones",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: gulag_lessdrones",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_heroLighting",
       "type": "bool",
       "default": "1",
@@ -12423,6 +14274,19 @@
       "fps_impact": null
     },
     {
+      "name": "r_listSamplers",
+      "type": "int",
+      "default": "0",
+      "flags": [
+        "CHEAT"
+      ],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Logs all texture samplers to console",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_loadForRenderer",
       "type": "bool",
       "default": "1",
@@ -12445,6 +14309,17 @@
       "fps_impact": null
     },
     {
+      "name": "r_lodBias",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "lighting",
+      "context": "client",
+      "description": "Controls renderer setting: lodBias",
+      "fps_impact": "medium"
+    },
+    {
       "name": "r_lodBiasRigid",
       "type": "bool",
       "default": "0",
@@ -12465,6 +14340,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_lodScale",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "lighting",
+      "context": "client",
+      "description": "Controls renderer setting: lodScale",
+      "fps_impact": "medium"
     },
     {
       "name": "r_lodScaleRigid",
@@ -12555,6 +14441,17 @@
       "fps_impact": null
     },
     {
+      "name": "r_motionblur_enable",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "post_process",
+      "context": "client",
+      "description": "Controls renderer setting: motionblur_enable",
+      "fps_impact": "high"
+    },
+    {
       "name": "r_multiGpu",
       "type": "bool",
       "default": "0",
@@ -12564,6 +14461,39 @@
       "context": "client",
       "description": "Enable multi-GPU rendering (SLI/CrossFire)",
       "fps_impact": "high"
+    },
+    {
+      "name": "r_multithreaded_device",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: multithreaded_device",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_noborder",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: noborder",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_nocurves",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: nocurves",
+      "fps_impact": "low"
     },
     {
       "name": "r_normal",
@@ -12588,6 +14518,193 @@
       "fps_impact": null
     },
     {
+      "name": "r_noVoid",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: noVoid",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_nv_fence",
+      "type": "int",
+      "default": "0 ",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: nv_fence",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_nv_fog_available",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "fog",
+      "context": "client",
+      "description": "Controls renderer setting: nv_fog_available",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_nv_fog_dist",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "fog",
+      "context": "client",
+      "description": "Controls renderer setting: nv_fog_dist",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_nv_fogdist_mode",
+      "type": "string",
+      "default": "GL_EYE_RADIAL_NV",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "fog",
+      "context": "client",
+      "description": "Controls renderer setting: nv_fogdist_mode",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_nv_register_combiners",
+      "type": "int",
+      "default": "0 ",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: nv_register_combiners",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_nv_texture_shader",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: nv_texture_shader",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_nv_vertex_array_range",
+      "type": "int",
+      "default": "0 ",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: nv_vertex_array_range",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_offsetfactor",
+      "type": "int",
+      "default": "-1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: offsetfactor",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_offsetunits",
+      "type": "int",
+      "default": "-2",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: offsetunits",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_optimize",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: optimize",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_optimizeBackend",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: optimizeBackend",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_optimizeLightmaps",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "lighting",
+      "context": "client",
+      "description": "Controls renderer setting: optimizeLightmaps",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_optimizeSModels",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "models",
+      "context": "client",
+      "description": "Controls renderer setting: optimizeSModels",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_optimizeTextures",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: optimizeTextures",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_optimizeWorld",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: optimizeWorld",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_optimizeXModels",
+      "type": "int",
+      "default": "5",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "models",
+      "context": "client",
+      "description": "Controls renderer setting: optimizeXModels",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_outdoor",
       "type": "bool",
       "default": "1",
@@ -12597,6 +14714,28 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_outdoorAwayBias",
+      "type": "int",
+      "default": "32",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: outdoorAwayBias",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_outdoorDownBias",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: outdoorDownBias",
+      "fps_impact": "low"
     },
     {
       "name": "r_outdoorFeather",
@@ -12863,6 +15002,17 @@
       "fps_impact": "medium"
     },
     {
+      "name": "r_roadkill_less_sparks",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: roadkill_less_sparks",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_scaleViewport",
       "type": "bool",
       "default": "1",
@@ -12949,6 +15099,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_skinCache",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: skinCache",
+      "fps_impact": "low"
     },
     {
       "name": "r_skipPvs",
@@ -13048,6 +15209,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_specularCustomMaps",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: specularCustomMaps",
+      "fps_impact": "low"
     },
     {
       "name": "r_specularMap",
@@ -13169,6 +15341,28 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_streamFreezeState",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: streamFreezeState",
+      "fps_impact": "low"
+    },
+    {
+      "name": "r_subdivisions",
+      "type": "int",
+      "default": "999",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: subdivisions",
+      "fps_impact": "low"
     },
     {
       "name": "r_subwindow",
@@ -13424,6 +15618,17 @@
       "fps_impact": null
     },
     {
+      "name": "r_swapInterval",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: swapInterval",
+      "fps_impact": "low"
+    },
+    {
       "name": "r_texFilterAnisoMax",
       "type": "int",
       "default": "4",
@@ -13477,6 +15682,28 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "r_texturebits",
+      "type": "int",
+      "default": "32",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "textures",
+      "context": "client",
+      "description": "Controls renderer setting: texturebits",
+      "fps_impact": "medium"
+    },
+    {
+      "name": "r_useD3D9Ex",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "renderer",
+      "subcategory": "general",
+      "context": "client",
+      "description": "Controls renderer setting: useD3D9Ex",
+      "fps_impact": "low"
     },
     {
       "name": "r_useLayeredMaterials",
@@ -13842,6 +16069,28 @@
       "fps_impact": "none"
     },
     {
+      "name": "react_password",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "iw4x",
+      "subcategory": "auth",
+      "context": "shared",
+      "description": "IW4x React auth service setting: password",
+      "fps_impact": "none"
+    },
+    {
+      "name": "react_username",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "iw4x",
+      "subcategory": "auth",
+      "context": "shared",
+      "description": "Username for IW4x React authentication service",
+      "fps_impact": "none"
+    },
+    {
       "name": "reliableResendTime",
       "type": "int",
       "default": "300",
@@ -13950,6 +16199,17 @@
       "context": "unknown",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "sc_enable",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "security",
+      "context": "server",
+      "description": "Controls server security setting: enable",
+      "fps_impact": "none"
     },
     {
       "name": "scr_airdrop_ac130",
@@ -14997,6 +17257,61 @@
       "fps_impact": null
     },
     {
+      "name": "scr_gun_halftime",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "script",
+      "subcategory": "gunfight",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: gun_halftime",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_gun_numlives",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "script",
+      "subcategory": "gunfight",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: gun_numlives",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_gun_roundlimit",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "gunfight",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: gun_roundlimit",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_gun_timelimit",
+      "type": "int",
+      "default": "10",
+      "flags": [],
+      "category": "script",
+      "subcategory": "gunfight",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: gun_timelimit",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_gun_winlimit",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "gunfight",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: gun_winlimit",
+      "fps_impact": "none"
+    },
+    {
       "name": "scr_hardcore",
       "type": "bool",
       "default": "0",
@@ -15039,6 +17354,94 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "scr_infected_allow_allies_attachments",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "infected",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: infected_allow_allies_attachments",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_infected_allow_allies_equipment",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "infected",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: infected_allow_allies_equipment",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_infected_allow_allies_specialist",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "infected",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: infected_allow_allies_specialist",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_infected_allow_allies_starting_perks",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "infected",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: infected_allow_allies_starting_perks",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_infected_allow_inf_ti",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "infected",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: infected_allow_inf_ti",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_infected_allow_inf_tk",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "infected",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: infected_allow_inf_tk",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_infected_pick_time",
+      "type": "int",
+      "default": "15",
+      "flags": [],
+      "category": "script",
+      "subcategory": "infected",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: infected_pick_time",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_intermissionTime",
+      "type": "int",
+      "default": "10",
+      "flags": [],
+      "category": "script",
+      "subcategory": "game",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: intermissionTime",
+      "fps_impact": "none"
     },
     {
       "name": "scr_koth_numlives",
@@ -15149,6 +17552,17 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "scr_nuke_is_moab",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "script",
+      "subcategory": "nuke",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: nuke_is_moab",
+      "fps_impact": "none"
     },
     {
       "name": "scr_nukeCancelMode",
@@ -15283,7 +17697,7 @@
       "fps_impact": null
     },
     {
-      "name": "scr_patientZero =",
+      "name": "scr_patientZero",
       "type": "string",
       "default": "",
       "flags": [],
@@ -15745,6 +18159,94 @@
       "fps_impact": null
     },
     {
+      "name": "scr_tdef_numlives",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_numlives",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_tdef_playerrespawndelay",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_playerrespawndelay",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_tdef_promode",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_promode",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_tdef_roundlimit",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_roundlimit",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_tdef_scorelimit",
+      "type": "int",
+      "default": "7500",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_scorelimit",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_tdef_timelimit",
+      "type": "int",
+      "default": "10",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_timelimit",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_tdef_waverespawndelay",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_waverespawndelay",
+      "fps_impact": "none"
+    },
+    {
+      "name": "scr_tdef_winlimit",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "script",
+      "subcategory": "team_defender",
+      "context": "server",
+      "description": "Script-controlled gameplay variable: tdef_winlimit",
+      "fps_impact": "none"
+    },
+    {
       "name": "scr_team_fftype",
       "type": "bool",
       "default": "0",
@@ -16097,7 +18599,7 @@
       "fps_impact": null
     },
     {
-      "name": "server1 =",
+      "name": "server1",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16108,7 +18610,7 @@
       "fps_impact": null
     },
     {
-      "name": "server10 =",
+      "name": "server10",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16119,7 +18621,7 @@
       "fps_impact": null
     },
     {
-      "name": "server11 =",
+      "name": "server11",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16130,7 +18632,7 @@
       "fps_impact": null
     },
     {
-      "name": "server12 =",
+      "name": "server12",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16141,7 +18643,7 @@
       "fps_impact": null
     },
     {
-      "name": "server13 =",
+      "name": "server13",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16152,7 +18654,7 @@
       "fps_impact": null
     },
     {
-      "name": "server14 =",
+      "name": "server14",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16163,7 +18665,7 @@
       "fps_impact": null
     },
     {
-      "name": "server15 =",
+      "name": "server15",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16174,7 +18676,7 @@
       "fps_impact": null
     },
     {
-      "name": "server16 =",
+      "name": "server16",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16185,7 +18687,7 @@
       "fps_impact": null
     },
     {
-      "name": "server2 =",
+      "name": "server2",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16196,7 +18698,7 @@
       "fps_impact": null
     },
     {
-      "name": "server3 =",
+      "name": "server3",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16207,7 +18709,7 @@
       "fps_impact": null
     },
     {
-      "name": "server4 =",
+      "name": "server4",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16218,7 +18720,7 @@
       "fps_impact": null
     },
     {
-      "name": "server5 =",
+      "name": "server5",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16229,7 +18731,7 @@
       "fps_impact": null
     },
     {
-      "name": "server6 =",
+      "name": "server6",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16240,7 +18742,7 @@
       "fps_impact": null
     },
     {
-      "name": "server7 =",
+      "name": "server7",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16251,7 +18753,7 @@
       "fps_impact": null
     },
     {
-      "name": "server8 =",
+      "name": "server8",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16262,7 +18764,7 @@
       "fps_impact": null
     },
     {
-      "name": "server9 =",
+      "name": "server9",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16647,6 +19149,17 @@
       "fps_impact": "none"
     },
     {
+      "name": "snd_bits",
+      "type": "int",
+      "default": "16",
+      "flags": [],
+      "category": "sound",
+      "subcategory": "audio",
+      "context": "client",
+      "description": "Controls audio setting: snd_bits",
+      "fps_impact": "low"
+    },
+    {
       "name": "snd_cinematicVolumeScale",
       "type": "float",
       "default": "0.5",
@@ -16658,6 +19171,17 @@
       "fps_impact": null
     },
     {
+      "name": "snd_debugReplace",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "sound",
+      "subcategory": "audio",
+      "context": "client",
+      "description": "Controls audio setting: snd_debugReplace",
+      "fps_impact": "low"
+    },
+    {
       "name": "snd_draw3D",
       "type": "string",
       "default": "Off",
@@ -16667,6 +19191,28 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "snd_drawEqChannels",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "sound",
+      "subcategory": "audio",
+      "context": "client",
+      "description": "Controls audio setting: snd_drawEqChannels",
+      "fps_impact": "low"
+    },
+    {
+      "name": "snd_drawEqEnts",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "sound",
+      "subcategory": "audio",
+      "context": "client",
+      "description": "Controls audio setting: snd_drawEqEnts",
+      "fps_impact": "low"
     },
     {
       "name": "snd_drawInfo",
@@ -16746,6 +19292,17 @@
       "fps_impact": null
     },
     {
+      "name": "snd_global_attenuation",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "sound",
+      "subcategory": "audio",
+      "context": "client",
+      "description": "Controls audio setting: snd_global_attenuation",
+      "fps_impact": "low"
+    },
+    {
       "name": "snd_khz",
       "type": "int",
       "default": "44",
@@ -16768,6 +19325,17 @@
       "fps_impact": null
     },
     {
+      "name": "snd_losOcclusion",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "sound",
+      "subcategory": "audio",
+      "context": "client",
+      "description": "Controls audio setting: snd_losOcclusion",
+      "fps_impact": "low"
+    },
+    {
       "name": "snd_outputConfiguration",
       "type": "string",
       "default": "Windows",
@@ -16788,6 +19356,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "snd_stereo",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "sound",
+      "subcategory": "audio",
+      "context": "client",
+      "description": "Controls audio setting: snd_stereo",
+      "fps_impact": "low"
     },
     {
       "name": "snd_touchStreamFilesOnLoad",
@@ -16845,15 +19424,15 @@
       "fps_impact": null
     },
     {
-      "name": "stringtable_debug",
+      "name": "sv_allowAimAssist",
       "type": "bool",
-      "default": "0",
+      "default": "1",
       "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: allowAimAssist",
+      "fps_impact": "none"
     },
     {
       "name": "sv_allowAnonymous",
@@ -16878,6 +19457,17 @@
       "fps_impact": null
     },
     {
+      "name": "sv_allowColoredNames",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: allowColoredNames",
+      "fps_impact": "none"
+    },
+    {
       "name": "sv_allowDownload",
       "type": "bool",
       "default": "1",
@@ -16889,7 +19479,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_allowedClan1 =",
+      "name": "sv_allowedClan1",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16900,7 +19490,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_allowedClan2 =",
+      "name": "sv_allowedClan2",
       "type": "string",
       "default": "",
       "flags": [],
@@ -16909,6 +19499,17 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "sv_alltalk",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: alltalk",
+      "fps_impact": "none"
     },
     {
       "name": "sv_cheats",
@@ -16955,6 +19556,17 @@
       "fps_impact": null
     },
     {
+      "name": "sv_customTextColor",
+      "type": "string",
+      "default": "1 0.701961 0 1",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: customTextColor",
+      "fps_impact": "none"
+    },
+    {
       "name": "sv_debugRate",
       "type": "bool",
       "default": "0",
@@ -16975,6 +19587,28 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "sv_disableChat",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: disableChat",
+      "fps_impact": "none"
+    },
+    {
+      "name": "sv_dontRotate",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: dontRotate",
+      "fps_impact": "none"
     },
     {
       "name": "sv_floodProtect",
@@ -17021,7 +19655,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_iwdNames =",
+      "name": "sv_iwdNames",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17032,7 +19666,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_iwds =",
+      "name": "sv_iwds",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17054,7 +19688,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_mapRotation =",
+      "name": "sv_mapRotation",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17065,7 +19699,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_mapRotationCurrent =",
+      "name": "sv_mapRotationCurrent",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17131,6 +19765,17 @@
       "fps_impact": null
     },
     {
+      "name": "sv_nextMap",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: nextMap",
+      "fps_impact": "none"
+    },
+    {
       "name": "sv_packet_info",
       "type": "bool",
       "default": "0",
@@ -17186,7 +19831,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_privatePassword =",
+      "name": "sv_privatePassword",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17208,6 +19853,28 @@
       "fps_impact": null
     },
     {
+      "name": "sv_randomBotNames",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: randomBotNames",
+      "fps_impact": "none"
+    },
+    {
+      "name": "sv_randomMapRotation",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Randomizes the server map rotation order",
+      "fps_impact": "none"
+    },
+    {
       "name": "sv_reconnectlimit",
       "type": "int",
       "default": "3",
@@ -17219,7 +19886,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_referencedFFCheckSums =",
+      "name": "sv_referencedFFCheckSums",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17230,7 +19897,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_referencedFFNames =",
+      "name": "sv_referencedFFNames",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17241,7 +19908,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_referencedIwdNames =",
+      "name": "sv_referencedIwdNames",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17252,7 +19919,7 @@
       "fps_impact": null
     },
     {
-      "name": "sv_referencedIwds =",
+      "name": "sv_referencedIwds",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17274,6 +19941,17 @@
       "fps_impact": null
     },
     {
+      "name": "sv_replaceBots",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: replaceBots",
+      "fps_impact": "none"
+    },
+    {
       "name": "sv_running",
       "type": "bool",
       "default": "0",
@@ -17283,6 +19961,28 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "sv_sayName",
+      "type": "string",
+      "default": "^7Console",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: sayName",
+      "fps_impact": "none"
+    },
+    {
+      "name": "sv_securityLevel",
+      "type": "int",
+      "default": "23",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: securityLevel",
+      "fps_impact": "none"
     },
     {
       "name": "sv_showAverageBPS",
@@ -17307,6 +20007,28 @@
       "fps_impact": null
     },
     {
+      "name": "sv_version",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: version",
+      "fps_impact": "none"
+    },
+    {
+      "name": "sv_voice",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: voice",
+      "fps_impact": "none"
+    },
+    {
       "name": "sv_voiceQuality",
       "type": "int",
       "default": "3",
@@ -17316,6 +20038,39 @@
       "context": "server",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "sv_votesRequired",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: votesRequired",
+      "fps_impact": "none"
+    },
+    {
+      "name": "sv_wwwBaseUrl",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: wwwBaseUrl",
+      "fps_impact": "none"
+    },
+    {
+      "name": "sv_wwwDownload",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "server",
+      "subcategory": "config",
+      "context": "server",
+      "description": "Sets server configuration value: wwwDownload",
+      "fps_impact": "none"
     },
     {
       "name": "sv_zombietime",
@@ -17450,6 +20205,17 @@
       "fps_impact": null
     },
     {
+      "name": "takeCoverWarnings",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: takeCoverWarnings",
+      "fps_impact": "none"
+    },
+    {
       "name": "testClients_doAttack",
       "type": "bool",
       "default": "1",
@@ -17505,7 +20271,18 @@
       "fps_impact": null
     },
     {
-      "name": "thermal_playerModel =",
+      "name": "thereisacow",
+      "type": "int",
+      "default": "1337",
+      "flags": [],
+      "category": "client",
+      "subcategory": "misc",
+      "context": "client",
+      "description": "Game DVAR controlling: thereisacow",
+      "fps_impact": "none"
+    },
+    {
+      "name": "thermal_playerModel",
       "type": "string",
       "default": "",
       "flags": [],
@@ -17802,31 +20579,9 @@
       "fps_impact": null
     },
     {
-      "name": "ui_allow_classchange",
-      "type": "bool",
-      "default": "0",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
       "name": "ui_allow_controlschange",
       "type": "bool",
       "default": "1",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_allow_teamchange",
-      "type": "bool",
-      "default": "0",
       "flags": [],
       "category": "ui",
       "subcategory": "general",
@@ -17855,6 +20610,17 @@
       "context": "client",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "ui_browserEnableFilters",
+      "type": "bool",
+      "default": "1",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: browserEnableFilters",
+      "fps_impact": "none"
     },
     {
       "name": "ui_browserFriendlyfire",
@@ -17934,53 +20700,20 @@
       "fps_impact": null
     },
     {
+      "name": "ui_browserShowPunkBuster",
+      "type": "int",
+      "default": "-1",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: browserShowPunkBuster",
+      "fps_impact": "none"
+    },
+    {
       "name": "ui_browserShowPure",
       "type": "bool",
       "default": "1",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_buildLocation",
-      "type": "int",
-      "default": "-60",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_buildSize",
-      "type": "float",
-      "default": "0.2",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_cinematicsTimestamp",
-      "type": "bool",
-      "default": "0",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_connectScreenTextGlowColor",
-      "type": "float",
-      "default": "0.3",
       "flags": [],
       "category": "ui",
       "subcategory": "general",
@@ -18011,48 +20744,37 @@
       "fps_impact": null
     },
     {
-      "name": "ui_customClassName =",
+      "name": "ui_dl_progress",
       "type": "string",
       "default": "",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: dl_progress",
+      "fps_impact": "none"
     },
     {
-      "name": "ui_customModeEditName =",
+      "name": "ui_dl_timeLeft",
       "type": "string",
       "default": "",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: dl_timeLeft",
+      "fps_impact": "none"
     },
     {
-      "name": "ui_customModeName =",
+      "name": "ui_dl_transRate",
       "type": "string",
       "default": "",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_debugMode",
-      "type": "bool",
-      "default": "0",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: dl_transRate",
+      "fps_impact": "none"
     },
     {
       "name": "ui_drawCrosshair",
@@ -18132,20 +20854,53 @@
       "fps_impact": null
     },
     {
+      "name": "ui_localize",
+      "type": "int",
+      "default": "1",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: localize",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ui_map_desc",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: map_desc",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ui_map_long",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: map_long",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ui_map_name",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: map_name",
+      "fps_impact": "none"
+    },
+    {
       "name": "ui_mapname",
       "type": "string",
       "default": "mp_afghan",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_maxclients",
-      "type": "int",
-      "default": "18",
       "flags": [],
       "category": "ui",
       "subcategory": "general",
@@ -18165,15 +20920,15 @@
       "fps_impact": null
     },
     {
-      "name": "ui_multiplayer",
-      "type": "bool",
-      "default": "1",
+      "name": "ui_nativeCursor",
+      "type": "int",
+      "default": "0",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: nativeCursor",
+      "fps_impact": "none"
     },
     {
       "name": "ui_netGametype",
@@ -18209,53 +20964,31 @@
       "fps_impact": null
     },
     {
-      "name": "ui_partyFull",
-      "type": "bool",
+      "name": "ui_serverSelected",
+      "type": "int",
       "default": "0",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: serverSelected",
+      "fps_impact": "none"
     },
     {
-      "name": "ui_playerPartyColor",
-      "type": "bool",
-      "default": "1",
+      "name": "ui_serverSelectedMap",
+      "type": "string",
+      "default": "mp_afghan",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: serverSelectedMap",
+      "fps_impact": "none"
     },
     {
       "name": "ui_serverStatusTimeOut",
       "type": "int",
       "default": "7000",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_showEndOfGame",
-      "type": "bool",
-      "default": "0",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_showList",
-      "type": "bool",
-      "default": "0",
       "flags": [],
       "category": "ui",
       "subcategory": "general",
@@ -18275,28 +21008,6 @@
       "fps_impact": null
     },
     {
-      "name": "ui_showMenuOnly =",
-      "type": "string",
-      "default": "",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_sliderSteps",
-      "type": "int",
-      "default": "40",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
       "name": "ui_smallFont",
       "type": "float",
       "default": "0.25",
@@ -18308,59 +21019,70 @@
       "fps_impact": null
     },
     {
-      "name": "ui_textScrollFadeTime",
-      "type": "float",
-      "default": "0.2",
+      "name": "ui_startupMessage",
+      "type": "string",
+      "default": "",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: startupMessage",
+      "fps_impact": "none"
     },
     {
-      "name": "ui_textScrollPauseEnd",
+      "name": "ui_startupMessageTitle",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: startupMessageTitle",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ui_startupNextButtonText",
+      "type": "string",
+      "default": "",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: startupNextButtonText",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ui_storeURL",
+      "type": "string",
+      "default": "http://content.kthx.at/iw4m/",
+      "flags": [],
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: storeURL",
+      "fps_impact": "none"
+    },
+    {
+      "name": "ui_streamFriendly",
       "type": "int",
-      "default": "3",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "ui_textScrollPauseStart",
-      "type": "bool",
       "default": "1",
       "flags": [],
       "category": "ui",
-      "subcategory": "general",
+      "subcategory": "interface",
       "context": "client",
-      "description": "",
-      "fps_impact": null
+      "description": "Controls UI setting: streamFriendly",
+      "fps_impact": "none"
     },
     {
-      "name": "ui_textScrollSpeed",
-      "type": "int",
-      "default": "30",
-      "flags": [],
-      "category": "ui",
-      "subcategory": "general",
-      "context": "client",
-      "description": "",
-      "fps_impact": null
-    },
-    {
-      "name": "uiscript_debug",
+      "name": "ui_zoneDebug",
       "type": "bool",
       "default": "0",
       "flags": [],
-      "category": "misc",
-      "subcategory": "general",
-      "context": "unknown",
-      "description": "",
-      "fps_impact": null
+      "category": "ui",
+      "subcategory": "interface",
+      "context": "client",
+      "description": "Controls UI setting: zoneDebug",
+      "fps_impact": "none"
     },
     {
       "name": "upnp_maxAttempts",
@@ -19054,6 +21776,39 @@
       "context": "unknown",
       "description": "",
       "fps_impact": null
+    },
+    {
+      "name": "xblive_privatepartyclient",
+      "type": "int",
+      "default": "0",
+      "flags": [],
+      "category": "network",
+      "subcategory": "xblive",
+      "context": "client",
+      "description": "Controls Xbox Live session flag: privatepartyclient",
+      "fps_impact": "none"
+    },
+    {
+      "name": "xblive_privateserver",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "network",
+      "subcategory": "xblive",
+      "context": "client",
+      "description": "Controls Xbox Live session flag: privateserver",
+      "fps_impact": "none"
+    },
+    {
+      "name": "xblive_rankedmatch",
+      "type": "bool",
+      "default": "0",
+      "flags": [],
+      "category": "network",
+      "subcategory": "xblive",
+      "context": "client",
+      "description": "Controls Xbox Live session flag: rankedmatch",
+      "fps_impact": "none"
     }
   ]
 }
