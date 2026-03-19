@@ -80,9 +80,7 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
 
   const flushLine = () => {
     const content = currentLine.join("").trimEnd();
-    if (content.length > 0) {
-      lines.push(" ".repeat(indentSize * indentLevel) + content);
-    }
+    lines.push(content.length > 0 ? " ".repeat(indentSize * indentLevel) + content : "");
     currentLine = [];
   };
 
