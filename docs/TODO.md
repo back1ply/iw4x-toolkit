@@ -85,8 +85,8 @@
 
 ### 2A: GSC Tokenizer & Formatter
 - [x] Build a tokenizer (lexer) for GSC — `mcp-server/src/gsc/tokenizer.ts` (adapted from `Muhlex/vscode-gsc`)
-- [ ] Build a standalone formatter operating on token streams — `gsc/formatter.ts` (token-stream approach)
-- [ ] Expose as `gsc_format` MCP tool (accepts raw code string OR iwd_path+entry; write_back option)
+- [x] Build a standalone formatter operating on token streams — `gsc/formatter.ts` (token-stream approach)
+- [x] Expose as `gsc_format` MCP tool (accepts raw code string OR iwd_path+entry; write_back option)
 
 > **Tree-sitter upgrade path (future):** When Phase 2C and `gsc_lint_pro` are built, replace formatter internals
 > with a tree-sitter CST walker using `echo000/tree-sitter-gsc` grammar adapted to IW4x dialect.
