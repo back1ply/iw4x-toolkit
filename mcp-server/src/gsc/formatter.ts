@@ -53,11 +53,62 @@ const BINARY_OP_TYPES = new Set([
   TokenType.SLASH_EQUAL,
 ]);
 
-function needsSpaceBefore(prev: Token, cur: Token): boolean {
-  // Space before binary operators
+// Control keywords that require a space before their opening paren: if (x), while (x), etc.
+const CONTROL_KEYWORDS = new Set([
+  "if", "else", "for", "while", "switch", "foreach", "do",
+]);
+
+/** Returns true if a token following `prev` in a unary position (e.g. -1 after =). */
+function isUnaryContext(prev: Token | null): boolean {
+  if (!prev) return true;
+  return [
+    TokenType.LEFT_PAREN,
+    TokenType.LEFT_BRACKET,
+    TokenType.EQUAL,
+    TokenType.PLUS_EQUAL,
+    TokenType.MINUS_EQUAL,
+    TokenType.STAR_EQUAL,
+    TokenType.SLASH_EQUAL,
+    TokenType.COMMA,
+    TokenType.SEMICOLON,
+    TokenType.EQUAL_EQUAL,
+    TokenType.BANG_EQUAL,
+    TokenType.LESS,
+    TokenType.GREATER,
+    TokenType.LESS_EQUAL,
+    TokenType.GREATER_EQUAL,
+    TokenType.AMPERSAND_AMPERSAND,
+    TokenType.PIPE_PIPE,
+    TokenType.BANG,
+  ].includes(prev.type);
+}
+
+function needsSpaceBefore(prev: Token, cur: Token, prevPrev: Token | null = null): boolean {
+  // Never space around :: (COLON tokens used as path separator)
+  if (cur.type === TokenType.COLON || prev.type === TokenType.COLON) return false;
+  // Never space before comma or semicolon
+  if (cur.type === TokenType.COMMA || cur.type === TokenType.SEMICOLON) return false;
+  // Never space after opening paren/bracket
+  if (prev.type === TokenType.LEFT_PAREN || prev.type === TokenType.LEFT_BRACKET) return false;
+  // Never space before closing paren/bracket
+  if (cur.type === TokenType.RIGHT_PAREN || cur.type === TokenType.RIGHT_BRACKET) return false;
+  // No space before opening paren after an identifier (function call)
+  if (cur.type === TokenType.LEFT_PAREN && prev.type === TokenType.IDENTIFIER) return false;
+  // Space after comma
+  if (prev.type === TokenType.COMMA) return true;
+  // Space after control keywords before (
+  if (
+    prev.type === TokenType.KEYWORD &&
+    CONTROL_KEYWORDS.has(prev.value) &&
+    cur.type === TokenType.LEFT_PAREN
+  ) return true;
+  // Binary operator spacing
   if (BINARY_OP_TYPES.has(cur.type)) return true;
-  // Space after binary operators
-  if (BINARY_OP_TYPES.has(prev.type)) return true;
+  if (BINARY_OP_TYPES.has(prev.type)) {
+    // No space after a unary minus/plus (e.g. "= -1" should not become "= - 1")
+    if ((prev.type === TokenType.MINUS || prev.type === TokenType.PLUS) && isUnaryContext(prevPrev)) return false;
+    return true;
+  }
   // Space between two word-like tokens
   if (WORD_TYPES.has(prev.type) && WORD_TYPES.has(cur.type)) return true;
   // Space after closing paren/bracket before a word
@@ -77,6 +128,7 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
   let currentLine: string[] = [];
   let indentLevel = 0;
   let prevTok: Token | null = null;
+  let prevPrevTok: Token | null = null;
 
   const flushLine = () => {
     const content = currentLine.join("").trimEnd();
@@ -90,6 +142,7 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
     // Newlines — flush current line
     if (tok.type === TokenType.NEWLINE) {
       flushLine();
+      prevPrevTok = null;
       prevTok = null;
       continue;
     }
@@ -102,6 +155,7 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
       currentLine.push("{");
       flushLine();
       indentLevel++;
+      prevPrevTok = prevTok;
       prevTok = tok;
       continue;
     }
@@ -113,6 +167,7 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
       indentLevel = Math.max(0, indentLevel - 1);
       currentLine.push("}");
       flushLine();
+      prevPrevTok = prevTok;
       prevTok = tok;
       continue;
     }
@@ -121,16 +176,18 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
     if (tok.type === TokenType.SEMICOLON) {
       currentLine.push(";");
       flushLine();
+      prevPrevTok = prevTok;
       prevTok = tok;
       continue;
     }
 
     // Insert space between tokens where needed
-    if (prevTok !== null && currentLine.length > 0 && needsSpaceBefore(prevTok, tok)) {
+    if (prevTok !== null && currentLine.length > 0 && needsSpaceBefore(prevTok, tok, prevPrevTok)) {
       currentLine.push(" ");
     }
 
     currentLine.push(tok.value);
+    prevPrevTok = prevTok;
     prevTok = tok;
   }
 

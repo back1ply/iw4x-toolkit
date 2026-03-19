@@ -525,4 +525,38 @@ describe("GSCFormatter", () => {
     const out = format(tokens, { indentSize: 2 });
     expect(out).toBe(`f() {\n  x = 1;\n}`);
   });
+
+  it("adds space after control keywords", () => {
+    const { tokens } = tokenize(`if(x){}`);
+    expect(format(tokens)).toContain("if (x)");
+  });
+
+  it("adds space around binary operators", () => {
+    const { tokens } = tokenize(`x=1+2;`);
+    const out = format(tokens);
+    expect(out).toContain("x = 1 + 2");
+  });
+
+  it("does not add space for unary minus", () => {
+    const { tokens } = tokenize(`x = -1;`);
+    const out = format(tokens);
+    expect(out).toContain("x = -1");
+    expect(out).not.toContain("x = - 1");
+  });
+
+  it("adds space after comma but not before", () => {
+    const { tokens } = tokenize(`f(a,b,c);`);
+    expect(format(tokens)).toContain("f(a, b, c)");
+  });
+
+  it("no space between function name and paren", () => {
+    const { tokens } = tokenize(`myFunc ();`);
+    expect(format(tokens)).toContain("myFunc()");
+  });
+
+  it("no space around :: path separator", () => {
+    const { tokens } = tokenize(`maps::myFunc();`);
+    // Two consecutive COLON tokens — no spaces between them or around them
+    expect(format(tokens)).toContain("maps::myFunc");
+  });
 });
