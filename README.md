@@ -1,12 +1,14 @@
 # iw4x-toolkit
 
-A Claude Code plugin for IW4X/MW2 modding. Supports both an efficient "Dual Workflow" for IWD manipulation and a searchable DVAR knowledge base.
+A Claude Code plugin for IW4X/MW2 modding. IWD archive tools, GSC linting and formatting, DVAR knowledge base, and symbol analysis for mod porting.
 
 ## What it does
 
-**Dual Workflow IWD Tools** — Support for both rapid in-place surgical edits inside IWD archives and a robust "Workspace" approach (extract-edit-pack) that leverages the engine's `userraw` and `mods` directory loose-file overrides.
+**IWD Archive Tools** — Surgical in-place edits inside IWD archives (`iwd_patch`, `iwd_grep`, `iwd_write`, `iwd_rename`, `iwd_copy`, `iwd_extract`) plus diff, metadata, and symbol indexing across multiple archives.
 
-**DVAR Reference** — 1,731 MW2 DVARs catalogued with types, defaults, categories, and FPS impact ratings. 89 key DVARs manually enriched with descriptions.
+**GSC Language Tooling** — `gsc_lint` catches undefined variables, missing includes, unreachable code, infinite loops, brace mismatches, and case-insensitive name collisions. `gsc_format` normalises indentation, brace style, and operator spacing. `gsc_find_orphans` identifies unresolvable function calls before the game launches.
+
+**DVAR Knowledge Base** — 1,731 MW2 DVARs with types, defaults, categories, and FPS impact ratings. `dvar_search` filters server-side to avoid context flood. `dvar_integrity_check` validates DVAR name literals in GSC against the database.
 
 ## Installation
 
@@ -35,9 +37,11 @@ npm test
 
 Requires Node.js 18+ and TypeScript 5.7+.
 
-- **Tools**: See `iwd_list`, `iwd_read`, `iwd_write`, and more in the tool reference.
-- **Resources**: `iw4x://dvars` knowledge base.
-- **Skills**: `dvar-lookup` for optimization tips.
+- **IWD tools**: `iwd_list`, `iwd_read`, `iwd_write`, `iwd_patch`, `iwd_grep`, `iwd_diff`, `iwd_rename`, `iwd_copy`, `iwd_extract`, `iwd_info`, `iwd_remove`, `iwd_index_symbols`
+- **GSC tools**: `gsc_lint`, `gsc_format`, `gsc_find_orphans`, `gsc_lookup`, `gsc_template`, `gsc_outline`, `gsc_menu_hud`
+- **DVAR tools**: `dvar_search`, `dvar_integrity_check`
+- **Resources**: `iw4x://dvars`, `iw4x://gsc-builtins`
+- **Skills**: `dvar-lookup` for FPS optimization tips
 
 ### Documentation
 
