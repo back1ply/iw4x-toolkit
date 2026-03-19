@@ -63,7 +63,7 @@
   - [ ] All `snd_*` sound DVARs (descriptions + performance notes)
   - [ ] Network DVARs (`rate`, `cl_maxpackets`, `snaps`, `sv_maxRate`) with competitive tuning notes
   - [ ] Gametype script DVARs (`scr_sd_*`, `scr_dom_*`, etc.) with promod-relevant values
-- [ ] **DVAR Search Tool** — Server-side filtering (`dvar_search`) to avoid token limits.
+- [x] **DVAR Search Tool** — Server-side filtering (`dvar_search`) to avoid token limits.
 
 ---
 
@@ -83,10 +83,15 @@
 
 *We cannot build LLM Agentic workflows without static analysis to catch syntax errors. This phase provides the building blocks.*
 
-### 2A: GSC Tokenizer & Formatter ✅
+### 2A: GSC Tokenizer & Formatter
 - [x] Build a tokenizer (lexer) for GSC — `mcp-server/src/gsc/tokenizer.ts` (adapted from `Muhlex/vscode-gsc`)
-- [x] Expose as `gsc_format` MCP tool
-- [ ] Build a standalone formatter operating on token streams
+- [ ] Build a standalone formatter operating on token streams — `gsc/formatter.ts` (token-stream approach)
+- [ ] Expose as `gsc_format` MCP tool (accepts raw code string OR iwd_path+entry; write_back option)
+
+> **Tree-sitter upgrade path (future):** When Phase 2C and `gsc_lint_pro` are built, replace formatter internals
+> with a tree-sitter CST walker using `echo000/tree-sitter-gsc` grammar adapted to IW4x dialect.
+> Reference AST node types: `xensik/gsc-tool` (ast.hpp). Build once, share across formatter + linter + call graph.
+> See `docs/superpowers/specs/2026-03-19-gsc-formatter-design.md`.
 
 ### 2B: GSC Linter ✅
 *Uses the Tokenizer from 2A.*
