@@ -503,4 +503,26 @@ describe("GSCFormatter", () => {
     const { tokens } = tokenize("myVar");
     expect(format(tokens).trim()).toBe("myVar");
   });
+
+  it("indents a simple function body", () => {
+    const src = `myFunc() { return 1; }`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens);
+    expect(out).toBe(`myFunc() {\n    return 1;\n}`);
+  });
+
+  it("indents nested blocks", () => {
+    const src = `outer() { if (x) { doThing(); } }`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens);
+    expect(out).toContain("    if");
+    expect(out).toContain("        doThing");
+  });
+
+  it("indentSize option controls indent width", () => {
+    const src = `f() { x = 1; }`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens, { indentSize: 2 });
+    expect(out).toBe(`f() {\n  x = 1;\n}`);
+  });
 });
