@@ -67,6 +67,18 @@
 
 ---
 
+## Technical Debt / Code Quality
+
+*Low-priority but high-value improvements to the MCP server internals. None of these are blockers — log them here to avoid losing them.*
+
+- [ ] **AST-based GSC linter** — migrate from token-stream heuristics to a proper AST parser for accurate scope tracking, variable shadowing, and dead code analysis. Current `braceDepth` tracking is fragile.
+- [ ] **Proactive cache invalidation** — replace the synchronous `fs.statSync` mtime check in `openIwd()` with `fs.watch` to avoid I/O overhead on every tool call when files are modified externally.
+- [ ] **Parallel archive extraction** — `iwd_extract` writes files sequentially. Switch to `Promise.all` with a concurrency cap to speed up large archive extraction.
+- [ ] **Streaming large file reads** — `iwd_read` loads the entire entry into memory before slicing. For large files, stream the buffer and count newlines on the fly to avoid V8 memory spikes.
+- [ ] **Structured error types** — `Result<T>` uses plain `string` for errors. Define a discriminated union `ErrorCode` (`FILE_NOT_FOUND`, `CORRUPT_ARCHIVE`, etc.) to allow programmatic error handling if retry logic is ever needed.
+
+---
+
 ## Phase 2 — Language Tooling (The Enabler)
 
 *We cannot build LLM Agentic workflows without static analysis to catch syntax errors. This phase provides the building blocks.*
@@ -91,9 +103,50 @@
 - [ ] `exp` expression syntax validation
 - [ ] `dvar` references cross-checked against DVAR knowledge base
 
-### 2D: FastFile (.ff) Asset Scanner
+### 2D: IWI Image Tools
+*Give LLMs and scripts direct access to the texture assets stored inside IWD archives.*
+
+IWD files are standard ZIP archives whose `images/` entries are IW-engine `.iwi` textures.
+All research and a working Python reference implementation exist at
+`F:/Shehab Projects/mw2-class-editor/extract_hud_all.py`.
+
+#### 2D-1 — `iwd_image_scan` (IWD image manifest)
+- [ ] Scan every `images/*.iwi` entry in an IWD matching an optional name prefix/glob
+- [ ] Return a manifest: `{ name, width, height, format, source_iwd }` per image
+- [ ] Accept multiple IWD paths so callers can collate across `aw03`, `aw06`, `iw_dlc5_00`, etc.
+- [ ] Deduplicate by image name — last IWD wins (same rule used in the game's load order)
+- [ ] Filter helpers: `prefix` (e.g. `hud_`, `specialty_`), `min_width`, `min_height`
+
+#### 2D-2 — `iwd_image_extract` (IWI → PNG)
+- [ ] Extract one or more images from IWD(s) by name or glob and write them as PNGs
+- [ ] Supported IWI formats to implement (all confirmed present in MW2):
+  - `0x73` / `0x0D` → **DXT5** (BC3) — most HUD and specialty icons
+  - `0x0B` → **DXT1** (BC1) — some overlay textures
+  - `0x71` → **DXT5 with full mip chain** (smallest-first; seek to tail for main image)
+  - `0x00` / `0x01` → **ARGB8888** uncompressed
+- [ ] `out_dir` parameter — destination folder; preserves original name (strips `.iwi`, adds `.png`)
+- [ ] `dry_run` mode — returns manifest without writing files
+- [ ] Returns a summary: `{ extracted: N, failed: [{ name, reason }] }`
+
+#### Key IWI format facts (from empirical analysis)
+```
+Header (32 bytes):
+  [0-2]  "IWi"         magic
+  [3]    0x08          version (MW2)
+  [4]    format byte   0x73/0x0D=DXT5, 0x0B=DXT1, 0x71=DXT5+mips, 0x00/0x01=ARGB
+  [10-11] uint16 LE    width
+  [12-13] uint16 LE    height
+  [16-31] mip offsets  (uint32 LE, counted from file start; 0x71 stores smallest-first)
+Data at byte 32: DXT blocks (4×4 pixels, 16 bytes/block DXT5, 8 bytes/block DXT1)
+```
+
+### 2E: FastFile (.ff) Asset Scanner
 *Borrow from open-source to give LLMs read-access to compiled assets.*
 - [ ] Investigate wrapping/integrating C# `OpenAssetTools` or `ZoneTool` to extract data from `.ff` and `.d3dbsp` files (e.g. reading map spawn coordinates).
+- [ ] Note: MW2 FF files (`IWff0100`) use a non-standard compression (not zlib/deflate).
+      Images referenced in FF files are loaded from IWD archives at runtime — pixel data
+      lives in IWDs, not embedded in the FF. FF parsing is needed only for asset name
+      enumeration and non-image assets (scripts, materials, spawns).
 
 ---
 

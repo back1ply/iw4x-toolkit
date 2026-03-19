@@ -44,6 +44,8 @@ Requires Node.js 18+ and TypeScript 5.7+.
 - [**WORKFLOW.md**](docs/WORKFLOW.md): Usage guide with "Golden Paths" and examples.
 - [**STRATEGY.md**](docs/STRATEGY.md): Project vision, including the "Hybrid" legacy/modern workflow.
 - [**TODO.md**](docs/TODO.md): Roadmap and active tasks.
+- [**MCP_IMPROVEMENTS.md**](docs/MCP_IMPROVEMENTS.md): Proposed MCP tool enhancements from real modding sessions.
+- [**LINTER_ERRORS.md**](docs/LINTER_ERRORS.md): GSC linter error code reference.
 - [**SOURCES.md**](docs/SOURCES.md): References and research.
 
 ### API Documentation

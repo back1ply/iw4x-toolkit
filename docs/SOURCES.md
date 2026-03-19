@@ -528,6 +528,10 @@ Key community tutorials focused on `createFontString` / `newHudElem` / `setPoint
   https://github.com/SyndiShanX/COD-GSC-Source
   Dumped and formatted GSC/CSC files for multiple CoD titles from the same author as Synergy-MW2-GSC-Menu. Includes decompiled `_utility.gsc` and HUD helper scripts across games.
 
+- **ProjectHiNAtyu/CoDs_GSC_Wiki_Library_IW8Plus**
+  https://github.com/ProjectHiNAtyu/CoDs_GSC_Wiki_Library_IW8Plus
+  GSC wiki library covering modern CoD titles from MW2019 onward: IW8 (MW19), S4 (Vanguard), IW9 (MWII), JUP (MWIII), T10 (BO6). Contains official GSCBIN dumps, decompiled GSC source, and custom GSC samples. Decompilation done via `xensik/gsc-tool` and `ate47/atian-cod-tools`. Useful cross-reference for GSC language evolution across IW8+ engines — indirectly informative for IW4 GSC patterns given shared GSC lineage.
+
 - **Call-of-Duty-Scripts/CoD4MW**
   https://github.com/Call-of-Duty-Scripts/CoD4MW
   CoD4 Modern Warfare script and UI collection.
