@@ -181,6 +181,26 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
       continue;
     }
 
+    // Line comment — reconstruct "//" prefix, flush after
+    if (tok.type === TokenType.COMMENT) {
+      if (currentLine.length > 0) currentLine.push(" ");
+      currentLine.push("//" + tok.value);
+      flushLine();
+      prevPrevTok = prevTok;
+      prevTok = tok;
+      continue;
+    }
+
+    // Block comment — reconstruct "/* */" delimiters, flush after
+    if (tok.type === TokenType.BLOCK_COMMENT) {
+      if (currentLine.length > 0) flushLine();
+      currentLine.push("/*" + tok.value + "*/");
+      flushLine();
+      prevPrevTok = prevTok;
+      prevTok = tok;
+      continue;
+    }
+
     // Insert space between tokens where needed
     if (prevTok !== null && currentLine.length > 0 && needsSpaceBefore(prevTok, tok, prevPrevTok)) {
       currentLine.push(" ");

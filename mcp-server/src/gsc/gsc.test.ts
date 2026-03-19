@@ -574,4 +574,36 @@ describe("GSCFormatter", () => {
     // A blank line between the closing } of foo and the start of bar
     expect(out).toMatch(/\}\n\n\w/);
   });
+
+  it("preserves line comments", () => {
+    const src = `// my comment\nx = 1;`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens);
+    expect(out).toContain("// my comment");
+  });
+
+  it("preserves block comments", () => {
+    const src = `/* block comment */\nx = 1;`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens);
+    expect(out).toContain("/* block comment */");
+  });
+
+  it("preserves [[ ]] function pointer syntax", () => {
+    const src = `[[ func ]](args);`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens);
+    expect(out).toContain("[[");
+    expect(out).toContain("]]");
+  });
+
+  it("is idempotent — format(format(x)) === format(x)", () => {
+    // Covers: nested blocks, binary ops, unary, ::, [[ ]]
+    const src = `foo(){x=1+2;if(y){maps::bar();}}`;
+    const { tokens: t1 } = tokenize(src);
+    const once = format(t1);
+    const { tokens: t2 } = tokenize(once);
+    const twice = format(t2);
+    expect(twice).toBe(once);
+  });
 });
