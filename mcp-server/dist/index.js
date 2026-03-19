@@ -4221,10 +4221,10 @@ var require_core = __commonJS({
         return this;
       }
       // Add format
-      addFormat(name, format) {
-        if (typeof format == "string")
-          format = new RegExp(format);
-        this.formats[name] = format;
+      addFormat(name, format2) {
+        if (typeof format2 == "string")
+          format2 = new RegExp(format2);
+        this.formats[name] = format2;
         return this;
       }
       errorsText(errors = this.errors, { separator = ", ", dataVar = "data" } = {}) {
@@ -4342,9 +4342,9 @@ var require_core = __commonJS({
     }
     function addInitialFormats() {
       for (const name in this.opts.formats) {
-        const format = this.opts.formats[name];
-        if (format)
-          this.addFormat(name, format);
+        const format2 = this.opts.formats[name];
+        if (format2)
+          this.addFormat(name, format2);
       }
     }
     function addInitialKeywords(defs) {
@@ -6027,18 +6027,18 @@ var require_format = __commonJS({
           });
           const fDef = gen.const("fDef", (0, codegen_1._)`${fmts}[${schemaCode}]`);
           const fType = gen.let("fType");
-          const format = gen.let("format");
-          gen.if((0, codegen_1._)`typeof ${fDef} == "object" && !(${fDef} instanceof RegExp)`, () => gen.assign(fType, (0, codegen_1._)`${fDef}.type || "string"`).assign(format, (0, codegen_1._)`${fDef}.validate`), () => gen.assign(fType, (0, codegen_1._)`"string"`).assign(format, fDef));
+          const format2 = gen.let("format");
+          gen.if((0, codegen_1._)`typeof ${fDef} == "object" && !(${fDef} instanceof RegExp)`, () => gen.assign(fType, (0, codegen_1._)`${fDef}.type || "string"`).assign(format2, (0, codegen_1._)`${fDef}.validate`), () => gen.assign(fType, (0, codegen_1._)`"string"`).assign(format2, fDef));
           cxt.fail$data((0, codegen_1.or)(unknownFmt(), invalidFmt()));
           function unknownFmt() {
             if (opts.strictSchema === false)
               return codegen_1.nil;
-            return (0, codegen_1._)`${schemaCode} && !${format}`;
+            return (0, codegen_1._)`${schemaCode} && !${format2}`;
           }
           function invalidFmt() {
-            const callFormat = schemaEnv.$async ? (0, codegen_1._)`(${fDef}.async ? await ${format}(${data}) : ${format}(${data}))` : (0, codegen_1._)`${format}(${data})`;
-            const validData = (0, codegen_1._)`(typeof ${format} == "function" ? ${callFormat} : ${format}.test(${data}))`;
-            return (0, codegen_1._)`${format} && ${format} !== true && ${fType} === ${ruleType} && !${validData}`;
+            const callFormat = schemaEnv.$async ? (0, codegen_1._)`(${fDef}.async ? await ${format2}(${data}) : ${format2}(${data}))` : (0, codegen_1._)`${format2}(${data})`;
+            const validData = (0, codegen_1._)`(typeof ${format2} == "function" ? ${callFormat} : ${format2}.test(${data}))`;
+            return (0, codegen_1._)`${format2} && ${format2} !== true && ${fType} === ${ruleType} && !${validData}`;
           }
         }
         function validateFormat() {
@@ -6049,7 +6049,7 @@ var require_format = __commonJS({
           }
           if (formatDef === true)
             return;
-          const [fmtType, format, fmtRef] = getFormat(formatDef);
+          const [fmtType, format2, fmtRef] = getFormat(formatDef);
           if (fmtType === ruleType)
             cxt.pass(validCondition());
           function unknownFormat() {
@@ -6076,7 +6076,7 @@ var require_format = __commonJS({
                 throw new Error("async format in sync schema");
               return (0, codegen_1._)`await ${fmtRef}(${data})`;
             }
-            return typeof format == "function" ? (0, codegen_1._)`${fmtRef}(${data})` : (0, codegen_1._)`${fmtRef}.test(${data})`;
+            return typeof format2 == "function" ? (0, codegen_1._)`${fmtRef}(${data})` : (0, codegen_1._)`${fmtRef}.test(${data})`;
           }
         }
       }
@@ -6091,8 +6091,8 @@ var require_format2 = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var format_1 = require_format();
-    var format = [format_1.default];
-    exports.default = format;
+    var format2 = [format_1.default];
+    exports.default = format2;
   }
 });
 
@@ -6734,17 +6734,17 @@ var require_limit = __commonJS({
           cxt.fail$data((0, codegen_1.or)((0, codegen_1._)`typeof ${fmt} != "object"`, (0, codegen_1._)`${fmt} instanceof RegExp`, (0, codegen_1._)`typeof ${fmt}.compare != "function"`, compareCode(fmt)));
         }
         function validateFormat() {
-          const format = fCxt.schema;
-          const fmtDef = self.formats[format];
+          const format2 = fCxt.schema;
+          const fmtDef = self.formats[format2];
           if (!fmtDef || fmtDef === true)
             return;
           if (typeof fmtDef != "object" || fmtDef instanceof RegExp || typeof fmtDef.compare != "function") {
-            throw new Error(`"${keyword}": format "${format}" does not define "compare" function`);
+            throw new Error(`"${keyword}": format "${format2}" does not define "compare" function`);
           }
           const fmt = gen.scopeValue("formats", {
-            key: format,
+            key: format2,
             ref: fmtDef,
-            code: opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(format)}` : void 0
+            code: opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(format2)}` : void 0
           });
           cxt.fail$data(compareCode(fmt));
         }
@@ -16591,13 +16591,13 @@ var JSONSchemaGenerator = class {
           case "string": {
             const json = _json;
             json.type = "string";
-            const { minimum, maximum, format, patterns, contentEncoding } = schema._zod.bag;
+            const { minimum, maximum, format: format2, patterns, contentEncoding } = schema._zod.bag;
             if (typeof minimum === "number")
               json.minLength = minimum;
             if (typeof maximum === "number")
               json.maxLength = maximum;
-            if (format) {
-              json.format = formatMap[format] ?? format;
+            if (format2) {
+              json.format = formatMap[format2] ?? format2;
               if (json.format === "")
                 delete json.format;
             }
@@ -16620,8 +16620,8 @@ var JSONSchemaGenerator = class {
           }
           case "number": {
             const json = _json;
-            const { minimum, maximum, format, multipleOf, exclusiveMaximum, exclusiveMinimum } = schema._zod.bag;
-            if (typeof format === "string" && format.includes("int"))
+            const { minimum, maximum, format: format2, multipleOf, exclusiveMaximum, exclusiveMinimum } = schema._zod.bag;
+            if (typeof format2 === "string" && format2.includes("int"))
               json.type = "integer";
             else
               json.type = "number";
@@ -26853,6 +26853,174 @@ function countBrackets(code) {
   };
 }
 
+// src/gsc/formatter.ts
+var WORD_TYPES = /* @__PURE__ */ new Set([
+  "IDENTIFIER" /* IDENTIFIER */,
+  "KEYWORD" /* KEYWORD */,
+  "NUMBER" /* NUMBER */,
+  "STRING" /* STRING */
+]);
+var BINARY_OP_TYPES = /* @__PURE__ */ new Set([
+  "EQUAL" /* EQUAL */,
+  "PLUS" /* PLUS */,
+  "MINUS" /* MINUS */,
+  "STAR" /* STAR */,
+  "SLASH" /* SLASH */,
+  "PERCENT" /* PERCENT */,
+  "LESS" /* LESS */,
+  "GREATER" /* GREATER */,
+  "AMPERSAND" /* AMPERSAND */,
+  "PIPE" /* PIPE */,
+  "CARET" /* CARET */,
+  "EQUAL_EQUAL" /* EQUAL_EQUAL */,
+  "BANG_EQUAL" /* BANG_EQUAL */,
+  "LESS_EQUAL" /* LESS_EQUAL */,
+  "GREATER_EQUAL" /* GREATER_EQUAL */,
+  "AMPERSAND_AMPERSAND" /* AMPERSAND_AMPERSAND */,
+  "PIPE_PIPE" /* PIPE_PIPE */,
+  "PLUS_EQUAL" /* PLUS_EQUAL */,
+  "MINUS_EQUAL" /* MINUS_EQUAL */,
+  "STAR_EQUAL" /* STAR_EQUAL */,
+  "SLASH_EQUAL" /* SLASH_EQUAL */
+]);
+var CONTROL_KEYWORDS = /* @__PURE__ */ new Set([
+  "if",
+  "else",
+  "for",
+  "while",
+  "switch",
+  "foreach",
+  "do"
+]);
+function isUnaryContext(prev) {
+  if (!prev) return true;
+  return [
+    "LEFT_PAREN" /* LEFT_PAREN */,
+    "LEFT_BRACKET" /* LEFT_BRACKET */,
+    "EQUAL" /* EQUAL */,
+    "PLUS_EQUAL" /* PLUS_EQUAL */,
+    "MINUS_EQUAL" /* MINUS_EQUAL */,
+    "STAR_EQUAL" /* STAR_EQUAL */,
+    "SLASH_EQUAL" /* SLASH_EQUAL */,
+    "COMMA" /* COMMA */,
+    "SEMICOLON" /* SEMICOLON */,
+    "EQUAL_EQUAL" /* EQUAL_EQUAL */,
+    "BANG_EQUAL" /* BANG_EQUAL */,
+    "LESS" /* LESS */,
+    "GREATER" /* GREATER */,
+    "LESS_EQUAL" /* LESS_EQUAL */,
+    "GREATER_EQUAL" /* GREATER_EQUAL */,
+    "AMPERSAND_AMPERSAND" /* AMPERSAND_AMPERSAND */,
+    "PIPE_PIPE" /* PIPE_PIPE */,
+    "BANG" /* BANG */
+  ].includes(prev.type);
+}
+function needsSpaceBefore(prev, cur, prevPrev = null) {
+  if (cur.type === "COLON" /* COLON */ || prev.type === "COLON" /* COLON */) return false;
+  if (cur.type === "COMMA" /* COMMA */ || cur.type === "SEMICOLON" /* SEMICOLON */) return false;
+  if (prev.type === "LEFT_PAREN" /* LEFT_PAREN */ || prev.type === "LEFT_BRACKET" /* LEFT_BRACKET */) return false;
+  if (cur.type === "RIGHT_PAREN" /* RIGHT_PAREN */ || cur.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */) return false;
+  if (cur.type === "LEFT_PAREN" /* LEFT_PAREN */ && prev.type === "IDENTIFIER" /* IDENTIFIER */) return false;
+  if (prev.type === "COMMA" /* COMMA */) return true;
+  if (prev.type === "KEYWORD" /* KEYWORD */ && CONTROL_KEYWORDS.has(prev.value) && cur.type === "LEFT_PAREN" /* LEFT_PAREN */) return true;
+  if (BINARY_OP_TYPES.has(cur.type)) return true;
+  if (BINARY_OP_TYPES.has(prev.type)) {
+    if ((prev.type === "MINUS" /* MINUS */ || prev.type === "PLUS" /* PLUS */) && isUnaryContext(prevPrev)) return false;
+    return true;
+  }
+  if (WORD_TYPES.has(prev.type) && WORD_TYPES.has(cur.type)) return true;
+  if ((prev.type === "RIGHT_PAREN" /* RIGHT_PAREN */ || prev.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */) && WORD_TYPES.has(cur.type)) return true;
+  return false;
+}
+function format(tokens, opts) {
+  const indentSize = opts?.indentSize ?? 4;
+  const toks = tokens.filter((t) => t.type !== "EOF" /* EOF */);
+  if (toks.length === 0) return "";
+  const lines = [];
+  let currentLine = [];
+  let indentLevel = 0;
+  let prevTok = null;
+  let prevPrevTok = null;
+  const flushLine = () => {
+    const content = currentLine.join("").trimEnd();
+    lines.push(content.length > 0 ? " ".repeat(indentSize * indentLevel) + content : "");
+    currentLine = [];
+  };
+  for (let i = 0; i < toks.length; i++) {
+    const tok = toks[i];
+    if (tok.type === "NEWLINE" /* NEWLINE */) {
+      flushLine();
+      prevPrevTok = null;
+      prevTok = null;
+      continue;
+    }
+    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
+      if (currentLine.length > 0 && !currentLine[currentLine.length - 1].endsWith(" ")) {
+        currentLine.push(" ");
+      }
+      currentLine.push("{");
+      flushLine();
+      indentLevel++;
+      prevPrevTok = prevTok;
+      prevTok = tok;
+      continue;
+    }
+    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+      if (currentLine.length > 0) flushLine();
+      indentLevel = Math.max(0, indentLevel - 1);
+      currentLine.push("}");
+      flushLine();
+      prevPrevTok = prevTok;
+      prevTok = tok;
+      continue;
+    }
+    if (tok.type === "SEMICOLON" /* SEMICOLON */) {
+      currentLine.push(";");
+      flushLine();
+      prevPrevTok = prevTok;
+      prevTok = tok;
+      continue;
+    }
+    if (tok.type === "COMMENT" /* COMMENT */) {
+      if (currentLine.length > 0) currentLine.push(" ");
+      currentLine.push("//" + tok.value);
+      flushLine();
+      prevPrevTok = prevTok;
+      prevTok = tok;
+      continue;
+    }
+    if (tok.type === "BLOCK_COMMENT" /* BLOCK_COMMENT */) {
+      if (currentLine.length > 0) flushLine();
+      currentLine.push("/*" + tok.value + "*/");
+      flushLine();
+      prevPrevTok = prevTok;
+      prevTok = tok;
+      continue;
+    }
+    if (prevTok !== null && currentLine.length > 0 && needsSpaceBefore(prevTok, tok, prevPrevTok)) {
+      currentLine.push(" ");
+    }
+    currentLine.push(tok.value);
+    prevPrevTok = prevTok;
+    prevTok = tok;
+  }
+  if (currentLine.length > 0) flushLine();
+  const processed = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prevLine = processed[processed.length - 1];
+    if (line.trim() === "" && (prevLine === void 0 || prevLine.trim() === "")) continue;
+    if (prevLine === "}" && line.trim() !== "" && !line.trim().startsWith("}")) {
+      processed.push("");
+    }
+    processed.push(line);
+  }
+  while (processed.length > 0 && processed[processed.length - 1].trim() === "") {
+    processed.pop();
+  }
+  return processed.join("\n");
+}
+
 // src/gsc/symbols.ts
 import * as fs3 from "node:fs";
 import * as path6 from "node:path";
@@ -27819,6 +27987,70 @@ Note: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped \u2014 not stat
 `;
       }
       return { content: [{ type: "text", text: out }] };
+    }
+  );
+  server2.registerTool(
+    "gsc_format",
+    {
+      title: "Format GSC Source Code",
+      description: "Format GSC source code with consistent 4-space indentation, K&R brace style, and proper operator spacing. Accepts raw code or an IWD path+entry. Use write_back=true to save the formatted result back to the IWD.",
+      inputSchema: {
+        code: external_exports.string().optional().describe("Raw GSC source code to format"),
+        iwd_path: external_exports.string().optional().describe("Absolute path to the .iwd archive"),
+        entry: external_exports.string().optional().describe(
+          "Entry path within the IWD (e.g. maps/mp/gametypes/_mymod.gsc)"
+        ),
+        write_back: external_exports.boolean().optional().describe(
+          "Write formatted result back to IWD entry (default: false)"
+        ),
+        dry_run: external_exports.boolean().optional().describe(
+          "Preview diff without writing when write_back=true (default: false)"
+        )
+      },
+      annotations: {
+        readOnlyHint: false,
+        idempotentHint: true
+      }
+    },
+    async ({ code, iwd_path, entry, write_back, dry_run }) => {
+      if (!code && !(iwd_path && entry)) {
+        return errResult("Provide either 'code', or both 'iwd_path' and 'entry'.");
+      }
+      let source;
+      if (code) {
+        source = code;
+      } else {
+        const iwdResult = openIwd(iwd_path);
+        if (!iwdResult.ok) return errResult(iwdResult.error);
+        const zip = iwdResult.value;
+        const fileEntry = zip.getEntry(entry);
+        if (!fileEntry) return errResult(`Entry not found: ${entry}`);
+        source = fileEntry.getData().toString("utf-8");
+      }
+      const { tokens, errors: tokErrors } = tokenize(source);
+      const formatted = format(tokens);
+      if (write_back && iwd_path && entry) {
+        const iwdResult2 = openIwd(iwd_path);
+        if (!iwdResult2.ok) return errResult(iwdResult2.error);
+        const zipToWrite = iwdResult2.value;
+        if (dry_run) {
+          const { snippet: snippet2 } = buildDiffSnippet(source, formatted);
+          return okResult(`[dry_run] Would write formatted ${entry}:
+
+${snippet2}`);
+        }
+        zipToWrite.updateFile(entry, Buffer.from(formatted, "utf-8"));
+        zipToWrite.writeZip(iwd_path);
+        const { snippet } = buildDiffSnippet(source, formatted);
+        return okResult(`Formatted and wrote ${entry}:
+
+${snippet}`);
+      }
+      const warnings = tokErrors.length > 0 ? `
+
+\u26A0\uFE0F Tokenizer warnings (${tokErrors.length}):
+` + tokErrors.map((e) => `  L${e.line}: ${e.message}`).join("\n") : "";
+      return okResult("```gsc\n" + formatted + "\n```" + warnings);
     }
   );
 }

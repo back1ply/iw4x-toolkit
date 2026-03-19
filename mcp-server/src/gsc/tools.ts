@@ -12,7 +12,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { lint, fix, LintResult, LintError, LintOptions, getKnownBuiltins, getKnownDvars } from "./linter.js";
 import { outline, formatOutline } from "./outline.js";
-import { getKnowledgeDir, openIwd } from "../utils.js";
+import { getKnowledgeDir, openIwd, errResult, okResult, buildDiffSnippet } from "../utils.js";
+import { format } from "./formatter.js";
 import { buildIndex, getStats, resolveInclude, hasSymbol } from "./symbols.js";
 import { tokenize, TokenType } from "./tokenizer.js";
 
@@ -1037,5 +1038,81 @@ export function registerGscTools(server: McpServer): void {
 
       return { content: [{ type: "text", text: out }] };
     }
+  );
+
+  // --- Tool: gsc_format ---
+  server.registerTool(
+    "gsc_format",
+    {
+      title: "Format GSC Source Code",
+      description:
+        "Format GSC source code with consistent 4-space indentation, K&R brace style, " +
+        "and proper operator spacing. Accepts raw code or an IWD path+entry. " +
+        "Use write_back=true to save the formatted result back to the IWD.",
+      inputSchema: {
+        code: z.string().optional().describe("Raw GSC source code to format"),
+        iwd_path: z.string().optional().describe("Absolute path to the .iwd archive"),
+        entry: z.string().optional().describe(
+          "Entry path within the IWD (e.g. maps/mp/gametypes/_mymod.gsc)"
+        ),
+        write_back: z.boolean().optional().describe(
+          "Write formatted result back to IWD entry (default: false)"
+        ),
+        dry_run: z.boolean().optional().describe(
+          "Preview diff without writing when write_back=true (default: false)"
+        ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        idempotentHint: true,
+      },
+    },
+    async ({ code, iwd_path, entry, write_back, dry_run }) => {
+      // Validate: need code OR (iwd_path + entry)
+      if (!code && !(iwd_path && entry)) {
+        return errResult("Provide either 'code', or both 'iwd_path' and 'entry'.");
+      }
+
+      let source: string;
+
+      if (code) {
+        source = code;
+      } else {
+        // Read from IWD (openIwd is synchronous, returns Result<AdmZip>)
+        const iwdResult = openIwd(iwd_path!);
+        if (!iwdResult.ok) return errResult(iwdResult.error);
+        const zip = iwdResult.value; // AdmZip instance
+        const fileEntry = zip.getEntry(entry!);
+        if (!fileEntry) return errResult(`Entry not found: ${entry}`);
+        source = fileEntry.getData().toString("utf-8");
+      }
+
+      // Tokenize and format
+      const { tokens, errors: tokErrors } = tokenize(source);
+      const formatted = format(tokens);
+
+      // Write back to IWD if requested
+      if (write_back && iwd_path && entry) {
+        const iwdResult2 = openIwd(iwd_path);
+        if (!iwdResult2.ok) return errResult(iwdResult2.error);
+        const zipToWrite = iwdResult2.value;
+        if (dry_run) {
+          const { snippet } = buildDiffSnippet(source, formatted);
+          return okResult(`[dry_run] Would write formatted ${entry}:\n\n${snippet}`);
+        }
+        zipToWrite.updateFile(entry, Buffer.from(formatted, "utf-8"));
+        zipToWrite.writeZip(iwd_path);
+        const { snippet } = buildDiffSnippet(source, formatted);
+        return okResult(`Formatted and wrote ${entry}:\n\n${snippet}`);
+      }
+
+      // Return formatted source
+      const warnings = tokErrors.length > 0
+        ? `\n\n⚠️ Tokenizer warnings (${tokErrors.length}):\n` +
+          tokErrors.map(e => `  L${e.line}: ${e.message}`).join("\n")
+        : "";
+
+      return okResult("```gsc\n" + formatted + "\n```" + warnings);
+    },
   );
 }
