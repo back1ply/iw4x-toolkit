@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { tokenize, GSCTokenizer, TokenType } from "./tokenizer.js";
 import { lint, GSCLinter } from "./linter.js";
+import { format } from "./formatter.js";
 
 describe("GSCTokenizer", () => {
   describe("Basic Tokenization", () => {
@@ -489,5 +490,17 @@ myFunc()
       const collisions = result.errors.filter(e => e.code === "DEF-001");
       expect(collisions).toHaveLength(0);
     });
+  });
+});
+
+describe("GSCFormatter", () => {
+  it("returns empty string for empty input", () => {
+    const { tokens } = tokenize("");
+    expect(format(tokens)).toBe("");
+  });
+
+  it("preserves a single identifier", () => {
+    const { tokens } = tokenize("myVar");
+    expect(format(tokens).trim()).toBe("myVar");
   });
 });
