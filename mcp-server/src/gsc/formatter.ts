@@ -194,10 +194,27 @@ export function format(tokens: Token[], opts?: FormatOptions): string {
   // Flush remaining content
   if (currentLine.length > 0) flushLine();
 
-  // Strip trailing empty lines
-  while (lines.length > 0 && lines[lines.length - 1].trim() === "") {
-    lines.pop();
+  // Post-process: collapse consecutive blank lines, insert blank between top-level functions
+  const processed: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const prevLine = processed[processed.length - 1];
+
+    // Collapse multiple blank lines → max one
+    if (line.trim() === "" && (prevLine === undefined || prevLine.trim() === "")) continue;
+
+    // Insert blank line after a top-level closing } if next line starts a new function
+    if (prevLine === "}" && line.trim() !== "" && !line.trim().startsWith("}")) {
+      processed.push("");
+    }
+
+    processed.push(line);
   }
 
-  return lines.join("\n");
+  // Strip trailing empty lines
+  while (processed.length > 0 && processed[processed.length - 1].trim() === "") {
+    processed.pop();
+  }
+
+  return processed.join("\n");
 }

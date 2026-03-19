@@ -559,4 +559,19 @@ describe("GSCFormatter", () => {
     // Two consecutive COLON tokens — no spaces between them or around them
     expect(format(tokens)).toContain("maps::myFunc");
   });
+
+  it("collapses multiple blank lines into one", () => {
+    const src = `x = 1;\n\n\n\ny = 2;`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens);
+    expect(out).not.toMatch(/\n{3,}/);
+  });
+
+  it("inserts blank line between top-level functions", () => {
+    const src = `foo() { return 1; }\nbar() { return 2; }`;
+    const { tokens } = tokenize(src);
+    const out = format(tokens);
+    // A blank line between the closing } of foo and the start of bar
+    expect(out).toMatch(/\}\n\n\w/);
+  });
 });
