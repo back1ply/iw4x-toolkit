@@ -7,9 +7,9 @@
 
 ### Docs & Accuracy
 
-- [ ] **DOCS-01**: README tool list matches implemented tools exactly (no phantom entries)
-- [ ] **DOCS-02**: Phantom tools resolved — `gsc_find_orphans`, `dvar_integrity_check`, `iwd_index_symbols` either implemented or removed from README
-- [ ] **DOCS-03**: README "Implementation details" section reflects current code behavior accurately
+- [x] **DOCS-01**: README tool list matches implemented tools exactly (no phantom entries)
+- [x] **DOCS-02**: Phantom tools resolved — `gsc_find_orphans`, `dvar_integrity_check`, `iwd_index_symbols` either implemented or removed from README
+- [x] **DOCS-03**: README "Implementation details" section reflects current code behavior accurately
 - [ ] **DOCS-04**: `docs/TODO.md` updated with clear Phase 2 priority order
 
 ### Code Gaps
@@ -55,9 +55,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DOCS-01 | Phase 1 | Pending |
-| DOCS-02 | Phase 1 | Pending |
-| DOCS-03 | Phase 1 | Pending |
+| DOCS-01 | Phase 1 | Complete |
+| DOCS-02 | Phase 1 | Complete |
+| DOCS-03 | Phase 1 | Complete |
 | DOCS-04 | Phase 1 | Pending |
 | CODE-01 | Phase 2 | Pending |
 | CODE-02 | Phase 2 | Pending |
