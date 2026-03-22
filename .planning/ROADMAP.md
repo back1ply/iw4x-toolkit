@@ -24,8 +24,8 @@ A brownfield polish pass across docs, code gaps, and test coverage. Every Phase 
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 01-01-PLAN.md — Fix README tool lists and implementation details (DOCS-01, DOCS-02, DOCS-03)
-- [ ] 01-02-PLAN.md — Restructure docs/TODO.md Phase 2/3 sections (DOCS-04)
+- [x] 01-01-PLAN.md — Fix README tool lists and implementation details (DOCS-01, DOCS-02, DOCS-03)
+- [x] 01-02-PLAN.md — Restructure docs/TODO.md Phase 2/3 sections (DOCS-04)
 
 ### Phase 2: Code Gaps
 **Goal**: The three fragile code paths from CONCERNS.md are hardened so the server cannot silently leak memory, leave temp files, or fail to locate its knowledge base
@@ -35,7 +35,10 @@ Plans:
   1. Rate limiter Map cannot grow without bound — entries are evicted or the structure has a size cap
   2. Orphaned temp file cleanup scans write locations rather than CWD, so no temp files are left behind regardless of working directory
   3. `getKnowledgeDir()` resolves correctly when the package is bundled or relocated (not tied to source tree assumptions)
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Harden rate limiter, temp cleanup, and getKnowledgeDir (CODE-01, CODE-02, CODE-03)
 
 ### Phase 3: Tests & Arch Quality
 **Goal**: Untested paths have coverage, structural inconsistencies are eliminated, and all 99+ tests pass after every change in this milestone
@@ -56,5 +59,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Docs & Accuracy | 2/2 | Complete   | 2026-03-22 |
-| 2. Code Gaps | 0/? | Not started | - |
+| 2. Code Gaps | 0/1 | In progress | - |
 | 3. Tests & Arch Quality | 0/? | Not started | - |
