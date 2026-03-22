@@ -6,7 +6,7 @@ A brownfield polish pass across docs, code gaps, and test coverage. Every Phase 
 
 ## Phases
 
-- [ ] **Phase 1: Docs & Accuracy** - README matches implementation exactly; phantom tools resolved
+- [x] **Phase 1: Docs & Accuracy** - README matches implementation exactly; phantom tools resolved (completed 2026-03-22)
 - [ ] **Phase 2: Code Gaps** - Rate limiter, temp cleanup, and path resolution hardened
 - [ ] **Phase 3: Tests & Arch Quality** - Formatter, cache, and linter edge cases covered; all tests green
 
@@ -21,7 +21,7 @@ A brownfield polish pass across docs, code gaps, and test coverage. Every Phase 
   2. `gsc_find_orphans`, `dvar_integrity_check`, and `iwd_index_symbols` each have a clear resolution: either built and listed, or removed from README
   3. README "Implementation details" section matches current code behavior (no stale claims)
   4. `docs/TODO.md` shows a clear, prioritized Phase 2 order that reflects current project state
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 01-01-PLAN.md — Fix README tool lists and implementation details (DOCS-01, DOCS-02, DOCS-03)
@@ -55,6 +55,6 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Docs & Accuracy | 1/2 | In Progress|  |
+| 1. Docs & Accuracy | 2/2 | Complete   | 2026-03-22 |
 | 2. Code Gaps | 0/? | Not started | - |
 | 3. Tests & Arch Quality | 0/? | Not started | - |
