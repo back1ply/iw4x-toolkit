@@ -4,11 +4,11 @@ A Claude Code plugin for IW4X/MW2 modding. IWD archive tools, GSC linting and fo
 
 ## What it does
 
-**IWD Archive Tools** — Surgical in-place edits inside IWD archives (`iwd_patch`, `iwd_grep`, `iwd_write`, `iwd_rename`, `iwd_copy`, `iwd_extract`) plus diff, metadata, and symbol indexing across multiple archives.
+**IWD Archive Tools** — Surgical in-place edits inside IWD archives (`iwd_patch`, `iwd_grep`, `iwd_write`, `iwd_rename`, `iwd_copy`, `iwd_extract`) plus diff, metadata, and listing across multiple archives.
 
-**GSC Language Tooling** — `gsc_lint` catches undefined variables, missing includes, unreachable code, infinite loops, brace mismatches, and case-insensitive name collisions. `gsc_format` normalises indentation, brace style, and operator spacing. `gsc_find_orphans` identifies unresolvable function calls before the game launches.
+**GSC Language Tooling** — `gsc_lint` catches undefined variables, missing includes, unreachable code, infinite loops, brace mismatches, and case-insensitive name collisions. `gsc_format` normalises indentation, brace style, and operator spacing. `gsc_symbols` indexes GSC function definitions across IWD archives into a session-scoped registry for symbol lookup and include resolution.
 
-**DVAR Knowledge Base** — 1,731 MW2 DVARs with types, defaults, categories, and FPS impact ratings. `dvar_search` filters server-side to avoid context flood. `dvar_integrity_check` validates DVAR name literals in GSC against the database.
+**DVAR Knowledge Base** — 1,731 MW2 DVARs with types, defaults, categories, and FPS impact ratings. `dvar_search` filters server-side to avoid context flood.
 
 ## Installation
 
@@ -37,9 +37,10 @@ npm test
 
 Requires Node.js 18+ and TypeScript 5.7+.
 
-- **IWD tools**: `iwd_list`, `iwd_read`, `iwd_write`, `iwd_patch`, `iwd_grep`, `iwd_diff`, `iwd_rename`, `iwd_copy`, `iwd_extract`, `iwd_info`, `iwd_remove`, `iwd_index_symbols`
-- **GSC tools**: `gsc_lint`, `gsc_format`, `gsc_find_orphans`, `gsc_lookup`, `gsc_template`, `gsc_outline`, `gsc_menu_hud`
-- **DVAR tools**: `dvar_search`, `dvar_integrity_check`
+- **IWD tools**: `iwd_list`, `iwd_read`, `iwd_write`, `iwd_patch`, `iwd_grep`, `iwd_diff`, `iwd_rename`, `iwd_copy`, `iwd_extract`, `iwd_info`, `iwd_remove`
+- **GSC tools**: `gsc_lint`, `gsc_format`, `gsc_lookup`, `gsc_template`, `gsc_outline`, `gsc_menu_hud`, `gsc_symbols`
+- **DVAR tools**: `dvar_search`
+- **Sync tools**: `mods_sync`, `userraw_sync`
 - **Resources**: `iw4x://dvars`, `iw4x://gsc-builtins`
 - **Skills**: `dvar-lookup` for FPS optimization tips
 
