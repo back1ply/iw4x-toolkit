@@ -22,14 +22,16 @@ Every tool in the toolkit must work correctly and be accurately described — no
 - ✓ Plugin manifest, marketplace.json, skills — existing
 - ✓ Codebase map (`.planning/codebase/`) — existing
 
+### Validated
+
+- ✓ README accurately reflects implemented tool set — phantom tools removed, missing tools added (Validated in Phase 01: docs-accuracy)
+- ✓ `docs/TODO.md` restructured with Phase 2/3 sections mirroring ROADMAP priority order (Validated in Phase 01: docs-accuracy)
+
 ### Active
 
-- [ ] README accurately reflects implemented tool set (no phantom tools)
-- [ ] Tools claimed in README but unimplemented are either built or removed from README (`gsc_find_orphans`, `dvar_integrity_check`, `iwd_index_symbols` status resolved)
 - [ ] Known code gaps from CONCERNS.md addressed: rate limiter map unbounded growth, orphaned temp cleanup CWD assumption, `getKnowledgeDir()` path fragility
 - [ ] Test coverage filled for untested paths (linter edge cases, formatter, knowledge cache)
 - [ ] Code/arch polish: any structural issues or inconsistencies cleaned up
-- [ ] `docs/TODO.md` updated to reflect a clear Phase 2 priority order
 - [ ] All tests pass after polish changes
 
 ### Out of Scope
@@ -60,8 +62,8 @@ Every tool in the toolkit must work correctly and be accurately described — no
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Polish-first before Phase 2 | Solid ground prevents tech debt from compounding across phases | — Pending |
-| Resolve phantom tools (build or remove) | README listing unimplemented tools misleads users and future planning | — Pending |
+| Polish-first before Phase 2 | Solid ground prevents tech debt from compounding across phases | — In Progress |
+| Resolve phantom tools (build or remove) | README listing unimplemented tools misleads users and future planning | Removed phantoms, added 3 missing tools ✓ |
 
 ---
-*Last updated: 2026-03-22 after initialization*
+*Last updated: 2026-03-22 after Phase 01 (docs-accuracy) complete*
