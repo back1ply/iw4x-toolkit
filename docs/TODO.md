@@ -79,6 +79,36 @@
 
 ---
 
+## Next Up — Code Gaps & Hardening
+
+*Priority items from the polish pass. These must be resolved before new Phase 2 features.*
+
+### Code Hardening (Priority Order)
+- [ ] **CODE-01**: Rate limiter `Map` eviction — add eviction/size cap to `checkRateLimit` map to prevent unbounded memory growth
+- [ ] **CODE-02**: Temp file cleanup scope — `cleanupOrphanedTempFiles()` must scan IWD write locations, not just `process.cwd()`
+- [ ] **CODE-03**: `getKnowledgeDir()` path hardening — resolve correctly when bundled or relocated (not tied to source tree)
+
+### New Tools (After Hardening)
+- [ ] **P2-03**: `gsc_find_orphans` — cross-file unresolvable call detection
+- [ ] **P2-04**: `dvar_integrity_check` — DVAR name validation in GSC against the knowledge base
+
+---
+
+## Next Up — Tests & Architecture Quality
+
+*Final polish pass items. Run after code gaps are closed.*
+
+### Test Coverage
+- [ ] **TEST-01**: `gsc/formatter.ts` unit tests — cover formatting logic
+- [ ] **TEST-02**: Knowledge cache mtime/TTL logic unit tests — exercise cache hit, miss, and expiry
+- [ ] **TEST-03**: Linter edge cases — each edge case from CONCERNS.md gets a corresponding test
+
+### Architecture
+- [ ] **ARCH-01**: Module exports match actual usage — no dead exports, no undocumented public API surface
+- [ ] **ARCH-02**: All tests pass (>= 99 tests green) after all Phase 1-3 changes
+
+---
+
 ## Phase 2 — Language Tooling (The Enabler)
 
 *We cannot build LLM Agentic workflows without static analysis to catch syntax errors. This phase provides the building blocks.*
