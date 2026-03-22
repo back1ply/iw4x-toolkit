@@ -83,10 +83,13 @@ interface RateLimitEntry {
   resetTime: number;
 }
 
-const rateLimitMap = new Map<string, RateLimitEntry>();
+export const rateLimitMap = new Map<string, RateLimitEntry>();
 
 /** Threshold at which expired rate limit entries are cleaned up. */
 const RATE_LIMIT_CLEANUP_THRESHOLD = 1000;
+
+/** Hard cap on rateLimitMap size. Oldest entry is evicted when this is reached. */
+export const RATE_LIMIT_MAX_SIZE = 500;
 
 /**
  * Removes expired entries from the rate limit map.
@@ -132,6 +135,10 @@ export function checkRateLimit(
   
   if (!entry || now > entry.resetTime) {
     entry = { count: 0, resetTime: now + limit.windowMs };
+    if (rateLimitMap.size >= RATE_LIMIT_MAX_SIZE) {
+      const firstKey = rateLimitMap.keys().next().value;
+      if (firstKey) rateLimitMap.delete(firstKey);
+    }
     rateLimitMap.set(key, entry);
   }
   
@@ -167,26 +174,20 @@ export function checkRateLimit(
  * @returns The resolved absolute path, or null if not found
  */
 export function getKnowledgeDir(filename: string): string | null {
-  let baseDir: string;
+  let baseDir: string | undefined;
   try {
-    // Use import.meta.dirname for ESM (Node.js 20+)
-    baseDir = import.meta.dirname;
-    if (!baseDir) {
-      // Fallback to using import.meta.url
-      baseDir = path.dirname(new URL(import.meta.url).pathname);
-    }
-  } catch {
-    // Fallback for bundled code
-    baseDir = path.dirname(process.execPath);
-  }
+    baseDir = import.meta.dirname || path.dirname(new URL(import.meta.url).pathname);
+  } catch { /* baseDir remains undefined */ }
 
   const candidates = [
-    // From dist/knowledge/ -> project root
-    path.resolve(baseDir, "..", "knowledge", filename),
-    // From dist/ -> mcp-server/ -> project root
-    path.resolve(baseDir, "..", "..", "knowledge", filename),
-    // From src/knowledge/ -> project root
-    path.resolve(baseDir, "..", "..", "..", "knowledge", filename),
+    ...(baseDir ? [
+      // From dist/knowledge/ -> project root
+      path.resolve(baseDir, "..", "knowledge", filename),
+      // From dist/ -> mcp-server/ -> project root
+      path.resolve(baseDir, "..", "..", "knowledge", filename),
+      // From src/knowledge/ -> project root
+      path.resolve(baseDir, "..", "..", "..", "knowledge", filename),
+    ] : []),
     // Direct from project root (for when running from mcp-server folder)
     path.resolve("knowledge", filename),
   ];
@@ -194,6 +195,8 @@ export function getKnowledgeDir(filename: string): string | null {
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
+
+  console.error(`[iw4x-toolkit] Could not locate knowledge file: ${filename} — searched: ${candidates.join(", ")}`);
   return null;
 }
 
@@ -206,6 +209,12 @@ export function getKnowledgeDir(filename: string): string | null {
  * Prevents overwriting an existing backup with a later (already-modified) version.
  */
 export const backedUp = new Set<string>();
+
+/**
+ * Tracks directories where atomicWrite has written .tmp files.
+ * Used by cleanupOrphanedTempFiles to scan the correct locations.
+ */
+export const atomicWriteDirs = new Set<string>();
 
 // ---------------------------------------------------------------------------
 // IWD cache
@@ -302,6 +311,7 @@ export async function atomicWrite(
   zip: AdmZip,
   targetPath: string,
 ): Promise<void> {
+  atomicWriteDirs.add(path.dirname(targetPath));
   const tmpPath = targetPath + ".tmp";
   zip.writeZip(tmpPath);
   const { rename } = await import("node:fs/promises");

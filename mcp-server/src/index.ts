@@ -31,13 +31,16 @@ export {
   globToRegex,
   buildDiffSnippet,
   backedUp,
+  atomicWriteDirs,
   openIwd,
   openIwdAsync,
   invalidateIwdCache,
   getKnowledgeDir,
   getCachedRegex,
   checkRateLimit,
+  rateLimitMap,
   RATE_LIMITS,
+  RATE_LIMIT_MAX_SIZE,
 } from "./utils.js";
 
 export { loadDvars, loadGscBuiltins, loadMenuHud } from "./knowledge/tools.js";
@@ -53,35 +56,32 @@ export { loadDvars, loadGscBuiltins, loadMenuHud } from "./knowledge/tools.js";
 async function cleanupOrphanedTempFiles(): Promise<void> {
   const fs = await import("node:fs/promises");
   const path = await import("node:path");
-  
-  // Only clean up .tmp files in common IWD locations
-  const cwd = process.cwd();
-  
-  try {
-    const entries = await fs.readdir(cwd, { withFileTypes: true });
-    let cleaned = 0;
-    
-    for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith(".tmp")) {
-        try {
-          const fullPath = path.join(cwd, entry.name);
-          const stat = await fs.stat(fullPath);
-          // Only remove files older than 1 hour
-          if (Date.now() - stat.mtimeMs > 3600000) {
-            await fs.unlink(fullPath);
-            cleaned++;
-          }
-        } catch {
-          // Ignore errors for individual files
+  const { atomicWriteDirs } = await import("./utils.js");
+
+  const dirsToScan = new Set([...atomicWriteDirs, process.cwd()]);
+  let cleaned = 0;
+
+  for (const dir of dirsToScan) {
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(".tmp")) {
+          try {
+            const fullPath = path.join(dir, entry.name);
+            const stat = await fs.stat(fullPath);
+            // Only remove files older than 1 hour
+            if (Date.now() - stat.mtimeMs > 3600000) {
+              await fs.unlink(fullPath);
+              cleaned++;
+            }
+          } catch { /* Ignore errors for individual files */ }
         }
       }
-    }
-    
-    if (cleaned > 0) {
-      console.error(`[iw4x-toolkit] Cleaned up ${cleaned} orphaned .tmp file(s)`);
-    }
-  } catch {
-    // Ignore errors during cleanup
+    } catch { /* Ignore errors for inaccessible directories */ }
+  }
+
+  if (cleaned > 0) {
+    console.error(`[iw4x-toolkit] Cleaned up ${cleaned} orphaned .tmp file(s)`);
   }
 }
 
