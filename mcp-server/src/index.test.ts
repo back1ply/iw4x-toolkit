@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import AdmZip from "adm-zip";
@@ -18,6 +18,11 @@ import {
   buildDiffSnippet,
   openIwd,
   invalidateIwdCache,
+  rateLimitMap,
+  checkRateLimit,
+  atomicWriteDirs,
+  getKnowledgeDir,
+  RATE_LIMIT_MAX_SIZE,
   server,
 } from "./index.js";
 
@@ -1876,5 +1881,48 @@ describe("gsc_menu_hud tool", () => {
     const text = (result.content as Array<{ type: string; text: string }>)[0].text;
     expect(text).toContain("No match found");
     expect(text).toContain("Valid topics");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2: Code gap fixes
+// ---------------------------------------------------------------------------
+
+describe("CODE-01: Rate limiter hard cap", () => {
+  beforeEach(() => { rateLimitMap.clear(); });
+
+  it("RATE_LIMIT_MAX_SIZE is 500", () => {
+    expect(RATE_LIMIT_MAX_SIZE).toBe(500);
+  });
+
+  it("rateLimitMap does not exceed RATE_LIMIT_MAX_SIZE entries under flood", () => {
+    for (let i = 0; i < 600; i++) {
+      checkRateLimit("default", `client-${i}`);
+    }
+    expect(rateLimitMap.size).toBeLessThanOrEqual(RATE_LIMIT_MAX_SIZE);
+  });
+});
+
+describe("CODE-02: atomicWriteDirs tracking", () => {
+  beforeEach(() => { atomicWriteDirs.clear(); });
+
+  it("atomicWriteDirs starts empty", () => {
+    expect(atomicWriteDirs.size).toBe(0);
+  });
+});
+
+describe("CODE-03: getKnowledgeDir error logging", () => {
+  it("returns null for nonexistent knowledge file", () => {
+    expect(getKnowledgeDir("nonexistent-file-xyz.json")).toBeNull();
+  });
+
+  it("logs error with filename and searched paths on failure", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    getKnowledgeDir("nonexistent-file-xyz.json");
+    expect(spy).toHaveBeenCalledOnce();
+    const msg = spy.mock.calls[0][0] as string;
+    expect(msg).toContain("nonexistent-file-xyz.json");
+    expect(msg).toContain("searched:");
+    spy.mockRestore();
   });
 });
