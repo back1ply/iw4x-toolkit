@@ -21,7 +21,11 @@ A brownfield polish pass across docs, code gaps, and test coverage. Every Phase 
   2. `gsc_find_orphans`, `dvar_integrity_check`, and `iwd_index_symbols` each have a clear resolution: either built and listed, or removed from README
   3. README "Implementation details" section matches current code behavior (no stale claims)
   4. `docs/TODO.md` shows a clear, prioritized Phase 2 order that reflects current project state
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Fix README tool lists and implementation details (DOCS-01, DOCS-02, DOCS-03)
+- [ ] 01-02-PLAN.md — Restructure docs/TODO.md Phase 2/3 sections (DOCS-04)
 
 ### Phase 2: Code Gaps
 **Goal**: The three fragile code paths from CONCERNS.md are hardened so the server cannot silently leak memory, leave temp files, or fail to locate its knowledge base
@@ -42,15 +46,15 @@ A brownfield polish pass across docs, code gaps, and test coverage. Every Phase 
   2. Knowledge cache mtime/TTL logic has vitest unit tests that exercise cache hit, miss, and expiry
   3. Linter edge cases identified in CONCERNS.md each have a corresponding test
   4. Module exports match their actual usage — no dead exports, no undocumented public API surface
-  5. `vitest run` exits green with ≥99 passing tests after all Phase 1–3 changes
+  5. `vitest run` exits green with >=99 passing tests after all Phase 1-3 changes
 **Plans**: TBD
 
 ## Progress
 
-**Execution Order:** 1 → 2 → 3
+**Execution Order:** 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Docs & Accuracy | 0/? | Not started | - |
+| 1. Docs & Accuracy | 0/2 | Planning complete | - |
 | 2. Code Gaps | 0/? | Not started | - |
 | 3. Tests & Arch Quality | 0/? | Not started | - |
