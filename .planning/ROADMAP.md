@@ -7,7 +7,7 @@ A brownfield polish pass across docs, code gaps, and test coverage. Every Phase 
 ## Phases
 
 - [x] **Phase 1: Docs & Accuracy** - README matches implementation exactly; phantom tools resolved (completed 2026-03-22)
-- [ ] **Phase 2: Code Gaps** - Rate limiter, temp cleanup, and path resolution hardened
+- [x] **Phase 2: Code Gaps** - Rate limiter, temp cleanup, and path resolution hardened (completed 2026-03-22)
 - [ ] **Phase 3: Tests & Arch Quality** - Formatter, cache, and linter edge cases covered; all tests green
 
 ## Phase Details
@@ -35,7 +35,7 @@ Plans:
   1. Rate limiter Map cannot grow without bound — entries are evicted or the structure has a size cap
   2. Orphaned temp file cleanup scans write locations rather than CWD, so no temp files are left behind regardless of working directory
   3. `getKnowledgeDir()` resolves correctly when the package is bundled or relocated (not tied to source tree assumptions)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 02-01-PLAN.md — Harden rate limiter, temp cleanup, and getKnowledgeDir (CODE-01, CODE-02, CODE-03)
@@ -59,5 +59,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Docs & Accuracy | 2/2 | Complete   | 2026-03-22 |
-| 2. Code Gaps | 0/1 | In progress | - |
+| 2. Code Gaps | 1/1 | Complete   | 2026-03-22 |
 | 3. Tests & Arch Quality | 0/? | Not started | - |
