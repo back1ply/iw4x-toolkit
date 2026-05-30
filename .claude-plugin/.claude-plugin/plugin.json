@@ -1,0 +1,8 @@
+{
+  "name": "cod-forge",
+  "description": "CoD modding toolkit — GSC linting, IWD archive tools, DVAR lookup for classic Call of Duty titles",
+  "skills": [
+    { "name": "gsc-writer", "path": "skills/gsc-writer.md" },
+    { "name": "dvar-lookup", "path": "skills/dvar-lookup.md" }
+  ]
+}
