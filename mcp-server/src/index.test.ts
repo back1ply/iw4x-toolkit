@@ -26,6 +26,22 @@ import {
   server,
 } from "./index.js";
 
+/**
+ * Path of a timestamped backup (`<iwd>.YYYYMMDD_HHMMSS.bak`) for `iwdPath`, if any.
+ * ensureBackup writes timestamped backups so prior backups are never overwritten.
+ */
+function findTimestampedBackup(iwdPath: string): string | undefined {
+  const dir = path.dirname(iwdPath);
+  const base = path.basename(iwdPath).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^${base}\\.\\d{8}_\\d{6}\\.bak$`);
+  const match = fs.readdirSync(dir).find((f) => re.test(f));
+  return match ? path.join(dir, match) : undefined;
+}
+
+function hasTimestampedBackup(iwdPath: string): boolean {
+  return findTimestampedBackup(iwdPath) !== undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Unit tests — helper functions
 // ---------------------------------------------------------------------------
@@ -194,7 +210,7 @@ describe("ensureBackup", () => {
 
   it("creates a .bak file on first call", async () => {
     await ensureBackup(iwdPath);
-    expect(fs.existsSync(iwdPath + ".bak")).toBe(true);
+    expect(hasTimestampedBackup(iwdPath)).toBe(true);
   });
 
   it("does not overwrite existing .bak", async () => {
@@ -623,7 +639,7 @@ describe("MCP tool handlers", () => {
           content: "backup test",
         },
       });
-      expect(fs.existsSync(iwdPath + ".bak")).toBe(true);
+      expect(hasTimestampedBackup(iwdPath)).toBe(true);
     });
 
     it("returns a diff snippet when replacing an existing text entry", async () => {
@@ -799,7 +815,7 @@ describe("MCP tool handlers", () => {
           new: "// patched",
         },
       });
-      expect(fs.existsSync(iwdPath + ".bak")).toBe(true);
+      expect(hasTimestampedBackup(iwdPath)).toBe(true);
     });
 
     it("returns error if old string not found", async () => {
@@ -1354,9 +1370,10 @@ describe("MCP tool handlers", () => {
       });
       expect(result.isError).toBeFalsy();
 
-      // Original should be backed up
-      expect(fs.existsSync(destPath + ".bak")).toBe(true);
-      const bakZip = new AdmZip(destPath + ".bak");
+      // Original should be backed up (timestamped)
+      const bakPath = findTimestampedBackup(destPath);
+      expect(bakPath).toBeDefined();
+      const bakZip = new AdmZip(bakPath!);
       expect(bakZip.getEntry("old.txt")).not.toBeNull();
 
       // New archive should only contain the packed files

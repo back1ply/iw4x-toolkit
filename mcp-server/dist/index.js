@@ -11,6 +11,9 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require2() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
@@ -9457,6 +9460,421 @@ var require_adm_zip = __commonJS({
         }
       };
     };
+  }
+});
+
+// src/utils.ts
+var utils_exports = {};
+__export(utils_exports, {
+  BINARY_EXTENSIONS: () => BINARY_EXTENSIONS,
+  GREP_MAX_MATCHES_DEFAULT: () => GREP_MAX_MATCHES_DEFAULT,
+  MAX_LINE_LENGTH_WARNING: () => MAX_LINE_LENGTH_WARNING,
+  MINIFIED_FILE_CHARS_PER_LINE: () => MINIFIED_FILE_CHARS_PER_LINE,
+  RATE_LIMITS: () => RATE_LIMITS,
+  RATE_LIMIT_MAX_SIZE: () => RATE_LIMIT_MAX_SIZE,
+  atomicWrite: () => atomicWrite,
+  atomicWriteDirs: () => atomicWriteDirs,
+  backedUp: () => backedUp,
+  buildDiffSnippet: () => buildDiffSnippet,
+  buildSideBySideDiff: () => buildSideBySideDiff,
+  checkRateLimit: () => checkRateLimit,
+  ensureBackup: () => ensureBackup,
+  entryNotFoundErr: () => entryNotFoundErr,
+  err: () => err,
+  errResult: () => errResult,
+  getCachedRegex: () => getCachedRegex,
+  getErrMsg: () => getErrMsg,
+  getKnowledgeDir: () => getKnowledgeDir,
+  globToRegex: () => globToRegex,
+  invalidateIwdCache: () => invalidateIwdCache,
+  isBinaryEntry: () => isBinaryEntry,
+  isSafeEntryPath: () => isSafeEntryPath,
+  normalizeEntry: () => normalizeEntry,
+  ok: () => ok,
+  okResult: () => okResult,
+  openIwd: () => openIwd,
+  openIwdAsync: () => openIwdAsync,
+  rateLimitMap: () => rateLimitMap,
+  resolveIwdPath: () => resolveIwdPath,
+  unwrapResult: () => unwrapResult
+});
+import * as fs from "node:fs";
+import * as path from "node:path";
+function getCachedRegex(pattern, flags) {
+  const key = `${pattern}:${flags}`;
+  let re = regexCache.get(key);
+  if (!re) {
+    if (regexCache.size >= REGEX_CACHE_MAX) {
+      const firstKey = regexCache.keys().next().value;
+      if (firstKey) regexCache.delete(firstKey);
+    }
+    re = new RegExp(pattern, flags);
+    regexCache.set(key, re);
+  }
+  return re;
+}
+function cleanupExpiredRateLimits() {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+}
+function checkRateLimit(operation, clientId = "default") {
+  const limit = RATE_LIMITS[operation] ?? RATE_LIMITS.default;
+  const key = `${operation}:${clientId}`;
+  const now = Date.now();
+  if (rateLimitMap.size > RATE_LIMIT_CLEANUP_THRESHOLD) {
+    cleanupExpiredRateLimits();
+  }
+  let entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetTime) {
+    entry = { count: 0, resetTime: now + limit.windowMs };
+    if (rateLimitMap.size >= RATE_LIMIT_MAX_SIZE) {
+      const firstKey = rateLimitMap.keys().next().value;
+      if (firstKey) rateLimitMap.delete(firstKey);
+    }
+    rateLimitMap.set(key, entry);
+  }
+  if (entry.count >= limit.maxRequests) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetIn: Math.ceil((entry.resetTime - now) / 1e3)
+    };
+  }
+  entry.count++;
+  return {
+    allowed: true,
+    remaining: limit.maxRequests - entry.count,
+    resetIn: Math.ceil((entry.resetTime - now) / 1e3)
+  };
+}
+function getKnowledgeDir(filename) {
+  let baseDir;
+  try {
+    baseDir = import.meta.dirname || path.dirname(new URL(import.meta.url).pathname);
+  } catch {
+  }
+  const candidates = [
+    ...baseDir ? [
+      // From dist/knowledge/ -> project root
+      path.resolve(baseDir, "..", "knowledge", filename),
+      // From dist/ -> mcp-server/ -> project root
+      path.resolve(baseDir, "..", "..", "knowledge", filename),
+      // From src/knowledge/ -> project root
+      path.resolve(baseDir, "..", "..", "..", "knowledge", filename)
+    ] : [],
+    // Direct from project root (for when running from mcp-server folder)
+    path.resolve("knowledge", filename)
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  console.error(`[iw4x-toolkit] Could not locate knowledge file: ${filename} \u2014 searched: ${candidates.join(", ")}`);
+  return null;
+}
+function invalidateIwdCache(resolved) {
+  iwdCache.delete(resolved);
+}
+function getErrMsg(e) {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+function isBinaryEntry(entryName) {
+  const ext = path.extname(entryName).toLowerCase();
+  return BINARY_EXTENSIONS.has(ext);
+}
+function resolveIwdPath(iwdPath) {
+  return path.resolve(iwdPath);
+}
+async function ensureBackup(iwdPath) {
+  if (backedUp.has(iwdPath)) return;
+  const now = /* @__PURE__ */ new Date();
+  const timestamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    "_",
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0"),
+    String(now.getSeconds()).padStart(2, "0")
+  ].join("");
+  const bakPath = `${iwdPath}.${timestamp}.bak`;
+  const { copyFile } = await import("node:fs/promises");
+  await copyFile(iwdPath, bakPath);
+  backedUp.add(iwdPath);
+}
+async function atomicWrite(zip, targetPath) {
+  atomicWriteDirs.add(path.dirname(targetPath));
+  const tmpPath = targetPath + ".tmp";
+  zip.writeZip(tmpPath);
+  const { rename } = await import("node:fs/promises");
+  await rename(tmpPath, targetPath);
+}
+function normalizeEntry(entry) {
+  return entry.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+function isAbsolutePath(entry) {
+  return entry.startsWith("/") || /^[A-Za-z]:/.test(entry);
+}
+function hasPathTraversal(entry) {
+  const normalized = entry.replace(/\\/g, "/");
+  if (normalized === "..") return true;
+  return normalized.includes("../") || normalized.includes("/..");
+}
+function isSafeEntryPath(entry) {
+  if (!entry) return false;
+  if (entry.includes("\0")) return false;
+  if (isAbsolutePath(entry)) return false;
+  return !hasPathTraversal(entry);
+}
+function globToRegex(pattern) {
+  const tokens = pattern.split(/((?:\*\*\/|\*\*|\*|\?))/);
+  const regexStr = tokens.map((tok) => {
+    if (tok === "**/") return "(.+/)?";
+    if (tok === "**") return ".*";
+    if (tok === "*") return "[^/]+";
+    if (tok === "?") return "[^/]";
+    return tok.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }).join("");
+  return new RegExp(`^${regexStr}$`, "i");
+}
+function findChangedIndices(a, b) {
+  const changes = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] !== b[i]) changes.push(i);
+  }
+  return changes;
+}
+function groupIntoRegions(changes, ctx) {
+  const regions = [];
+  for (const idx of changes) {
+    const prev = regions[regions.length - 1];
+    if (prev && idx - prev.end <= ctx * 2) {
+      prev.end = idx + ctx;
+    } else {
+      regions.push({ start: Math.max(0, idx - ctx), end: idx + ctx });
+    }
+  }
+  return regions;
+}
+function diffRowMarkers(origLine, patchLine, idx, origLen, patchLen) {
+  if (origLine === patchLine) return { marker: " \u2502", origPrefix: "  ", patchPrefix: "  " };
+  if (idx >= origLen) return { marker: " +\u2502", origPrefix: "  ", patchPrefix: "+ " };
+  if (idx >= patchLen) return { marker: " -\u2502", origPrefix: "- ", patchPrefix: "  " };
+  return { marker: " ~\u2502", origPrefix: "~ ", patchPrefix: "~ " };
+}
+function truncateForColumn(line) {
+  return line.length > DIFF_COL_WIDTH ? line.substring(0, DIFF_COL_WIDTH - 3) + "..." : line;
+}
+function renderDiffRow(idx, originalLines, patchedLines) {
+  const origLine = idx < originalLines.length ? originalLines[idx] : "";
+  const patchLine = idx < patchedLines.length ? patchedLines[idx] : "";
+  const { marker, origPrefix, patchPrefix } = diffRowMarkers(origLine, patchLine, idx, originalLines.length, patchedLines.length);
+  const lineNum = String(idx + 1).padStart(4, " ");
+  const displayOrig = truncateForColumn(origLine).padEnd(DIFF_COL_WIDTH);
+  return `${lineNum}${origPrefix}${displayOrig}${marker}${patchPrefix}${truncateForColumn(patchLine)}`;
+}
+function renderDiffRegion(region, originalLines, patchedLines) {
+  const maxLines = Math.max(
+    region.end - region.start,
+    originalLines.slice(region.start, region.end).length,
+    patchedLines.slice(region.start, region.end).length
+  );
+  const rows = [DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP];
+  for (let i = 0; i < maxLines; i++) {
+    rows.push(renderDiffRow(region.start + i, originalLines, patchedLines));
+  }
+  rows.push(DIFF_BOX_BOTTOM);
+  return rows;
+}
+function buildSideBySideDiff(original, patched, ctx = 3) {
+  const originalLines = original.split(/\r?\n/);
+  const patchedLines = patched.split(/\r?\n/);
+  const changes = findChangedIndices(originalLines, patchedLines);
+  if (changes.length === 0) return "Files are identical (no changes)";
+  const regions = groupIntoRegions(changes, ctx);
+  const lines = [];
+  regions.forEach((region, i) => {
+    if (i > 0) lines.push("\n... (more changes) ...\n");
+    lines.push(...renderDiffRegion(region, originalLines, patchedLines));
+  });
+  return lines.join("\n");
+}
+function firstChangedLine(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] !== b[i]) return i;
+  }
+  return 0;
+}
+function unifiedDiffRow(before, after, hasBefore, hasAfter) {
+  if (hasBefore && hasAfter) {
+    return before !== after ? [`- ${before}`, `+ ${after}`] : [`  ${before}`];
+  }
+  return hasBefore ? [`- ${before}`] : [`+ ${after}`];
+}
+function renderUnifiedDiff(before, after) {
+  const out = [];
+  const maxLen = Math.max(before.length, after.length);
+  for (let i = 0; i < maxLen; i++) {
+    out.push(...unifiedDiffRow(before[i], after[i], i < before.length, i < after.length));
+  }
+  return out;
+}
+function buildDiffSnippet(original, patched, ctx = 3, hintLine) {
+  const originalLines = original.split(/\r?\n/);
+  const patchedLines = patched.split(/\r?\n/);
+  const changedLine = hintLine ?? firstChangedLine(originalLines, patchedLines);
+  const start = Math.max(0, changedLine - ctx);
+  const before = originalLines.slice(start, Math.min(originalLines.length, changedLine + ctx + 1));
+  const after = patchedLines.slice(start, Math.min(patchedLines.length, changedLine + ctx + 1));
+  return { snippet: renderUnifiedDiff(before, after).join("\n"), changedLine };
+}
+function getCachedZip(resolved, mtime) {
+  const cached2 = iwdCache.get(resolved);
+  if (cached2 && cached2.mtime === mtime) {
+    cached2.lastAccess = Date.now();
+    return cached2.zip;
+  }
+  return null;
+}
+function evictLruIfFull() {
+  if (iwdCache.size < IWD_CACHE_MAX) return;
+  let lruKey;
+  let lruTime = Infinity;
+  for (const [key, entry] of iwdCache.entries()) {
+    if (entry.lastAccess < lruTime) {
+      lruTime = entry.lastAccess;
+      lruKey = key;
+    }
+  }
+  if (lruKey !== void 0) iwdCache.delete(lruKey);
+}
+function parseAndCacheZip(resolved, mtime) {
+  try {
+    const zip = new import_adm_zip.default(resolved);
+    evictLruIfFull();
+    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
+    return ok(zip);
+  } catch (e) {
+    return err(
+      `Failed to open IWD archive: ${resolved}
+Reason: ${getErrMsg(e)}
+Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
+    );
+  }
+}
+function openIwd(resolved) {
+  if (!fs.existsSync(resolved)) {
+    return err(
+      `IWD file not found: ${resolved}
+Tip: verify the file path is correct and the file exists.`
+    );
+  }
+  let mtime;
+  try {
+    mtime = fs.statSync(resolved).mtimeMs;
+  } catch (e) {
+    return err(`Failed to stat IWD file: ${resolved}
+Reason: ${getErrMsg(e)}`);
+  }
+  const cached2 = getCachedZip(resolved, mtime);
+  return cached2 ? ok(cached2) : parseAndCacheZip(resolved, mtime);
+}
+async function openIwdAsync(resolved) {
+  const fsPromises = await import("node:fs/promises");
+  let mtime;
+  try {
+    mtime = (await fsPromises.stat(resolved)).mtimeMs;
+  } catch {
+    return err(
+      `IWD file not found: ${resolved}
+Tip: verify the file path is correct and the file exists.`
+    );
+  }
+  const cached2 = getCachedZip(resolved, mtime);
+  return cached2 ? ok(cached2) : parseAndCacheZip(resolved, mtime);
+}
+function ok(value) {
+  return { ok: true, value };
+}
+function err(error2) {
+  return { ok: false, error: error2 };
+}
+function errResult(text) {
+  return { content: [{ type: "text", text }], isError: true };
+}
+function okResult(text) {
+  return { content: [{ type: "text", text }] };
+}
+function unwrapResult(result) {
+  if (result.ok) return result.value;
+  return errResult(result.error);
+}
+function entryNotFoundErr(normalized) {
+  return errResult(
+    `Error: Entry not found: ${normalized}
+Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`
+  );
+}
+var import_adm_zip, BINARY_EXTENSIONS, GREP_MAX_MATCHES_DEFAULT, MINIFIED_FILE_CHARS_PER_LINE, MAX_LINE_LENGTH_WARNING, regexCache, REGEX_CACHE_MAX, rateLimitMap, RATE_LIMIT_CLEANUP_THRESHOLD, RATE_LIMIT_MAX_SIZE, RATE_LIMITS, backedUp, atomicWriteDirs, iwdCache, IWD_CACHE_MAX, DIFF_COL_WIDTH, DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP, DIFF_BOX_BOTTOM;
+var init_utils = __esm({
+  "src/utils.ts"() {
+    "use strict";
+    import_adm_zip = __toESM(require_adm_zip(), 1);
+    BINARY_EXTENSIONS = /* @__PURE__ */ new Set([
+      ".iwi",
+      ".d3dbsp",
+      ".xmodel_export",
+      ".xanim_export",
+      ".mp3",
+      ".wav",
+      ".flac",
+      ".bik",
+      ".roq",
+      ".dds",
+      ".tga",
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".bmp",
+      ".pcx",
+      ".xmodel_bin",
+      ".xanim_bin",
+      ".col_map_sp",
+      ".col_map_mp",
+      ".gfx_map",
+      ".fx"
+    ]);
+    GREP_MAX_MATCHES_DEFAULT = 50;
+    MINIFIED_FILE_CHARS_PER_LINE = 200;
+    MAX_LINE_LENGTH_WARNING = 200;
+    regexCache = /* @__PURE__ */ new Map();
+    REGEX_CACHE_MAX = 50;
+    rateLimitMap = /* @__PURE__ */ new Map();
+    RATE_LIMIT_CLEANUP_THRESHOLD = 1e3;
+    RATE_LIMIT_MAX_SIZE = 500;
+    RATE_LIMITS = {
+      iwd_grep: { maxRequests: 100, windowMs: 6e4 },
+      // 100 per minute
+      iwd_pack: { maxRequests: 20, windowMs: 6e4 },
+      // 20 per minute
+      iwd_sync: { maxRequests: 30, windowMs: 6e4 },
+      // 30 per minute
+      default: { maxRequests: 200, windowMs: 6e4 }
+      // 200 per minute default
+    };
+    backedUp = /* @__PURE__ */ new Set();
+    atomicWriteDirs = /* @__PURE__ */ new Set();
+    iwdCache = /* @__PURE__ */ new Map();
+    IWD_CACHE_MAX = 10;
+    DIFF_COL_WIDTH = 40;
+    DIFF_BOX_TOP = "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510";
+    DIFF_BOX_HEADER = "\u2502 Original (A)                          \u2502 Modified (B)                      \u2502";
+    DIFF_BOX_SEP = "\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524";
+    DIFF_BOX_BOTTOM = "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518";
   }
 });
 
@@ -23507,1375 +23925,800 @@ var StdioServerTransport = class {
 };
 
 // src/iwd/read-tools.ts
+init_utils();
 import * as path2 from "node:path";
+function listEntryRows(zip) {
+  return zip.getEntries().filter((e) => !e.isDirectory).map((e) => ({ name: e.entryName, size: e.header.size, compressedSize: e.header.compressedSize }));
+}
+function summarizeByType(rows, resolved, total) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const ext = isBinaryEntry(row.name) ? "binary" : path2.extname(row.name).toLowerCase() || "(no ext)";
+    counts.set(ext, (counts.get(ext) ?? 0) + 1);
+  }
+  const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([ext, n]) => `${n} ${ext}`);
+  return `${resolved}
+${total} entries: ${parts.join(", ")}`;
+}
+function formatListBody(rows, namesOnly) {
+  return namesOnly ? rows.map((r) => r.name).join("\n") : rows.map((r) => `${r.name}  (${r.size} \u2192 ${r.compressedSize} bytes)`).join("\n");
+}
+async function handleIwdList({ path: iwdPath, pattern, summary_only, names_only, limit }) {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) return errResult(opened.error);
+  let rows = listEntryRows(opened.value);
+  const total = rows.length;
+  if (summary_only) return okResult(summarizeByType(rows, resolved, total));
+  if (pattern) {
+    const regex = globToRegex(pattern);
+    rows = rows.filter((r) => regex.test(r.name));
+  }
+  if (rows.length === 0) {
+    return okResult(pattern ? `No entries match pattern '${pattern}' in ${resolved} (${total} total entries).
+Tip: use iwd_list without a pattern to see all entries.` : `No entries found in ${resolved}.`);
+  }
+  const matchedCount = rows.length;
+  const truncated = limit !== void 0 && matchedCount > limit;
+  if (truncated) rows = rows.slice(0, limit);
+  const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}
+${matchedCount} of ${total} entries${truncated ? ` (showing first ${limit})` : ""}:`;
+  const footer = truncated ? `
+... truncated. Use pattern or increase limit to see more.` : "";
+  return okResult(`${header}
 
-// src/utils.ts
-var import_adm_zip = __toESM(require_adm_zip(), 1);
-import * as fs from "node:fs";
-import * as path from "node:path";
-var BINARY_EXTENSIONS = /* @__PURE__ */ new Set([
-  ".iwi",
-  ".d3dbsp",
-  ".xmodel_export",
-  ".xanim_export",
-  ".mp3",
-  ".wav",
-  ".flac",
-  ".bik",
-  ".roq",
-  ".dds",
-  ".tga",
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".bmp",
-  ".pcx",
-  ".xmodel_bin",
-  ".xanim_bin",
-  ".col_map_sp",
-  ".col_map_mp",
-  ".gfx_map",
-  ".fx"
-]);
-var GREP_MAX_MATCHES_DEFAULT = 50;
-var MINIFIED_FILE_CHARS_PER_LINE = 200;
-var MAX_LINE_LENGTH_WARNING = 200;
-var regexCache = /* @__PURE__ */ new Map();
-var REGEX_CACHE_MAX = 50;
-function getCachedRegex(pattern, flags) {
-  const key = `${pattern}:${flags}`;
-  let re = regexCache.get(key);
-  if (!re) {
-    if (regexCache.size >= REGEX_CACHE_MAX) {
-      const firstKey = regexCache.keys().next().value;
-      if (firstKey) regexCache.delete(firstKey);
-    }
-    re = new RegExp(pattern, flags);
-    regexCache.set(key, re);
-  }
-  return re;
+${formatListBody(rows, names_only)}${footer}`);
 }
-var rateLimitMap = /* @__PURE__ */ new Map();
-var RATE_LIMIT_CLEANUP_THRESHOLD = 1e3;
-function cleanupExpiredRateLimits() {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitMap) {
-    if (now > entry.resetTime) {
-      rateLimitMap.delete(key);
-    }
+function readBinaryEntry(zip, zipEntry, normalized) {
+  const buf = zip.readFile(zipEntry);
+  if (!buf) {
+    return errResult(`Error: Failed to read binary entry: ${normalized}
+Tip: the file may be corrupt.`);
   }
-}
-var RATE_LIMITS = {
-  iwd_grep: { maxRequests: 100, windowMs: 6e4 },
-  // 100 per minute
-  iwd_pack: { maxRequests: 20, windowMs: 6e4 },
-  // 20 per minute
-  iwd_sync: { maxRequests: 30, windowMs: 6e4 },
-  // 30 per minute
-  default: { maxRequests: 200, windowMs: 6e4 }
-  // 200 per minute default
-};
-function checkRateLimit(operation, clientId = "default") {
-  const limit = RATE_LIMITS[operation] ?? RATE_LIMITS.default;
-  const key = `${operation}:${clientId}`;
-  const now = Date.now();
-  if (rateLimitMap.size > RATE_LIMIT_CLEANUP_THRESHOLD) {
-    cleanupExpiredRateLimits();
-  }
-  let entry = rateLimitMap.get(key);
-  if (!entry || now > entry.resetTime) {
-    entry = { count: 0, resetTime: now + limit.windowMs };
-    rateLimitMap.set(key, entry);
-  }
-  if (entry.count >= limit.maxRequests) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetIn: Math.ceil((entry.resetTime - now) / 1e3)
-    };
-  }
-  entry.count++;
   return {
-    allowed: true,
-    remaining: limit.maxRequests - entry.count,
-    resetIn: Math.ceil((entry.resetTime - now) / 1e3)
+    content: [
+      { type: "text", text: `[binary: ${normalized}, ${buf.length} bytes, base64-encoded below]` },
+      { type: "text", text: buf.toString("base64") }
+    ]
   };
 }
-function getKnowledgeDir(filename) {
-  let baseDir;
-  try {
-    baseDir = import.meta.dirname;
-    if (!baseDir) {
-      baseDir = path.dirname(new URL(import.meta.url).pathname);
-    }
-  } catch {
-    baseDir = path.dirname(process.execPath);
-  }
-  const candidates = [
-    // From dist/knowledge/ -> project root
-    path.resolve(baseDir, "..", "knowledge", filename),
-    // From dist/ -> mcp-server/ -> project root
-    path.resolve(baseDir, "..", "..", "knowledge", filename),
-    // From src/knowledge/ -> project root
-    path.resolve(baseDir, "..", "..", "..", "knowledge", filename),
-    // Direct from project root (for when running from mcp-server folder)
-    path.resolve("knowledge", filename)
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-var backedUp = /* @__PURE__ */ new Set();
-var iwdCache = /* @__PURE__ */ new Map();
-var IWD_CACHE_MAX = 10;
-function invalidateIwdCache(resolved) {
-  iwdCache.delete(resolved);
-}
-function getErrMsg(e) {
-  if (e instanceof Error) return e.message;
-  return String(e);
-}
-function isBinaryEntry(entryName) {
-  const ext = path.extname(entryName).toLowerCase();
-  return BINARY_EXTENSIONS.has(ext);
-}
-function resolveIwdPath(iwdPath) {
-  return path.resolve(iwdPath);
-}
-async function ensureBackup(iwdPath) {
-  if (backedUp.has(iwdPath)) return;
-  const now = /* @__PURE__ */ new Date();
-  const timestamp = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-    "_",
-    String(now.getHours()).padStart(2, "0"),
-    String(now.getMinutes()).padStart(2, "0"),
-    String(now.getSeconds()).padStart(2, "0")
-  ].join("");
-  const bakPath = `${iwdPath}.${timestamp}.bak`;
-  const { copyFile } = await import("node:fs/promises");
-  await copyFile(iwdPath, bakPath);
-  backedUp.add(iwdPath);
-}
-async function atomicWrite(zip, targetPath) {
-  const tmpPath = targetPath + ".tmp";
-  zip.writeZip(tmpPath);
-  const { rename } = await import("node:fs/promises");
-  await rename(tmpPath, targetPath);
-}
-function normalizeEntry(entry) {
-  return entry.replace(/\\/g, "/").replace(/^\/+/, "");
-}
-function isSafeEntryPath(entry) {
-  if (!entry || entry.length === 0) return false;
-  if (entry.includes("\0")) return false;
-  if (entry.startsWith("/") || /^[A-Za-z]:/.test(entry)) return false;
-  const normalized = entry.replace(/\\/g, "/");
-  if (normalized.includes("../") || normalized.includes("/..") || normalized === "..") return false;
-  return true;
-}
-function globToRegex(pattern) {
-  const tokens = pattern.split(/((?:\*\*\/|\*\*|\*|\?))/);
-  const regexStr = tokens.map((tok) => {
-    if (tok === "**/") return "(.+/)?";
-    if (tok === "**") return ".*";
-    if (tok === "*") return "[^/]+";
-    if (tok === "?") return "[^/]";
-    return tok.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  }).join("");
-  return new RegExp(`^${regexStr}$`, "i");
-}
-function buildSideBySideDiff(original, patched, ctx = 3) {
-  const originalLines = original.split(/\r?\n/);
-  const patchedLines = patched.split(/\r?\n/);
-  const changes = [];
-  for (let i = 0; i < Math.max(originalLines.length, patchedLines.length); i++) {
-    if (originalLines[i] !== patchedLines[i]) {
-      changes.push({ origIdx: i, patchIdx: i });
-    }
-  }
-  if (changes.length === 0) {
-    return "Files are identical (no changes)";
-  }
-  const regions = [];
-  for (let i = 0; i < changes.length; i++) {
-    const change = changes[i];
-    const prevChange = regions.length > 0 ? regions[regions.length - 1] : null;
-    if (prevChange && change.origIdx - prevChange.end <= ctx * 2) {
-      prevChange.end = change.origIdx + ctx;
-    } else {
-      regions.push({
-        start: Math.max(0, change.origIdx - ctx),
-        end: change.origIdx + ctx
-      });
-    }
-  }
-  const lines = [];
-  for (const region of regions) {
-    if (regions.indexOf(region) > 0) {
-      lines.push("\n... (more changes) ...\n");
-    }
-    const maxLines = Math.max(
-      region.end - region.start,
-      originalLines.slice(region.start, region.end).length,
-      patchedLines.slice(region.start, region.end).length
-    );
-    lines.push("\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
-    lines.push("\u2502 Original (A)                          \u2502 Modified (B)                      \u2502");
-    lines.push("\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524");
-    for (let i = 0; i < maxLines; i++) {
-      const origLineIdx = region.start + i;
-      const patchLineIdx = region.start + i;
-      const origLine = origLineIdx < originalLines.length ? originalLines[origLineIdx] : "";
-      const patchLine = patchLineIdx < patchedLines.length ? patchedLines[patchLineIdx] : "";
-      let marker = " \u2502";
-      let origPrefix = "  ";
-      let patchPrefix = "  ";
-      if (origLine !== patchLine) {
-        if (origLineIdx >= originalLines.length) {
-          marker = " +\u2502";
-          patchPrefix = "+ ";
-        } else if (patchLineIdx >= patchedLines.length) {
-          marker = " -\u2502";
-          origPrefix = "- ";
-        } else {
-          marker = " ~\u2502";
-          origPrefix = "~ ";
-          patchPrefix = "~ ";
-        }
-      }
-      const origLineNum = String(origLineIdx + 1).padStart(4, " ");
-      const patchLineNum = String(patchLineIdx + 1).padStart(4, " ");
-      const maxColWidth = 40;
-      const displayOrig = origLine.length > maxColWidth ? origLine.substring(0, maxColWidth - 3) + "..." : origLine;
-      const displayPatch = patchLine.length > maxColWidth ? patchLine.substring(0, maxColWidth - 3) + "..." : patchLine;
-      lines.push(`${origLineNum}${origPrefix}${displayOrig.padEnd(maxColWidth)}${marker}${patchPrefix}${displayPatch}`);
-    }
-    lines.push("\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
-  }
-  return lines.join("\n");
-}
-function buildDiffSnippet(original, patched, ctx = 3, hintLine) {
-  const originalLines = original.split(/\r?\n/);
-  const patchedLines = patched.split(/\r?\n/);
-  let changedLine = hintLine ?? 0;
-  if (hintLine === void 0) {
-    for (let i = 0; i < Math.max(originalLines.length, patchedLines.length); i++) {
-      if (originalLines[i] !== patchedLines[i]) {
-        changedLine = i;
-        break;
-      }
-    }
-  }
-  const start = Math.max(0, changedLine - ctx);
-  const endOrig = Math.min(originalLines.length, changedLine + ctx + 1);
-  const endPatched = Math.min(patchedLines.length, changedLine + ctx + 1);
-  const before = originalLines.slice(start, endOrig);
-  const after = patchedLines.slice(start, endPatched);
-  const diffLines = [];
-  const maxLen = Math.max(before.length, after.length);
-  for (let i = 0; i < maxLen; i++) {
-    if (i < before.length && i < after.length) {
-      if (before[i] !== after[i]) {
-        diffLines.push(`- ${before[i]}`);
-        diffLines.push(`+ ${after[i]}`);
-      } else {
-        diffLines.push(`  ${before[i]}`);
-      }
-    } else if (i < before.length) {
-      diffLines.push(`- ${before[i]}`);
-    } else {
-      diffLines.push(`+ ${after[i]}`);
-    }
-  }
-  return { snippet: diffLines.join("\n"), changedLine };
-}
-function openIwd(resolved) {
-  if (!fs.existsSync(resolved)) {
-    return err(
-      `IWD file not found: ${resolved}
-Tip: verify the file path is correct and the file exists.`
-    );
-  }
-  let mtime;
-  try {
-    mtime = fs.statSync(resolved).mtimeMs;
-  } catch (e) {
-    return err(`Failed to stat IWD file: ${resolved}
-Reason: ${getErrMsg(e)}`);
-  }
-  const cached2 = iwdCache.get(resolved);
-  if (cached2 && cached2.mtime === mtime) {
-    cached2.lastAccess = Date.now();
-    return ok(cached2.zip);
-  }
-  try {
-    const zip = new import_adm_zip.default(resolved);
-    if (iwdCache.size >= IWD_CACHE_MAX) {
-      let lruKey;
-      let lruTime = Infinity;
-      for (const [key, entry] of iwdCache.entries()) {
-        if (entry.lastAccess < lruTime) {
-          lruTime = entry.lastAccess;
-          lruKey = key;
-        }
-      }
-      if (lruKey !== void 0) {
-        iwdCache.delete(lruKey);
-      }
-    }
-    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
-    return ok(zip);
-  } catch (e) {
-    return err(
-      `Failed to open IWD archive: ${resolved}
-Reason: ${getErrMsg(e)}
-Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
-    );
-  }
-}
-async function openIwdAsync(resolved) {
-  const fsPromises = await import("node:fs/promises");
-  try {
-    await fsPromises.access(resolved);
-  } catch {
-    return err(
-      `IWD file not found: ${resolved}
-Tip: verify the file path is correct and the file exists.`
-    );
-  }
-  let mtime;
-  try {
-    const stats = await fsPromises.stat(resolved);
-    mtime = stats.mtimeMs;
-  } catch (e) {
-    return err(`Failed to stat IWD file: ${resolved}
-Reason: ${getErrMsg(e)}`);
-  }
-  const cached2 = iwdCache.get(resolved);
-  if (cached2 && cached2.mtime === mtime) {
-    cached2.lastAccess = Date.now();
-    return ok(cached2.zip);
-  }
-  try {
-    const zip = new import_adm_zip.default(resolved);
-    if (iwdCache.size >= IWD_CACHE_MAX) {
-      let lruKey;
-      let lruTime = Infinity;
-      for (const [key, entry] of iwdCache.entries()) {
-        if (entry.lastAccess < lruTime) {
-          lruTime = entry.lastAccess;
-          lruKey = key;
-        }
-      }
-      if (lruKey) iwdCache.delete(lruKey);
-    }
-    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
-    return ok(zip);
-  } catch (e) {
-    return err(
-      `Failed to open IWD archive: ${resolved}
-Reason: ${getErrMsg(e)}
-Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
-    );
-  }
-}
-function ok(value) {
-  return { ok: true, value };
-}
-function err(error2) {
-  return { ok: false, error: error2 };
-}
-function errResult(text) {
-  return { content: [{ type: "text", text }], isError: true };
-}
-function okResult(text) {
-  return { content: [{ type: "text", text }] };
-}
-function entryNotFoundErr(normalized) {
+function offsetBeyondEndError(start, totalLines, text) {
+  const isMinified = text.length / totalLines > MINIFIED_FILE_CHARS_PER_LINE;
+  const minifiedNote = isMinified ? `
+Note: This file averages over ${MINIFIED_FILE_CHARS_PER_LINE} chars per line and is likely minified. Use iwd_grep to search for specific terms if needed.` : "";
   return errResult(
-    `Error: Entry not found: ${normalized}
-Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`
+    `Error: offset ${start} is beyond end of file (${totalLines} lines).
+Tip: use offset values between 0 and ${totalLines - 1}.${minifiedNote}`
   );
 }
-
-// src/iwd/read-tools.ts
-function registerReadTools(server2) {
-  server2.registerTool(
-    "iwd_list",
-    {
-      title: "List Archive Entries",
-      description: "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). Pass names_only=false only when you need file sizes.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        pattern: external_exports.string().optional().describe(
-          "Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"
-        ),
-        summary_only: external_exports.boolean().optional().default(false).describe(
-          "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
-        ),
-        names_only: external_exports.boolean().optional().default(true).describe(
-          "If true (default), returns entry names only. Pass false to include file sizes."
-        ),
-        limit: external_exports.number().int().positive().max(1e4).optional().describe("Max number of entries to return. Omit to return all.")
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ path: iwdPath, pattern, summary_only, names_only, limit }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      let rows = zip.getEntries().filter((e) => !e.isDirectory).map((e) => ({
-        name: e.entryName,
-        size: e.header.size,
-        compressedSize: e.header.compressedSize
-      }));
-      const totalInArchive = rows.length;
-      if (summary_only) {
-        const counts = /* @__PURE__ */ new Map();
-        for (const row of rows) {
-          const ext = isBinaryEntry(row.name) ? "binary" : path2.extname(row.name).toLowerCase() || "(no ext)";
-          counts.set(ext, (counts.get(ext) ?? 0) + 1);
-        }
-        const parts = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([ext, n]) => `${n} ${ext}`);
-        return okResult(
-          `${resolved}
-${totalInArchive} entries: ${parts.join(", ")}`
-        );
-      }
-      if (pattern) {
-        const regex = globToRegex(pattern);
-        rows = rows.filter((r) => regex.test(r.name));
-      }
-      if (rows.length === 0) {
-        return okResult(
-          pattern ? `No entries match pattern '${pattern}' in ${resolved} (${totalInArchive} total entries).
-Tip: use iwd_list without a pattern to see all entries.` : `No entries found in ${resolved}.`
-        );
-      }
-      let truncated = false;
-      const matchedCount = rows.length;
-      if (limit !== void 0 && matchedCount > limit) {
-        rows = rows.slice(0, limit);
-        truncated = true;
-      }
-      const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}
-${matchedCount} of ${totalInArchive} entries${truncated ? ` (showing first ${limit})` : ""}:`;
-      const body = names_only ? rows.map((r) => r.name).join("\n") : rows.map((r) => `${r.name}  (${r.size} \u2192 ${r.compressedSize} bytes)`).join("\n");
-      return okResult(
-        `${header}
-
-${body}${truncated ? `
-... truncated. Use pattern or increase limit to see more.` : ""}`
-      );
-    }
-  );
-  server2.registerTool(
-    "iwd_read",
-    {
-      title: "Read Archive Entry",
-      description: "Read a file from inside an IWD archive. Returns UTF-8 text for text files (.gsc, .menu, .cfg, .csv, etc.) and base64 for binary files (.iwi, .d3dbsp, etc.). Use limit and offset to read sections of large files without flooding context. Use iwd_info first to check file size and type before reading large files.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        entry: external_exports.string().describe(
-          "Path of the entry inside the IWD (e.g. maps/mp/gametypes/_globallogic.gsc). Use iwd_list to find the exact path."
-        ),
-        limit: external_exports.number().int().positive().max(1e5).optional().describe(
-          "Max lines to return (for text files). Omit to read the whole file."
-        ),
-        offset: external_exports.number().int().nonnegative().optional().describe(
-          "0-indexed line to start reading from (default: 0). Use with limit to page through large files."
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ path: iwdPath, entry, limit, offset }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      const normalized = normalizeEntry(entry);
-      if (!normalized) return errResult("Error: entry path cannot be empty.");
-      const zipEntry = zip.getEntry(normalized);
-      if (!zipEntry) return entryNotFoundErr(normalized);
-      if (isBinaryEntry(normalized)) {
-        const buf = zip.readFile(zipEntry);
-        if (!buf) {
-          return errResult(
-            `Error: Failed to read binary entry: ${normalized}
-Tip: the file may be corrupt.`
-          );
-        }
-        return {
-          content: [
-            {
-              type: "text",
-              text: `[binary: ${normalized}, ${buf.length} bytes, base64-encoded below]`
-            },
-            { type: "text", text: buf.toString("base64") }
-          ]
-        };
-      }
-      const text = zip.readAsText(zipEntry);
-      const lines = text.split(/\r?\n/);
-      const totalLines = lines.length;
-      if (offset !== void 0 || limit !== void 0) {
-        const start = offset ?? 0;
-        if (start >= totalLines && totalLines > 0) {
-          const isMinified = text.length / totalLines > MINIFIED_FILE_CHARS_PER_LINE;
-          return errResult(
-            `Error: offset ${start} is beyond end of file (${totalLines} lines).
-Tip: use offset values between 0 and ${totalLines - 1}.${isMinified ? `
-Note: This file averages over ${MINIFIED_FILE_CHARS_PER_LINE} chars per line and is likely minified. Use iwd_grep to search for specific terms if needed.` : ""}`
-          );
-        }
-        const end = limit !== void 0 ? start + limit : totalLines;
-        const slice = lines.slice(start, end);
-        const header = `[${normalized}: lines ${start + 1}-${Math.min(end, totalLines)} of ${totalLines}]`;
-        return okResult(`${header}
-${slice.join("\n")}`);
-      }
-      return okResult(`[${normalized}: ${totalLines} lines]
+function readTextSlice(text, normalized, offset, limit) {
+  const lines = text.split(/\r?\n/);
+  const totalLines = lines.length;
+  if (offset === void 0 && limit === void 0) {
+    return okResult(`[${normalized}: ${totalLines} lines]
 ${text}`);
-    }
-  );
-  server2.registerTool(
-    "iwd_info",
-    {
-      title: "Get Entry Metadata",
-      description: "Get metadata for a single entry in an IWD archive without reading its content. Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        entry: external_exports.string().describe(
-          "Path of the entry inside the IWD. Use iwd_list to find exact paths."
-        ),
-        summary_only: external_exports.boolean().optional().default(false).describe(
-          "If true, returns a compact single-line type-and-size string."
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ path: iwdPath, entry, summary_only }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      const normalized = normalizeEntry(entry);
-      if (!normalized) return errResult("Error: entry path cannot be empty.");
-      const zipEntry = zip.getEntry(normalized);
-      if (!zipEntry) return entryNotFoundErr(normalized);
-      const binary = isBinaryEntry(normalized);
-      const size = zipEntry.header.size;
-      const compressedSize = zipEntry.header.compressedSize;
-      const crc = zipEntry.header.crc.toString(16).toUpperCase();
-      const time3 = zipEntry.header.time.toISOString();
-      const readAdvice = binary ? `Note: Binary file \u2014 iwd_read will return base64 (${size} bytes).` : size > 5e4 ? `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.` : `Ready to read with iwd_read.`;
-      if (summary_only) {
-        return okResult(
-          `Entry: ${normalized} | Type: ${binary ? "Binary" : "Text"} | Size: ${size} bytes`
-        );
-      }
-      return okResult(
-        `Entry:     ${normalized}
-Size:      ${size} bytes (compressed: ${compressedSize})
+  }
+  const start = offset ?? 0;
+  if (start >= totalLines && totalLines > 0) {
+    return offsetBeyondEndError(start, totalLines, text);
+  }
+  const end = limit !== void 0 ? start + limit : totalLines;
+  const header = `[${normalized}: lines ${start + 1}-${Math.min(end, totalLines)} of ${totalLines}]`;
+  return okResult(`${header}
+${lines.slice(start, end).join("\n")}`);
+}
+async function handleIwdRead({ path: iwdPath, entry, limit, offset }) {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) return errResult(opened.error);
+  const normalized = normalizeEntry(entry);
+  if (!normalized) return errResult("Error: entry path cannot be empty.");
+  const zipEntry = opened.value.getEntry(normalized);
+  if (!zipEntry) return entryNotFoundErr(normalized);
+  if (isBinaryEntry(normalized)) return readBinaryEntry(opened.value, zipEntry, normalized);
+  return readTextSlice(opened.value.readAsText(zipEntry), normalized, offset, limit);
+}
+function readAdviceFor(binary, size) {
+  if (binary) return `Note: Binary file \u2014 iwd_read will return base64 (${size} bytes).`;
+  if (size > 5e4) return `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.`;
+  return `Ready to read with iwd_read.`;
+}
+async function handleIwdInfo({ path: iwdPath, entry, summary_only }) {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) return errResult(opened.error);
+  const normalized = normalizeEntry(entry);
+  if (!normalized) return errResult("Error: entry path cannot be empty.");
+  const zipEntry = opened.value.getEntry(normalized);
+  if (!zipEntry) return entryNotFoundErr(normalized);
+  const binary = isBinaryEntry(normalized);
+  const size = zipEntry.header.size;
+  if (summary_only) {
+    return okResult(`Entry: ${normalized} | Type: ${binary ? "Binary" : "Text"} | Size: ${size} bytes`);
+  }
+  const crc = zipEntry.header.crc.toString(16).toUpperCase();
+  const time3 = zipEntry.header.time.toISOString();
+  return okResult(
+    `Entry:     ${normalized}
+Size:      ${size} bytes (compressed: ${zipEntry.header.compressedSize})
 CRC:       ${crc}
 Type:      ${binary ? "Binary" : "Text"}
 Modified:  ${time3}
-${readAdvice}`
-      );
-    }
+${readAdviceFor(binary, size)}`
   );
-  server2.registerTool(
-    "iwd_grep",
-    {
-      title: "Search Inside Archive",
-      description: "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        pattern: external_exports.string().describe(
-          "String or regex pattern to search for. Literal string by default; set is_regex=true for regex."
-        ),
-        entry_glob: external_exports.string().optional().describe(
-          "Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"
-        ),
-        is_regex: external_exports.boolean().optional().default(false).describe(
-          "Treat pattern as a regex (default: false \u2014 plain case-insensitive string search)"
-        ),
-        max_matches: external_exports.number().int().positive().max(1e3).optional().default(GREP_MAX_MATCHES_DEFAULT).describe(
-          `Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`
-        )
-      },
-      annotations: {
-        readOnlyHint: true
-      }
-    },
-    async ({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }) => {
-      const rateCheck = checkRateLimit("iwd_grep");
-      if (!rateCheck.allowed) {
-        return errResult(
-          `Rate limit exceeded for iwd_grep. Try again in ${rateCheck.resetIn} seconds.`
-        );
-      }
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      let searchRe;
-      if (is_regex) {
-        try {
-          searchRe = getCachedRegex(pattern, "i");
-        } catch {
-          return errResult(
-            `Error: Invalid regex pattern: ${pattern}
-Tip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=false for a literal search.`
-          );
-        }
-      } else {
-        const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        searchRe = getCachedRegex(escaped, "i");
-      }
-      const globRe = entry_glob ? globToRegex(entry_glob) : null;
-      const entries = zip.getEntries().filter(
-        (e) => !e.isDirectory && !isBinaryEntry(e.entryName) && (!globRe || globRe.test(e.entryName))
-      );
-      const resultLines = [];
-      let totalMatches = 0;
-      let truncated = false;
-      for (const e of entries) {
-        if (truncated) break;
-        const text = zip.readAsText(e);
-        const fileLines = text.split(/\r?\n/);
-        for (let i = 0; i < fileLines.length; i++) {
-          const line = fileLines[i] ?? "";
-          const match = searchRe.exec(line);
-          if (match) {
-            if (totalMatches >= max_matches) {
-              truncated = true;
-              break;
-            }
-            let displayLine = line.trim();
-            if (displayLine.length > 200) {
-              const matchIdx = match.index;
-              const start = Math.max(0, matchIdx - 100);
-              const end = Math.min(line.length, matchIdx + 100);
-              displayLine = (start > 0 ? "... " : "") + line.slice(start, end) + (end < line.length ? " ..." : "");
-            }
-            resultLines.push(`${e.entryName}:${i + 1}: ${displayLine}`);
-            totalMatches++;
-          }
-        }
-      }
-      if (totalMatches === 0) {
-        const globNoMatchMsg = entry_glob ? `No text entries match glob '${entry_glob}' in ${resolved}.
-Tip: use iwd_list to see all entries.` : `No matches for '${pattern}' in ${resolved}`;
-        return okResult(globNoMatchMsg);
-      }
-      const footer = truncated ? `
+}
+function buildSearchRegex(pattern, isRegex) {
+  if (!isRegex) {
+    return getCachedRegex(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  }
+  try {
+    return getCachedRegex(pattern, "i");
+  } catch {
+    return null;
+  }
+}
+function isSearchableEntry(e, globRe) {
+  if (e.isDirectory) return false;
+  if (isBinaryEntry(e.entryName)) return false;
+  return !globRe || globRe.test(e.entryName);
+}
+function clampMatchLine(line, matchIdx) {
+  const trimmed = line.trim();
+  if (trimmed.length <= 200) return trimmed;
+  const start = Math.max(0, matchIdx - 100);
+  const end = Math.min(line.length, matchIdx + 100);
+  return (start > 0 ? "... " : "") + line.slice(start, end) + (end < line.length ? " ..." : "");
+}
+function grepEntries(zip, entries, searchRe, maxMatches) {
+  const lines = [];
+  for (const e of entries) {
+    const fileLines = zip.readAsText(e).split(/\r?\n/);
+    for (let i = 0; i < fileLines.length; i++) {
+      const match = searchRe.exec(fileLines[i] ?? "");
+      if (!match) continue;
+      if (lines.length >= maxMatches) return { lines, total: lines.length, truncated: true };
+      lines.push(`${e.entryName}:${i + 1}: ${clampMatchLine(fileLines[i] ?? "", match.index)}`);
+    }
+  }
+  return { lines, total: lines.length, truncated: false };
+}
+async function handleIwdGrep({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }) {
+  const rateCheck = checkRateLimit("iwd_grep");
+  if (!rateCheck.allowed) {
+    return errResult(`Rate limit exceeded for iwd_grep. Try again in ${rateCheck.resetIn} seconds.`);
+  }
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) return errResult(opened.error);
+  const searchRe = buildSearchRegex(pattern, is_regex);
+  if (!searchRe) {
+    return errResult(`Error: Invalid regex pattern: ${pattern}
+Tip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=false for a literal search.`);
+  }
+  const globRe = entry_glob ? globToRegex(entry_glob) : null;
+  const entries = opened.value.getEntries().filter((e) => isSearchableEntry(e, globRe));
+  const { lines, total, truncated } = grepEntries(opened.value, entries, searchRe, max_matches);
+  if (total === 0) {
+    return okResult(entry_glob ? `No text entries match glob '${entry_glob}' in ${resolved}.
+Tip: use iwd_list to see all entries.` : `No matches for '${pattern}' in ${resolved}`);
+  }
+  const filterNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
+  const footer = truncated ? `
 
 ... truncated at ${max_matches} matches. Use entry_glob or a more specific pattern to narrow results.` : "";
-      return okResult(
-        `Found ${totalMatches}${truncated ? "+" : ""} match(es) in ${resolved}` + (entry_glob ? ` [filter: ${entry_glob}]` : "") + `:
+  return okResult(`Found ${total}${truncated ? "+" : ""} match(es) in ${resolved}${filterNote}:
 
-` + resultLines.join("\n") + footer
-      );
-    }
-  );
+${lines.join("\n")}${footer}`);
+}
+function readTool(name, config2, handler) {
+  return (server2) => {
+    server2.registerTool(name, config2, handler);
+  };
+}
+var READ_TOOLS = [
+  readTool("iwd_list", {
+    title: "List Archive Entries",
+    description: "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). Pass names_only=false only when you need file sizes.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      pattern: external_exports.string().optional().describe("Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"),
+      summary_only: external_exports.boolean().optional().default(false).describe(
+        "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
+      ),
+      names_only: external_exports.boolean().optional().default(true).describe("If true (default), returns entry names only. Pass false to include file sizes."),
+      limit: external_exports.number().int().positive().max(1e4).optional().describe("Max number of entries to return. Omit to return all.")
+    },
+    annotations: { readOnlyHint: true, idempotentHint: true }
+  }, handleIwdList),
+  readTool("iwd_read", {
+    title: "Read Archive Entry",
+    description: "Read a file from inside an IWD archive. Returns UTF-8 text for text files (.gsc, .menu, .cfg, .csv, etc.) and base64 for binary files (.iwi, .d3dbsp, etc.). Use limit and offset to read sections of large files without flooding context. Use iwd_info first to check file size and type before reading large files.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      entry: external_exports.string().describe("Path of the entry inside the IWD (e.g. maps/mp/gametypes/_globallogic.gsc). Use iwd_list to find the exact path."),
+      limit: external_exports.number().int().positive().max(1e5).optional().describe("Max lines to return (for text files). Omit to read the whole file."),
+      offset: external_exports.number().int().nonnegative().optional().describe("0-indexed line to start reading from (default: 0). Use with limit to page through large files.")
+    },
+    annotations: { readOnlyHint: true, idempotentHint: true }
+  }, handleIwdRead),
+  readTool("iwd_info", {
+    title: "Get Entry Metadata",
+    description: "Get metadata for a single entry in an IWD archive without reading its content. Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      entry: external_exports.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths."),
+      summary_only: external_exports.boolean().optional().default(false).describe("If true, returns a compact single-line type-and-size string.")
+    },
+    annotations: { readOnlyHint: true, idempotentHint: true }
+  }, handleIwdInfo),
+  readTool("iwd_grep", {
+    title: "Search Inside Archive",
+    description: "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      pattern: external_exports.string().describe("String or regex pattern to search for. Literal string by default; set is_regex=true for regex."),
+      entry_glob: external_exports.string().optional().describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
+      is_regex: external_exports.boolean().optional().default(false).describe("Treat pattern as a regex (default: false \u2014 plain case-insensitive string search)"),
+      max_matches: external_exports.number().int().positive().max(1e3).optional().default(GREP_MAX_MATCHES_DEFAULT).describe(
+        `Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`
+      )
+    },
+    annotations: { readOnlyHint: true }
+  }, handleIwdGrep)
+];
+function registerReadTools(server2) {
+  for (const register of READ_TOOLS) register(server2);
 }
 
 // src/iwd/write-tools.ts
-function registerWriteTools(server2) {
-  server2.registerTool(
-    "iwd_write",
-    {
-      title: "Write Archive Entry (Surgical Fix Only)",
-      description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Write or replace an entire single file inside an IWD archive. For targeted edits to a small part of a large file, prefer iwd_patch instead (avoids re-sending full content). Creates a .bak backup on first modification per session. Content must be UTF-8 text. When replacing an existing text entry, returns a \xB13-line diff for verification. Set dry_run=true to validate the operation without committing it.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        entry: external_exports.string().describe(
-          "Entry path inside the IWD. New entries are created automatically."
-        ),
-        content: external_exports.string().describe("Full UTF-8 text content to write"),
-        dry_run: external_exports.boolean().optional().default(false).describe(
-          "If true, validates the write without actually modifying the archive (safe to use first)"
-        )
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true
-      }
-    },
-    async ({ path: iwdPath, entry, content, dry_run }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      const normalized = normalizeEntry(entry);
-      if (!normalized) return errResult("Error: entry path cannot be empty.");
-      if (!isSafeEntryPath(normalized)) {
-        return errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).");
-      }
-      const existing = zip.getEntry(normalized);
-      const lineCount = content.split("\n").length;
-      const action = existing ? "Updated" : "Added";
-      if (dry_run) {
-        return okResult(
-          `[dry_run] Would ${action.toLowerCase()} ${normalized} in ${resolved}
-Content: ${lineCount} lines, ${content.length} chars`
-        );
-      }
-      let diffSection = "";
-      if (existing && !isBinaryEntry(normalized)) {
-        const oldText = zip.readAsText(existing);
-        const { snippet, changedLine } = buildDiffSnippet(oldText, content);
-        if (snippet) {
-          diffSection = `
+init_utils();
+function resolveWriteTarget(iwdPath, entry) {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) return { error: errResult(opened.error) };
+  const normalized = normalizeEntry(entry);
+  if (!normalized) return { error: errResult("Error: entry path cannot be empty.") };
+  if (!isSafeEntryPath(normalized)) {
+    return { error: errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).") };
+  }
+  return { zip: opened.value, resolved, normalized };
+}
+function writeDiffSection(zip, existing, normalized, content) {
+  if (isBinaryEntry(normalized)) return "";
+  const { snippet, changedLine } = buildDiffSnippet(zip.readAsText(existing), content);
+  return snippet ? `
 
 --- Diff (first change at line ${changedLine + 1}) ---
+${snippet}` : "";
+}
+async function handleIwdWrite({ path: iwdPath, entry, content, dry_run }) {
+  const target = resolveWriteTarget(iwdPath, entry);
+  if ("error" in target) return target.error;
+  const { zip, resolved, normalized } = target;
+  const existing = zip.getEntry(normalized);
+  const lineCount = content.split("\n").length;
+  const action = existing ? "Updated" : "Added";
+  if (dry_run) {
+    return okResult(
+      `[dry_run] Would ${action.toLowerCase()} ${normalized} in ${resolved}
+Content: ${lineCount} lines, ${content.length} chars`
+    );
+  }
+  const diffSection = existing ? writeDiffSection(zip, existing, normalized, content) : "";
+  await ensureBackup(resolved);
+  const buf = Buffer.from(content, "utf-8");
+  if (existing) zip.updateFile(normalized, buf);
+  else zip.addFile(normalized, buf);
+  await atomicWrite(zip, resolved);
+  invalidateIwdCache(resolved);
+  return okResult(`${action} ${normalized} in ${resolved} (${lineCount} lines, ${content.length} chars)${diffSection}`);
+}
+function applyReplacement(original, oldStr, newStr, count) {
+  const occurrences = original.split(oldStr).length - 1;
+  if (count === -1) {
+    return { patched: original.split(oldStr).join(newStr), replaced: occurrences, occurrences };
+  }
+  let patched = original;
+  let replaced = 0;
+  for (let i = 0; i < count && patched.includes(oldStr); i++) {
+    patched = patched.replace(oldStr, newStr);
+    replaced++;
+  }
+  return { patched, replaced, occurrences };
+}
+function patchSummary(replaced, occurrences) {
+  const remaining = occurrences - replaced;
+  return remaining === 0 ? `Replaced ${replaced}/${occurrences} occurrence(s)` : `Replaced ${replaced} of ${occurrences} occurrence(s) (${remaining} remaining \u2014 use count=-1 to replace all)`;
+}
+function loadPatchTarget(zip, normalized, oldStr) {
+  const zipEntry = zip.getEntry(normalized);
+  if (!zipEntry) {
+    return { error: errResult(`Error: Entry not found in archive: ${normalized}
+Tip: use iwd_list to check the exact entry path.`) };
+  }
+  if (isBinaryEntry(normalized)) {
+    return { error: errResult(`Error: Cannot patch binary entry: ${normalized}
+Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`) };
+  }
+  const text = zip.readAsText(zipEntry);
+  if (!text.includes(oldStr)) {
+    return { error: errResult(`Error: Search string not found in ${normalized}
+The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`) };
+  }
+  return { text };
+}
+async function handleIwdPatch({ path: iwdPath, entry, old: oldStr, new: newStr, count, dry_run }) {
+  const target = resolveWriteTarget(iwdPath, entry);
+  if ("error" in target) return target.error;
+  const { zip, resolved, normalized } = target;
+  const loaded = loadPatchTarget(zip, normalized, oldStr);
+  if ("error" in loaded) return loaded.error;
+  if (count === 0) return errResult("Error: count must be at least 1 or -1 for all occurrences.");
+  const original = loaded.text;
+  const hintLine = original.slice(0, original.indexOf(oldStr)).split(/\r?\n/).length - 1;
+  const { patched, replaced, occurrences } = applyReplacement(original, oldStr, newStr, count);
+  const { snippet, changedLine } = buildDiffSnippet(original, patched, 3, hintLine);
+  const summary = patchSummary(replaced, occurrences);
+  const diffBlock = `--- Context around change (line ${changedLine + 1}) ---
 ${snippet}`;
-        }
-      }
-      await ensureBackup(resolved);
-      if (existing) {
-        zip.updateFile(normalized, Buffer.from(content, "utf-8"));
-      } else {
-        zip.addFile(normalized, Buffer.from(content, "utf-8"));
-      }
-      await atomicWrite(zip, resolved);
-      invalidateIwdCache(resolved);
-      return okResult(
-        `${action} ${normalized} in ${resolved} (${lineCount} lines, ${content.length} chars)${diffSection}`
-      );
-    }
-  );
-  server2.registerTool(
-    "iwd_patch",
-    {
-      title: "Patch Archive Entry (Surgical Fix Only)",
-      description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Perform a surgical string replacement inside a single text entry in an IWD archive. Returns a \xB13-line diff snippet around the change so you can verify the edit without re-reading the file. Only replaces the first occurrence by default \u2014 use count=-1 to replace all. Set dry_run=true to preview what would change without modifying the archive.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        entry: external_exports.string().describe(
-          "Path of the entry inside the IWD (forward or backslashes accepted)"
-        ),
-        old: external_exports.string().min(1).describe(
-          "Exact string to find and replace (must appear in the file, case-sensitive)"
-        ),
-        new: external_exports.string().describe("Replacement string"),
-        count: external_exports.number().int().min(-1).optional().default(1).describe(
-          "Number of occurrences to replace. 1 = first only (default), -1 = all occurrences"
-        ),
-        dry_run: external_exports.boolean().optional().default(false).describe(
-          "If true, returns the diff preview without modifying the archive"
-        )
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true
-      }
-    },
-    async ({
-      path: iwdPath,
-      entry,
-      old: oldStr,
-      new: newStr,
-      count,
-      dry_run
-    }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      const normalized = normalizeEntry(entry);
-      if (!normalized) return errResult("Error: entry path cannot be empty.");
-      if (!isSafeEntryPath(normalized)) {
-        return errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).");
-      }
-      const zipEntry = zip.getEntry(normalized);
-      if (!zipEntry) {
-        return errResult(
-          `Error: Entry not found in archive: ${normalized}
-Tip: use iwd_list to check the exact entry path.`
-        );
-      }
-      if (isBinaryEntry(normalized)) {
-        return errResult(
-          `Error: Cannot patch binary entry: ${normalized}
-Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`
-        );
-      }
-      const original = zip.readAsText(zipEntry);
-      if (!original.includes(oldStr)) {
-        return errResult(
-          `Error: Search string not found in ${normalized}
-The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`
-        );
-      }
-      const occurrences = original.split(oldStr).length - 1;
-      let patched = original;
-      let replaced = 0;
-      const firstReplaceOffset = original.indexOf(oldStr);
-      const hintLine = firstReplaceOffset >= 0 ? original.slice(0, firstReplaceOffset).split(/\r?\n/).length - 1 : 0;
-      if (count === 0) {
-        return errResult("Error: count must be at least 1 or -1 for all occurrences.");
-      }
-      if (count === -1) {
-        patched = original.split(oldStr).join(newStr);
-        replaced = occurrences;
-      } else {
-        for (let i = 0; i < count && patched.includes(oldStr); i++) {
-          patched = patched.replace(oldStr, newStr);
-          replaced++;
-        }
-      }
-      const { snippet, changedLine } = buildDiffSnippet(
-        original,
-        patched,
-        3,
-        hintLine
-      );
-      const remaining = occurrences - replaced;
-      const summary = remaining === 0 ? `Replaced ${replaced}/${occurrences} occurrence(s)` : `Replaced ${replaced} of ${occurrences} occurrence(s) (${remaining} remaining \u2014 use count=-1 to replace all)`;
-      const diffBlock = `--- Context around change (line ${changedLine + 1}) ---
-${snippet}`;
-      if (dry_run) {
-        return okResult(
-          `[dry_run] ${normalized}: ${summary} (no changes written)
+  if (dry_run) {
+    return okResult(`[dry_run] ${normalized}: ${summary} (no changes written)
 
-${diffBlock}`
-        );
-      }
-      await ensureBackup(resolved);
-      zip.updateFile(normalized, Buffer.from(patched, "utf-8"));
-      await atomicWrite(zip, resolved);
-      invalidateIwdCache(resolved);
-      return okResult(`Patched: ${normalized}
+${diffBlock}`);
+  }
+  await ensureBackup(resolved);
+  zip.updateFile(normalized, Buffer.from(patched, "utf-8"));
+  await atomicWrite(zip, resolved);
+  invalidateIwdCache(resolved);
+  return okResult(`Patched: ${normalized}
 ${summary}
 
 ${diffBlock}`);
-    }
-  );
-  server2.registerTool(
-    "iwd_remove",
-    {
-      title: "Remove Archive Entry",
-      description: "Remove an entry from an IWD archive. Creates a .bak backup on first modification per session. Set dry_run=true to validate without actually removing the entry.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        entry: external_exports.string().describe(
-          "Path of the entry to remove. Use iwd_list to find the exact path."
-        ),
-        dry_run: external_exports.boolean().optional().default(false).describe(
-          "If true, validates the operation without modifying the archive"
-        )
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true
-      }
+}
+async function handleIwdRemove({ path: iwdPath, entry, dry_run }) {
+  const target = resolveWriteTarget(iwdPath, entry);
+  if ("error" in target) return target.error;
+  const { zip, resolved, normalized } = target;
+  const existing = zip.getEntry(normalized);
+  if (!existing) return entryNotFoundErr(normalized);
+  const size = existing.header.size;
+  const crc = existing.header.crc.toString(16).toUpperCase();
+  if (dry_run) {
+    return okResult(`[dry_run] Would remove ${normalized} from ${resolved}
+Entry: ${size} bytes, CRC: ${crc}`);
+  }
+  await ensureBackup(resolved);
+  zip.deleteFile(normalized);
+  await atomicWrite(zip, resolved);
+  invalidateIwdCache(resolved);
+  return okResult(`Removed ${normalized} from ${resolved}
+Entry was: ${size} bytes, CRC: ${crc}`);
+}
+function writeTool(name, config2, handler) {
+  return (server2) => {
+    server2.registerTool(name, config2, handler);
+  };
+}
+var WRITE_TOOLS = [
+  writeTool("iwd_write", {
+    title: "Write Archive Entry (Surgical Fix Only)",
+    description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Write or replace an entire single file inside an IWD archive. For targeted edits to a small part of a large file, prefer iwd_patch instead (avoids re-sending full content). Creates a .bak backup on first modification per session. Content must be UTF-8 text. When replacing an existing text entry, returns a \xB13-line diff for verification. Set dry_run=true to validate the operation without committing it.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      entry: external_exports.string().describe("Entry path inside the IWD. New entries are created automatically."),
+      content: external_exports.string().describe("Full UTF-8 text content to write"),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the write without actually modifying the archive (safe to use first)")
     },
-    async ({ path: iwdPath, entry, dry_run }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      const normalized = normalizeEntry(entry);
-      if (!normalized) return errResult("Error: entry path cannot be empty.");
-      if (!isSafeEntryPath(normalized)) {
-        return errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).");
-      }
-      const existing = zip.getEntry(normalized);
-      if (!existing) return entryNotFoundErr(normalized);
-      const size = existing.header.size;
-      const crc = existing.header.crc.toString(16).toUpperCase();
-      if (dry_run) {
-        return okResult(
-          `[dry_run] Would remove ${normalized} from ${resolved}
-Entry: ${size} bytes, CRC: ${crc}`
-        );
-      }
-      await ensureBackup(resolved);
-      zip.deleteFile(normalized);
-      await atomicWrite(zip, resolved);
-      invalidateIwdCache(resolved);
-      return okResult(
-        `Removed ${normalized} from ${resolved}
-Entry was: ${size} bytes, CRC: ${crc}`
-      );
-    }
-  );
+    annotations: { readOnlyHint: false, destructiveHint: true }
+  }, handleIwdWrite),
+  writeTool("iwd_patch", {
+    title: "Patch Archive Entry (Surgical Fix Only)",
+    description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Perform a surgical string replacement inside a single text entry in an IWD archive. Returns a \xB13-line diff snippet around the change so you can verify the edit without re-reading the file. Only replaces the first occurrence by default \u2014 use count=-1 to replace all. Set dry_run=true to preview what would change without modifying the archive.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      entry: external_exports.string().describe("Path of the entry inside the IWD (forward or backslashes accepted)"),
+      old: external_exports.string().min(1).describe("Exact string to find and replace (must appear in the file, case-sensitive)"),
+      new: external_exports.string().describe("Replacement string"),
+      count: external_exports.number().int().min(-1).optional().default(1).describe("Number of occurrences to replace. 1 = first only (default), -1 = all occurrences"),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, returns the diff preview without modifying the archive")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true }
+  }, handleIwdPatch),
+  writeTool("iwd_remove", {
+    title: "Remove Archive Entry",
+    description: "Remove an entry from an IWD archive. Creates a .bak backup on first modification per session. Set dry_run=true to validate without actually removing the entry.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      entry: external_exports.string().describe("Path of the entry to remove. Use iwd_list to find the exact path."),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the operation without modifying the archive")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true }
+  }, handleIwdRemove)
+];
+function registerWriteTools(server2) {
+  for (const register of WRITE_TOOLS) register(server2);
 }
 
 // src/iwd/archive-tools.ts
+init_utils();
 import * as path3 from "node:path";
-function registerArchiveTools(server2) {
-  server2.registerTool(
-    "iwd_extract",
-    {
-      title: "Extract Archive Entries",
-      description: "Extract entries from an IWD archive to a directory on disk. Once extracted, standard shell tools (rg, fd, bat) work natively. Use entry_glob to extract only a subset of files. Returns the destination path and list of extracted files.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        dest: external_exports.string().describe(
-          "Destination directory path. Created if it does not exist."
-        ),
-        entry_glob: external_exports.string().optional().describe(
-          "Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"
-        ),
-        dry_run: external_exports.boolean().optional().default(false).describe(
-          "If true, lists what would be extracted without writing any files"
-        )
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false
-      }
-    },
-    async ({ path: iwdPath, dest, entry_glob, dry_run }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const resolvedDest = path3.resolve(dest);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      const globRe = entry_glob ? globToRegex(entry_glob) : null;
-      const entries = zip.getEntries().filter((e) => !e.isDirectory && (!globRe || globRe.test(e.entryName)));
-      if (entries.length === 0) {
-        return okResult(
-          entry_glob ? `No entries match glob '${entry_glob}' in ${resolved}.
-Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`
-        );
-      }
-      if (dry_run) {
-        const names = entries.map((e) => e.entryName);
-        return okResult(
-          `[dry_run] Would extract ${entries.length} file(s) to ${resolvedDest}:
-
-` + names.join("\n")
-        );
-      }
-      const { mkdir, writeFile } = await import("node:fs/promises");
-      const extracted = [];
-      const skipped = [];
-      for (const e of entries) {
-        if (!isSafeEntryPath(e.entryName)) {
-          skipped.push(e.entryName);
-          continue;
-        }
-        const outPath = path3.resolve(resolvedDest, e.entryName);
-        if (!outPath.startsWith(resolvedDest + path3.sep) && outPath !== resolvedDest) {
-          skipped.push(e.entryName);
-          continue;
-        }
-        const outDir = path3.dirname(outPath);
-        await mkdir(outDir, { recursive: true });
-        const buf = zip.readFile(e);
-        if (buf) {
-          await writeFile(outPath, buf);
-          extracted.push(e.entryName);
-        }
-      }
-      let resultMsg = `Extracted ${extracted.length} file(s) to ${resolvedDest}`;
-      if (extracted.length > 0) {
-        resultMsg += `:
+async function validateSourceDir(resolvedSrc) {
+  const fs5 = await import("node:fs/promises");
+  try {
+    const stat = await fs5.stat(resolvedSrc);
+    if (!stat.isDirectory()) return errResult(`Error: source_dir is not a directory: ${resolvedSrc}`);
+  } catch {
+    return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
+  }
+  return null;
+}
+function isExtractableEntry(e, globRe) {
+  if (e.isDirectory) return false;
+  return !globRe || globRe.test(e.entryName);
+}
+function resolveSafeOutPath(entryName, resolvedDest) {
+  if (!isSafeEntryPath(entryName)) return null;
+  const outPath = path3.resolve(resolvedDest, entryName);
+  if (!outPath.startsWith(resolvedDest + path3.sep) && outPath !== resolvedDest) return null;
+  return outPath;
+}
+async function extractEntries(zip, entries, resolvedDest) {
+  const { mkdir, writeFile } = await import("node:fs/promises");
+  const extracted = [];
+  const skipped = [];
+  for (const e of entries) {
+    const outPath = resolveSafeOutPath(e.entryName, resolvedDest);
+    if (!outPath) {
+      skipped.push(e.entryName);
+      continue;
+    }
+    await mkdir(path3.dirname(outPath), { recursive: true });
+    const buf = zip.readFile(e);
+    if (buf) {
+      await writeFile(outPath, buf);
+      extracted.push(e.entryName);
+    }
+  }
+  return { extracted, skipped };
+}
+function formatExtractResult(extracted, skipped, resolvedDest) {
+  let msg = `Extracted ${extracted.length} file(s) to ${resolvedDest}`;
+  if (extracted.length > 0) msg += `:
 
 ` + extracted.join("\n");
-      }
-      if (skipped.length > 0) {
-        resultMsg += `
+  if (skipped.length > 0) msg += `
 
 \u26A0\uFE0F Skipped ${skipped.length} unsafe entry path(s): ${skipped.join(", ")}`;
-      }
-      return okResult(resultMsg);
-    }
-  );
-  server2.registerTool(
-    "iwd_pack",
-    {
-      title: "Pack Workspace to Archive (Full Rebuild)",
-      description: "Zips the entire contents of a workspace directory into a BRAND NEW IWD archive. WARNING: If the destination file already exists, it is completely overwritten and replaced. If you want to inject a few changed files into an existing archive without deleting everything else, use iwd_sync instead.",
-      inputSchema: {
-        source_dir: external_exports.string().describe("The folder containing loose files to pack"),
-        dest_path: external_exports.string().describe("The .iwd file to create/overwrite"),
-        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without writing the archive")
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true
-      }
-    },
-    async ({ source_dir, dest_path, dry_run }) => {
-      const rateCheck = checkRateLimit("iwd_pack");
-      if (!rateCheck.allowed) {
-        return errResult(
-          `Rate limit exceeded for iwd_pack. Try again in ${rateCheck.resetIn} seconds.`
-        );
-      }
-      const resolvedSrc = path3.resolve(source_dir);
-      const fs5 = await import("node:fs/promises");
-      try {
-        const stat = await fs5.stat(resolvedSrc);
-        if (!stat.isDirectory()) {
-          return errResult(
-            `Error: source_dir is not a directory: ${resolvedSrc}`
-          );
-        }
-      } catch {
-        return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
-      }
-      const resolvedDst = resolveIwdPath(dest_path);
-      if (dry_run) {
-        return okResult(
-          `[dry_run] Would pack directory ${resolvedSrc} into new archive ${resolvedDst}`
-        );
-      }
-      const { existsSync: existsSync4 } = await import("node:fs");
-      if (existsSync4(resolvedDst)) {
-        await ensureBackup(resolvedDst);
-      }
-      const { default: AdmZip2 } = await Promise.resolve().then(() => __toESM(require_adm_zip(), 1));
-      const zip = new AdmZip2();
-      zip.addLocalFolder(resolvedSrc, "");
-      await atomicWrite(zip, resolvedDst);
-      invalidateIwdCache(resolvedDst);
-      return okResult(`Packed ${resolvedSrc}
+  return msg;
+}
+async function handleIwdExtract({ path: iwdPath, dest, entry_glob, dry_run }) {
+  const resolved = resolveIwdPath(iwdPath);
+  const resolvedDest = path3.resolve(dest);
+  const opened = openIwd(resolved);
+  if (!opened.ok) return errResult(opened.error);
+  const globRe = entry_glob ? globToRegex(entry_glob) : null;
+  const entries = opened.value.getEntries().filter((e) => isExtractableEntry(e, globRe));
+  if (entries.length === 0) {
+    return okResult(entry_glob ? `No entries match glob '${entry_glob}' in ${resolved}.
+Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`);
+  }
+  if (dry_run) {
+    return okResult(
+      `[dry_run] Would extract ${entries.length} file(s) to ${resolvedDest}:
+
+` + entries.map((e) => e.entryName).join("\n")
+    );
+  }
+  const { extracted, skipped } = await extractEntries(opened.value, entries, resolvedDest);
+  return okResult(formatExtractResult(extracted, skipped, resolvedDest));
+}
+async function handleIwdPack({ source_dir, dest_path, dry_run }) {
+  const rateCheck = checkRateLimit("iwd_pack");
+  if (!rateCheck.allowed) {
+    return errResult(`Rate limit exceeded for iwd_pack. Try again in ${rateCheck.resetIn} seconds.`);
+  }
+  const resolvedSrc = path3.resolve(source_dir);
+  const srcError = await validateSourceDir(resolvedSrc);
+  if (srcError) return srcError;
+  const resolvedDst = resolveIwdPath(dest_path);
+  if (dry_run) {
+    return okResult(`[dry_run] Would pack directory ${resolvedSrc} into new archive ${resolvedDst}`);
+  }
+  const { existsSync: existsSync4 } = await import("node:fs");
+  if (existsSync4(resolvedDst)) await ensureBackup(resolvedDst);
+  const { default: AdmZipCtor } = await Promise.resolve().then(() => __toESM(require_adm_zip(), 1));
+  const zip = new AdmZipCtor();
+  zip.addLocalFolder(resolvedSrc, "");
+  await atomicWrite(zip, resolvedDst);
+  invalidateIwdCache(resolvedDst);
+  return okResult(`Packed ${resolvedSrc}
     \u2192 ${resolvedDst}`);
-    }
-  );
-  server2.registerTool(
-    "iwd_sync",
-    {
-      title: "Sync Workspace to Existing Archive (Partial Update)",
-      description: "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. Crucially, it leaves all other files in the archive untouched. Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
-      inputSchema: {
-        source_dir: external_exports.string().describe("Folder with modified loose files"),
-        dest_path: external_exports.string().describe("The existing .iwd file to update"),
-        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without modifying the archive")
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true
-      }
-    },
-    async ({ source_dir, dest_path, dry_run }) => {
-      const resolvedSrc = path3.resolve(source_dir);
-      const fs5 = await import("node:fs/promises");
-      try {
-        const stat = await fs5.stat(resolvedSrc);
-        if (!stat.isDirectory()) {
-          return errResult(
-            `Error: source_dir is not a directory: ${resolvedSrc}`
-          );
-        }
-      } catch {
-        return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
-      }
-      const resolvedDst = resolveIwdPath(dest_path);
-      const opened = openIwd(resolvedDst);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      if (dry_run) {
-        return okResult(
-          `[dry_run] Would sync files from ${resolvedSrc} into existing archive ${resolvedDst}`
-        );
-      }
-      await ensureBackup(resolvedDst);
-      zip.addLocalFolder(resolvedSrc, "");
-      await atomicWrite(zip, resolvedDst);
-      invalidateIwdCache(resolvedDst);
-      return okResult(`Synced files from ${resolvedSrc}
+}
+async function handleIwdSync({ source_dir, dest_path, dry_run }) {
+  const resolvedSrc = path3.resolve(source_dir);
+  const srcError = await validateSourceDir(resolvedSrc);
+  if (srcError) return srcError;
+  const resolvedDst = resolveIwdPath(dest_path);
+  const opened = openIwd(resolvedDst);
+  if (!opened.ok) return errResult(opened.error);
+  if (dry_run) {
+    return okResult(`[dry_run] Would sync files from ${resolvedSrc} into existing archive ${resolvedDst}`);
+  }
+  await ensureBackup(resolvedDst);
+  opened.value.addLocalFolder(resolvedSrc, "");
+  await atomicWrite(opened.value, resolvedDst);
+  invalidateIwdCache(resolvedDst);
+  return okResult(`Synced files from ${resolvedSrc}
     \u2192 ${resolvedDst}`);
-    }
-  );
+}
+function archiveTool(name, config2, handler) {
+  return (server2) => {
+    server2.registerTool(name, config2, handler);
+  };
+}
+var ARCHIVE_TOOLS = [
+  archiveTool("iwd_extract", {
+    title: "Extract Archive Entries",
+    description: "Extract entries from an IWD archive to a directory on disk. Once extracted, standard shell tools (rg, fd, bat) work natively. Use entry_glob to extract only a subset of files. Returns the destination path and list of extracted files.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      dest: external_exports.string().describe("Destination directory path. Created if it does not exist."),
+      entry_glob: external_exports.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false }
+  }, handleIwdExtract),
+  archiveTool("iwd_pack", {
+    title: "Pack Workspace to Archive (Full Rebuild)",
+    description: "Zips the entire contents of a workspace directory into a BRAND NEW IWD archive. WARNING: If the destination file already exists, it is completely overwritten and replaced. If you want to inject a few changed files into an existing archive without deleting everything else, use iwd_sync instead.",
+    inputSchema: {
+      source_dir: external_exports.string().describe("The folder containing loose files to pack"),
+      dest_path: external_exports.string().describe("The .iwd file to create/overwrite"),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without writing the archive")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true }
+  }, handleIwdPack),
+  archiveTool("iwd_sync", {
+    title: "Sync Workspace to Existing Archive (Partial Update)",
+    description: "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. Crucially, it leaves all other files in the archive untouched. Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
+    inputSchema: {
+      source_dir: external_exports.string().describe("Folder with modified loose files"),
+      dest_path: external_exports.string().describe("The existing .iwd file to update"),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without modifying the archive")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true }
+  }, handleIwdSync)
+];
+function registerArchiveTools(server2) {
+  for (const register of ARCHIVE_TOOLS) register(server2);
 }
 
 // src/iwd/diff-tools.ts
+init_utils();
 import * as path4 from "node:path";
-function registerDiffTools(server2) {
-  server2.registerTool(
-    "iwd_diff",
-    {
-      title: "Diff Two Archives",
-      description: "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include diffs for modified text entries. Use diff_format='side-by-side' for a visual two-column view.",
-      inputSchema: {
-        path1: external_exports.string().describe("Path to the first (base) IWD file"),
-        path2: external_exports.string().describe("Path to the second (modified) IWD file"),
-        entry_glob: external_exports.string().optional().describe(
-          "Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"
-        ),
-        content_diff: external_exports.boolean().optional().default(false).describe(
-          "If true, includes diffs for modified text entries"
-        ),
-        diff_format: external_exports.enum(["unified", "side-by-side"]).optional().default("unified").describe(
-          "Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison"
-        )
-      },
-      annotations: {
-        readOnlyHint: true
-      }
-    },
-    async ({ path1, path2: path22, entry_glob, content_diff, diff_format }) => {
-      const r1 = resolveIwdPath(path1);
-      const r2 = resolveIwdPath(path22);
-      const o1 = openIwd(r1);
-      if (!o1.ok) return errResult(o1.error);
-      const o2 = openIwd(r2);
-      if (!o2.ok) return errResult(o2.error);
-      const { value: zip1 } = o1;
-      const { value: zip2 } = o2;
-      const globRe = entry_glob ? globToRegex(entry_glob) : null;
-      const map1 = /* @__PURE__ */ new Map();
-      for (const e of zip1.getEntries()) {
-        if (!e.isDirectory && (!globRe || globRe.test(e.entryName))) {
-          map1.set(e.entryName, e.header.crc);
-        }
-      }
-      const map2 = /* @__PURE__ */ new Map();
-      for (const e of zip2.getEntries()) {
-        if (!e.isDirectory && (!globRe || globRe.test(e.entryName))) {
-          map2.set(e.entryName, e.header.crc);
-        }
-      }
-      const added = [];
-      const removed = [];
-      const modified = [];
-      let identical = 0;
-      for (const [name, crc2] of map2) {
-        const crc1 = map1.get(name);
-        if (crc1 === void 0) {
-          added.push(name);
-        } else if (crc1 !== crc2) {
-          modified.push(name);
-        } else {
-          identical++;
-        }
-      }
-      for (const name of map1.keys()) {
-        if (!map2.has(name)) removed.push(name);
-      }
-      const globNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
-      const lines = [
-        `Comparing${globNote}:`,
-        `  A: ${r1} (${map1.size} files)`,
-        `  B: ${r2} (${map2.size} files)`,
-        ``,
-        `Summary: ${added.length} added, ${removed.length} removed, ${modified.length} modified, ${identical} identical`
-      ];
-      if (added.length > 0) {
-        lines.push(``, `Added (in B, not in A):`);
-        added.forEach((n) => lines.push(`  + ${n}`));
-      }
-      if (removed.length > 0) {
-        lines.push(``, `Removed (in A, not in B):`);
-        removed.forEach((n) => lines.push(`  - ${n}`));
-      }
-      if (modified.length > 0) {
-        lines.push(``, `Modified (CRC differs):`);
-        modified.forEach((n) => lines.push(`  ~ ${n}`));
-        if (content_diff) {
-          const formatNote = diff_format === "side-by-side" ? " (side-by-side view)" : "";
-          lines.push(``, `--- Content diffs for modified text entries${formatNote} ---`);
-          for (const name of modified) {
-            if (isBinaryEntry(name)) {
-              const e12 = zip1.getEntry(name);
-              const e22 = zip2.getEntry(name);
-              if (e12 && e22) {
-                lines.push(
-                  ``,
-                  `[binary] ${name}: ${e12.header.size} \u2192 ${e22.header.size} bytes`
-                );
-              }
-              continue;
-            }
-            const e1 = zip1.getEntry(name);
-            const e2 = zip2.getEntry(name);
-            if (!e1 || !e2) continue;
-            const t1 = zip1.readAsText(e1);
-            const t2 = zip2.readAsText(e2);
-            if (diff_format === "side-by-side") {
-              const sideBySide = buildSideBySideDiff(t1, t2);
-              lines.push(
-                ``,
-                `[diff] ${name}:`,
-                sideBySide
-              );
-            } else {
-              const { snippet, changedLine } = buildDiffSnippet(t1, t2);
-              lines.push(
-                ``,
-                `[diff] ${name} (first change at line ${changedLine + 1}):`,
-                snippet
-              );
-            }
-          }
-        }
-      }
-      return okResult(lines.join("\n"));
-    }
-  );
-  server2.registerTool(
-    "iwd_rename",
-    {
-      title: "Rename Archive Entry",
-      description: "Rename or move an entry within an IWD archive in a single operation. Equivalent to iwd_read + iwd_write + iwd_remove, but faster and atomic. Set dry_run=true to validate without modifying the archive.",
-      inputSchema: {
-        path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-        entry: external_exports.string().describe(
-          "Current path of the entry inside the IWD. Use iwd_list to find exact path."
-        ),
-        new_entry: external_exports.string().describe(
-          "New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"
-        ),
-        dry_run: external_exports.boolean().optional().default(false).describe(
-          "If true, validates the rename without modifying the archive"
-        )
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false
-      }
-    },
-    async ({ path: iwdPath, entry, new_entry, dry_run }) => {
-      const resolved = resolveIwdPath(iwdPath);
-      const opened = openIwd(resolved);
-      if (!opened.ok) return errResult(opened.error);
-      const { value: zip } = opened;
-      const normalized = normalizeEntry(entry);
-      const normalizedNew = normalizeEntry(new_entry);
-      if (!normalized) return errResult("Error: entry path cannot be empty.");
-      if (!normalizedNew)
-        return errResult("Error: new_entry path cannot be empty.");
-      if (normalized === normalizedNew) {
-        return errResult(
-          `Error: Source and destination are the same path: ${normalized}
+function buildEntryCrcMap(zip, globRe) {
+  const map = /* @__PURE__ */ new Map();
+  for (const e of zip.getEntries()) {
+    if (e.isDirectory) continue;
+    if (globRe && !globRe.test(e.entryName)) continue;
+    map.set(e.entryName, e.header.crc);
+  }
+  return map;
+}
+function computeArchiveDiff(map1, map2) {
+  const namesB = [...map2.keys()];
+  const added = namesB.filter((n) => !map1.has(n));
+  const removed = [...map1.keys()].filter((n) => !map2.has(n));
+  const common = namesB.filter((n) => map1.has(n));
+  const modified = common.filter((n) => map1.get(n) !== map2.get(n));
+  return { added, removed, modified, identical: common.length - modified.length };
+}
+function appendEntryList(lines, items, heading, prefix) {
+  if (items.length === 0) return;
+  lines.push(``, heading);
+  items.forEach((n) => lines.push(`  ${prefix} ${n}`));
+}
+function renderDiffSummary({ r1, r2, sizeA, sizeB, diff, entry_glob }) {
+  const globNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
+  const lines = [
+    `Comparing${globNote}:`,
+    `  A: ${r1} (${sizeA} files)`,
+    `  B: ${r2} (${sizeB} files)`,
+    ``,
+    `Summary: ${diff.added.length} added, ${diff.removed.length} removed, ${diff.modified.length} modified, ${diff.identical} identical`
+  ];
+  appendEntryList(lines, diff.added, `Added (in B, not in A):`, "+");
+  appendEntryList(lines, diff.removed, `Removed (in A, not in B):`, "-");
+  appendEntryList(lines, diff.modified, `Modified (CRC differs):`, "~");
+  return lines;
+}
+function renderEntryDiff(zip1, zip2, name, diffFormat) {
+  const e1 = zip1.getEntry(name);
+  const e2 = zip2.getEntry(name);
+  if (!e1 || !e2) return [];
+  if (isBinaryEntry(name)) {
+    return [``, `[binary] ${name}: ${e1.header.size} \u2192 ${e2.header.size} bytes`];
+  }
+  const t1 = zip1.readAsText(e1);
+  const t2 = zip2.readAsText(e2);
+  if (diffFormat === "side-by-side") {
+    return [``, `[diff] ${name}:`, buildSideBySideDiff(t1, t2)];
+  }
+  const { snippet, changedLine } = buildDiffSnippet(t1, t2);
+  return [``, `[diff] ${name} (first change at line ${changedLine + 1}):`, snippet];
+}
+function renderContentDiffs(zip1, zip2, modified, diffFormat) {
+  const formatNote = diffFormat === "side-by-side" ? " (side-by-side view)" : "";
+  const out = [``, `--- Content diffs for modified text entries${formatNote} ---`];
+  for (const name of modified) out.push(...renderEntryDiff(zip1, zip2, name, diffFormat));
+  return out;
+}
+async function handleIwdDiff({ path1, path2: path22, entry_glob, content_diff, diff_format }) {
+  const r1 = resolveIwdPath(path1);
+  const r2 = resolveIwdPath(path22);
+  const o1 = openIwd(r1);
+  if (!o1.ok) return errResult(o1.error);
+  const o2 = openIwd(r2);
+  if (!o2.ok) return errResult(o2.error);
+  const globRe = entry_glob ? globToRegex(entry_glob) : null;
+  const map1 = buildEntryCrcMap(o1.value, globRe);
+  const map2 = buildEntryCrcMap(o2.value, globRe);
+  const diff = computeArchiveDiff(map1, map2);
+  const lines = renderDiffSummary({ r1, r2, sizeA: map1.size, sizeB: map2.size, diff, entry_glob });
+  if (diff.modified.length > 0 && content_diff) {
+    lines.push(...renderContentDiffs(o1.value, o2.value, diff.modified, diff_format));
+  }
+  return okResult(lines.join("\n"));
+}
+function validateRename(zip, normalized, normalizedNew) {
+  if (!normalized) return errResult("Error: entry path cannot be empty.");
+  if (!normalizedNew) return errResult("Error: new_entry path cannot be empty.");
+  if (normalized === normalizedNew) {
+    return errResult(
+      `Error: Source and destination are the same path: ${normalized}
 Tip: choose a different new_entry path.`
-        );
-      }
-      const zipEntry = zip.getEntry(normalized);
-      if (!zipEntry) return entryNotFoundErr(normalized);
-      const existingNew = zip.getEntry(normalizedNew);
-      if (existingNew) {
-        return errResult(
-          `Error: An entry already exists at the new path: ${normalizedNew}
+    );
+  }
+  if (!zip.getEntry(normalized)) return entryNotFoundErr(normalized);
+  if (zip.getEntry(normalizedNew)) {
+    return errResult(
+      `Error: An entry already exists at the new path: ${normalizedNew}
 Tip: remove it first with iwd_remove, or choose a different new_entry path.`
-        );
-      }
-      if (dry_run) {
-        return okResult(
-          `[dry_run] Would rename ${normalized} \u2192 ${normalizedNew} in ${resolved}`
-        );
-      }
-      await ensureBackup(resolved);
-      const buf = zip.readFile(zipEntry);
-      if (!buf) {
-        return errResult(
-          `Error: Failed to read entry content: ${normalized}
-Tip: the file may be corrupt.`
-        );
-      }
-      zip.deleteFile(normalized);
-      zip.addFile(normalizedNew, buf);
-      await atomicWrite(zip, resolved);
-      invalidateIwdCache(resolved);
-      return okResult(
-        `Renamed ${normalized} \u2192 ${normalizedNew} in ${resolved}`
-      );
-    }
-  );
-  server2.registerTool(
-    "iwd_copy",
-    {
-      title: "Copy Archive Entry",
-      description: "Copy an entry from one IWD archive to another (or within the same archive). Useful for duplicating entries or moving files between mod packages. Set dry_run=true to validate without modifying anything.",
-      inputSchema: {
-        src_path: external_exports.string().describe("Path to the source IWD file"),
-        src_entry: external_exports.string().describe(
-          "Entry path inside the source IWD. Use iwd_list to find exact path."
-        ),
-        dst_path: external_exports.string().describe(
-          "Path to the destination IWD file (can be the same as src_path)"
-        ),
-        dst_entry: external_exports.string().describe("Entry path to write in the destination IWD"),
-        overwrite: external_exports.boolean().optional().default(false).describe(
-          "If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."
-        ),
-        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the copy without modifying any file")
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false
-      }
-    },
-    async ({
-      src_path,
-      src_entry,
-      dst_path,
-      dst_entry,
-      overwrite,
-      dry_run
-    }) => {
-      const rSrc = resolveIwdPath(src_path);
-      const rDst = resolveIwdPath(dst_path);
-      const oSrc = openIwd(rSrc);
-      if (!oSrc.ok) return errResult(oSrc.error);
-      const normSrc = normalizeEntry(src_entry);
-      const normDst = normalizeEntry(dst_entry);
-      if (!normSrc) return errResult("Error: src_entry path cannot be empty.");
-      if (!normDst) return errResult("Error: dst_entry path cannot be empty.");
-      const srcZipEntry = oSrc.value.getEntry(normSrc);
-      if (!srcZipEntry) return entryNotFoundErr(normSrc);
-      const isSameFile = path4.resolve(rSrc) === path4.resolve(rDst);
-      const oDst = isSameFile ? oSrc : openIwd(rDst);
-      if (!oDst.ok) return errResult(oDst.error);
-      const dstZip = oDst.value;
-      const existingDst = dstZip.getEntry(normDst);
-      if (existingDst && !overwrite) {
-        return errResult(
-          `Error: Destination entry already exists: ${normDst} in ${rDst}
+    );
+  }
+  return null;
+}
+async function executeRename(zip, resolved, normalized, normalizedNew) {
+  await ensureBackup(resolved);
+  const buf = zip.readFile(zip.getEntry(normalized));
+  if (!buf) {
+    return errResult(`Error: Failed to read entry content: ${normalized}
+Tip: the file may be corrupt.`);
+  }
+  zip.deleteFile(normalized);
+  zip.addFile(normalizedNew, buf);
+  await atomicWrite(zip, resolved);
+  invalidateIwdCache(resolved);
+  return okResult(`Renamed ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
+}
+async function handleIwdRename({ path: iwdPath, entry, new_entry, dry_run }) {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) return errResult(opened.error);
+  const normalized = normalizeEntry(entry);
+  const normalizedNew = normalizeEntry(new_entry);
+  const invalid = validateRename(opened.value, normalized, normalizedNew);
+  if (invalid) return invalid;
+  if (dry_run) {
+    return okResult(`[dry_run] Would rename ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
+  }
+  return executeRename(opened.value, resolved, normalized, normalizedNew);
+}
+function normalizeCopyEntries(srcEntry, dstEntry) {
+  const normSrc = normalizeEntry(srcEntry);
+  const normDst = normalizeEntry(dstEntry);
+  if (!normSrc) return { error: errResult("Error: src_entry path cannot be empty.") };
+  if (!normDst) return { error: errResult("Error: dst_entry path cannot be empty.") };
+  return { normSrc, normDst };
+}
+function planCopy(args) {
+  const rSrc = resolveIwdPath(args.src_path);
+  const rDst = resolveIwdPath(args.dst_path);
+  const oSrc = openIwd(rSrc);
+  if (!oSrc.ok) return { error: errResult(oSrc.error) };
+  const entries = normalizeCopyEntries(args.src_entry, args.dst_entry);
+  if ("error" in entries) return entries;
+  const { normSrc, normDst } = entries;
+  if (!oSrc.value.getEntry(normSrc)) return { error: entryNotFoundErr(normSrc) };
+  const oDst = path4.resolve(rSrc) === path4.resolve(rDst) ? oSrc : openIwd(rDst);
+  if (!oDst.ok) return { error: errResult(oDst.error) };
+  const existingDst = oDst.value.getEntry(normDst) !== null;
+  if (existingDst && !args.overwrite) {
+    return {
+      error: errResult(
+        `Error: Destination entry already exists: ${normDst} in ${rDst}
 Tip: set overwrite=true to replace it.`
-        );
-      }
-      if (dry_run) {
-        return okResult(
-          `[dry_run] Would copy ${normSrc} (${rSrc}) \u2192 ${normDst} (${rDst})` + (existingDst && overwrite ? ` [will overwrite existing]` : "")
-        );
-      }
-      const buf = oSrc.value.readFile(srcZipEntry);
-      if (!buf) {
-        return errResult(
-          `Error: Failed to read source entry: ${normSrc}
-Tip: the file may be corrupt.`
-        );
-      }
-      await ensureBackup(rDst);
-      if (existingDst) {
-        dstZip.updateFile(normDst, buf);
-      } else {
-        dstZip.addFile(normDst, buf);
-      }
-      await atomicWrite(dstZip, rDst);
-      invalidateIwdCache(rDst);
-      return okResult(
-        `Copied ${normSrc} (${rSrc})
-    \u2192 ${normDst} (${rDst})
-${srcZipEntry.header.size} bytes${existingDst ? " [overwrote existing]" : ""}`
-      );
-    }
+      )
+    };
+  }
+  return { srcZip: oSrc.value, dstZip: oDst.value, normSrc, normDst, rSrc, rDst, existingDst };
+}
+async function executeCopy(plan) {
+  const srcZipEntry = plan.srcZip.getEntry(plan.normSrc);
+  const buf = plan.srcZip.readFile(srcZipEntry);
+  if (!buf) {
+    return errResult(`Error: Failed to read source entry: ${plan.normSrc}
+Tip: the file may be corrupt.`);
+  }
+  await ensureBackup(plan.rDst);
+  if (plan.existingDst) plan.dstZip.updateFile(plan.normDst, buf);
+  else plan.dstZip.addFile(plan.normDst, buf);
+  await atomicWrite(plan.dstZip, plan.rDst);
+  invalidateIwdCache(plan.rDst);
+  return okResult(
+    `Copied ${plan.normSrc} (${plan.rSrc})
+    \u2192 ${plan.normDst} (${plan.rDst})
+${srcZipEntry.header.size} bytes${plan.existingDst ? " [overwrote existing]" : ""}`
   );
+}
+async function handleIwdCopy(args) {
+  const plan = planCopy(args);
+  if ("error" in plan) return plan.error;
+  if (args.dry_run) {
+    const note = plan.existingDst && args.overwrite ? ` [will overwrite existing]` : "";
+    return okResult(`[dry_run] Would copy ${plan.normSrc} (${plan.rSrc}) \u2192 ${plan.normDst} (${plan.rDst})${note}`);
+  }
+  return executeCopy(plan);
+}
+function diffTool(name, config2, handler) {
+  return (server2) => {
+    server2.registerTool(name, config2, handler);
+  };
+}
+var DIFF_TOOLS = [
+  diffTool("iwd_diff", {
+    title: "Diff Two Archives",
+    description: "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include diffs for modified text entries. Use diff_format='side-by-side' for a visual two-column view.",
+    inputSchema: {
+      path1: external_exports.string().describe("Path to the first (base) IWD file"),
+      path2: external_exports.string().describe("Path to the second (modified) IWD file"),
+      entry_glob: external_exports.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+      content_diff: external_exports.boolean().optional().default(false).describe("If true, includes diffs for modified text entries"),
+      diff_format: external_exports.enum(["unified", "side-by-side"]).optional().default("unified").describe("Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison")
+    },
+    annotations: { readOnlyHint: true }
+  }, handleIwdDiff),
+  diffTool("iwd_rename", {
+    title: "Rename Archive Entry",
+    description: "Rename or move an entry within an IWD archive in a single operation. Equivalent to iwd_read + iwd_write + iwd_remove, but faster and atomic. Set dry_run=true to validate without modifying the archive.",
+    inputSchema: {
+      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+      entry: external_exports.string().describe("Current path of the entry inside the IWD. Use iwd_list to find exact path."),
+      new_entry: external_exports.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the rename without modifying the archive")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false }
+  }, handleIwdRename),
+  diffTool("iwd_copy", {
+    title: "Copy Archive Entry",
+    description: "Copy an entry from one IWD archive to another (or within the same archive). Useful for duplicating entries or moving files between mod packages. Set dry_run=true to validate without modifying anything.",
+    inputSchema: {
+      src_path: external_exports.string().describe("Path to the source IWD file"),
+      src_entry: external_exports.string().describe("Entry path inside the source IWD. Use iwd_list to find exact path."),
+      dst_path: external_exports.string().describe("Path to the destination IWD file (can be the same as src_path)"),
+      dst_entry: external_exports.string().describe("Entry path to write in the destination IWD"),
+      overwrite: external_exports.boolean().optional().default(false).describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
+      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the copy without modifying any file")
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false }
+  }, handleIwdCopy)
+];
+function registerDiffTools(server2) {
+  for (const register of DIFF_TOOLS) register(server2);
 }
 
 // src/iwd/sync-tools.ts
+init_utils();
 import * as path5 from "node:path";
 async function copyToDestination(sourceDir, destDir, dryRun, label) {
   const resolvedSrc = path5.resolve(sourceDir);
@@ -24962,63 +24805,45 @@ function registerIwdTools(server2) {
 }
 
 // src/knowledge/tools.ts
+init_utils();
 import * as fs2 from "node:fs";
 var KNOWLEDGE_CACHE_TTL_MS = 5 * 60 * 1e3;
 var dvarsCache = null;
-var gscRawCache = null;
-var menuHudCache = null;
-function isCacheExpired(cachedAt) {
-  return Date.now() - cachedAt > KNOWLEDGE_CACHE_TTL_MS;
+var rawCaches = /* @__PURE__ */ new Map();
+function isCacheFresh(cache, mtime) {
+  const expired = Date.now() - cache.cachedAt > KNOWLEDGE_CACHE_TTL_MS;
+  return cache.mtime === mtime && !expired;
+}
+function loadCachedRaw(fileName) {
+  const filePath = getKnowledgeDir(fileName);
+  if (!filePath) return JSON.stringify({ error: `${fileName} not found` });
+  try {
+    const mtime = fs2.statSync(filePath).mtimeMs;
+    const cached2 = rawCaches.get(fileName);
+    if (cached2 && isCacheFresh(cached2, mtime)) return cached2.raw;
+    const raw = fs2.readFileSync(filePath, "utf-8");
+    rawCaches.set(fileName, { raw, mtime, cachedAt: Date.now() });
+    return raw;
+  } catch (e) {
+    return JSON.stringify({ error: `Failed to load ${fileName}: ${getErrMsg(e)}` });
+  }
 }
 function loadDvars() {
   const result = getParsedDvars();
-  if ("error" in result) {
-    return JSON.stringify(result);
-  }
-  return JSON.stringify(result, null, 2);
+  return "error" in result ? JSON.stringify(result) : JSON.stringify(result, null, 2);
 }
 function loadGscBuiltins() {
-  const filePath = getKnowledgeDir("gsc-builtins.json");
-  if (!filePath) {
-    return JSON.stringify({ error: "gsc-builtins.json not found" });
-  }
-  try {
-    const mtime = fs2.statSync(filePath).mtimeMs;
-    if (gscRawCache && gscRawCache.mtime === mtime && !isCacheExpired(gscRawCache.cachedAt)) {
-      return gscRawCache.raw;
-    }
-    const raw = fs2.readFileSync(filePath, "utf-8");
-    gscRawCache = { raw, mtime, cachedAt: Date.now() };
-    return raw;
-  } catch (e) {
-    return JSON.stringify({ error: `Failed to load gsc-builtins.json: ${getErrMsg(e)}` });
-  }
+  return loadCachedRaw("gsc-builtins.json");
 }
 function loadMenuHud() {
-  const filePath = getKnowledgeDir("gsc-menu-hud.json");
-  if (!filePath) {
-    return JSON.stringify({ error: "gsc-menu-hud.json not found" });
-  }
-  try {
-    const mtime = fs2.statSync(filePath).mtimeMs;
-    if (menuHudCache && menuHudCache.mtime === mtime && !isCacheExpired(menuHudCache.cachedAt)) {
-      return menuHudCache.raw;
-    }
-    const raw = fs2.readFileSync(filePath, "utf-8");
-    menuHudCache = { raw, mtime, cachedAt: Date.now() };
-    return raw;
-  } catch (e) {
-    return JSON.stringify({ error: `Failed to load gsc-menu-hud.json: ${getErrMsg(e)}` });
-  }
+  return loadCachedRaw("gsc-menu-hud.json");
 }
 function getParsedDvars() {
   const filePath = getKnowledgeDir("dvars.json");
   if (!filePath) return { error: "dvars.json not found" };
   try {
     const mtime = fs2.statSync(filePath).mtimeMs;
-    if (dvarsCache && dvarsCache.mtime === mtime && !isCacheExpired(dvarsCache.cachedAt)) {
-      return dvarsCache.data;
-    }
+    if (dvarsCache && isCacheFresh(dvarsCache, mtime)) return dvarsCache.data;
     const raw = fs2.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw);
     dvarsCache = { data, mtime, cachedAt: Date.now() };
@@ -25026,6 +24851,98 @@ function getParsedDvars() {
   } catch (e) {
     return { error: `Failed to parse dvars.json: ${getErrMsg(e)}` };
   }
+}
+function matchesDvar(d, q, cat) {
+  if (cat !== void 0 && d.category?.toLowerCase() !== cat) return false;
+  const desc = d.description?.toLowerCase() ?? "";
+  return d.name.toLowerCase().includes(q) || desc.includes(q);
+}
+function formatDvarLine(d) {
+  const desc = d.description ? `
+  ${d.description}` : "";
+  return `- ${d.name} [${d.type}, default: ${d.default}] (${d.category}/${d.subcategory ?? ""})${desc}`;
+}
+async function handleDvarSearch({ query, category }) {
+  const result = getParsedDvars();
+  if ("error" in result) return errResult(result.error);
+  if (!Array.isArray(result.dvars)) return errResult("Invalid dvars.json structure: missing 'dvars' array.");
+  const cat = category?.toLowerCase();
+  const matches = result.dvars.filter((d) => matchesDvar(d, query.toLowerCase(), cat));
+  if (matches.length === 0) {
+    return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
+  }
+  const output = matches.slice(0, 20).map(formatDvarLine).join("\n");
+  const footer = matches.length > 20 ? `
+
+... and ${matches.length - 20} more. Refine your search.` : "";
+  return okResult(`Found ${matches.length} DVARs matching '${query}':
+
+${output}${footer}`);
+}
+var MENU_HUD_PATHS = {
+  positioning: ["positioning"],
+  properties: ["properties"],
+  layering: ["layering"],
+  setpoint: ["positioning", "setPoint"],
+  fonts: ["properties", "text", "font"],
+  font: ["properties", "text", "font"],
+  sort: ["layering", "sort_system"],
+  color: ["properties", "visual", "color"],
+  colour: ["properties", "visual", "color"],
+  alpha: ["properties", "visual", "alpha"],
+  cleanup: ["layering", "cleanup"],
+  destroy: ["layering", "cleanup"],
+  foreground: ["properties", "visual", "foreground"]
+};
+var MENU_HUD_VALID_TOPICS = "positioning, properties, layering, setPoint, fonts, sort, color, alpha, foreground, cleanup, all";
+function loadMenuHudSections() {
+  let data;
+  try {
+    data = JSON.parse(loadMenuHud());
+  } catch {
+    return { error: "Failed to parse gsc-menu-hud.json" };
+  }
+  if ("error" in data) return { error: String(data.error) };
+  const sections = data.sections;
+  if (!sections || typeof sections !== "object") {
+    return { error: "gsc-menu-hud.json: missing or invalid 'sections' key." };
+  }
+  return { sections };
+}
+function resolvePath(sections, keys) {
+  let current = sections;
+  for (const key of keys) {
+    if (!isPlainObject3(current)) return void 0;
+    current = current[key];
+  }
+  return current;
+}
+function searchMenuTopic(sections, term, topic) {
+  const results = {};
+  for (const [sectionName, section] of Object.entries(sections)) {
+    const found = findInSection(section, term);
+    if (found !== null) results[sectionName] = found;
+  }
+  if (Object.keys(results).length > 0) return okResult(JSON.stringify(results, null, 2));
+  return okResult(
+    `No match found for topic '${topic}'.
+Valid topics: ${MENU_HUD_VALID_TOPICS}.
+Or use any property name (e.g. 'fontscale', 'glowAlpha').`
+  );
+}
+async function handleMenuHud({ topic }) {
+  const loaded = loadMenuHudSections();
+  if ("error" in loaded) return errResult(loaded.error);
+  const { sections } = loaded;
+  const t = topic.toLowerCase().trim();
+  if (t === "all") return okResult(JSON.stringify(sections, null, 2));
+  const keys = MENU_HUD_PATHS[t];
+  if (keys) {
+    const val = resolvePath(sections, keys);
+    if (val === void 0) return errResult(`gsc-menu-hud.json: '${keys.join(".")}' not found.`);
+    return okResult(JSON.stringify(val, null, 2));
+  }
+  return searchMenuTopic(sections, t, topic);
 }
 function registerKnowledgeTools(server2) {
   server2.resource(
@@ -25076,41 +24993,7 @@ function registerKnowledgeTools(server2) {
         idempotentHint: true
       }
     },
-    async ({ query, category }) => {
-      const result = getParsedDvars();
-      if ("error" in result) {
-        return errResult(result.error);
-      }
-      if (!Array.isArray(result.dvars)) {
-        return errResult("Invalid dvars.json structure: missing 'dvars' array.");
-      }
-      const q = query.toLowerCase();
-      const cat = category?.toLowerCase();
-      const matches = result.dvars.filter((d) => {
-        const nameMatch = d.name.toLowerCase().includes(q);
-        const descMatch = d.description?.toLowerCase().includes(q) ?? false;
-        const catMatch = cat !== void 0 ? d.category?.toLowerCase() === cat : true;
-        return (nameMatch || descMatch) && catMatch;
-      });
-      const count = matches.length;
-      if (count === 0) {
-        return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
-      }
-      const limited = matches.slice(0, 20);
-      const output = limited.map((d) => {
-        const desc = d.description ? `
-  ${d.description}` : "";
-        const meta = `[${d.type}, default: ${d.default}]`;
-        const catInfo = `(${d.category}/${d.subcategory ?? ""})`;
-        return `- ${d.name} ${meta} ${catInfo}${desc}`;
-      }).join("\n");
-      const footer = count > 20 ? `
-
-... and ${count - 20} more. Refine your search.` : "";
-      return okResult(`Found ${count} DVARs matching '${query}':
-
-${output}${footer}`);
-    }
+    handleDvarSearch
   );
   server2.registerTool(
     "gsc_menu_hud",
@@ -25127,96 +25010,19 @@ ${output}${footer}`);
         idempotentHint: true
       }
     },
-    async ({ topic }) => {
-      const raw = loadMenuHud();
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        return errResult("Failed to parse gsc-menu-hud.json");
-      }
-      if ("error" in data) {
-        return errResult(String(data.error));
-      }
-      const sections = data.sections;
-      if (!sections || typeof sections !== "object") {
-        return errResult("gsc-menu-hud.json: missing or invalid 'sections' key.");
-      }
-      const t = topic.toLowerCase().trim();
-      if (t === "all") {
-        return okResult(JSON.stringify(sections, null, 2));
-      }
-      if (t === "positioning" || t === "properties" || t === "layering") {
-        return okResult(JSON.stringify(sections[t], null, 2));
-      }
-      if (t === "setpoint") {
-        const pos = sections.positioning;
-        const val = pos?.setPoint;
-        if (val === void 0) return errResult("gsc-menu-hud.json: 'positioning.setPoint' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "fonts" || t === "font") {
-        const props = sections.properties;
-        const text = props?.text;
-        const val = text?.font;
-        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.text.font' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "sort") {
-        const layer = sections.layering;
-        const val = layer?.sort_system;
-        if (val === void 0) return errResult("gsc-menu-hud.json: 'layering.sort_system' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "color" || t === "colour") {
-        const props = sections.properties;
-        const vis = props?.visual;
-        const val = vis?.color;
-        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.visual.color' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "alpha") {
-        const props = sections.properties;
-        const vis = props?.visual;
-        const val = vis?.alpha;
-        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.visual.alpha' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "cleanup" || t === "destroy") {
-        const layer = sections.layering;
-        const val = layer?.cleanup;
-        if (val === void 0) return errResult("gsc-menu-hud.json: 'layering.cleanup' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "foreground") {
-        const props = sections.properties;
-        const vis = props?.visual;
-        const val = vis?.foreground;
-        if (val === void 0) return errResult("gsc-menu-hud.json: 'properties.visual.foreground' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      const results = {};
-      for (const [sectionName, section] of Object.entries(sections)) {
-        const found = findInSection(section, t);
-        if (found !== null) results[sectionName] = found;
-      }
-      if (Object.keys(results).length > 0) {
-        return okResult(JSON.stringify(results, null, 2));
-      }
-      return okResult(
-        `No match found for topic '${topic}'.
-Valid topics: positioning, properties, layering, setPoint, fonts, sort, color, alpha, foreground, cleanup, all.
-Or use any property name (e.g. 'fontscale', 'glowAlpha').`
-      );
-    }
+    handleMenuHud
   );
+}
+function isPlainObject3(value) {
+  if (value === null || typeof value !== "object") return false;
+  return !Array.isArray(value);
 }
 function findInSection(obj, term) {
   const results = {};
   for (const [key, value] of Object.entries(obj)) {
     if (key.toLowerCase() === term) {
       results[key] = value;
-    } else if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    } else if (isPlainObject3(value)) {
       const nested = findInSection(value, term);
       if (nested !== null) results[key] = nested;
     }
@@ -25299,6 +25105,53 @@ var SyntaxErrorCode = {
   INVALID_CHARACTER: "TOK-007",
   UNTERMINATED_COMMENT: "TOK-008"
 };
+var OPENERS = {
+  "{": "LEFT_BRACE" /* LEFT_BRACE */,
+  "(": "LEFT_PAREN" /* LEFT_PAREN */,
+  "[": "LEFT_BRACKET" /* LEFT_BRACKET */
+};
+var CLOSERS = {
+  "}": { type: "RIGHT_BRACE" /* RIGHT_BRACE */, open: "{", code: SyntaxErrorCode.UNMATCHED_BRACE, suggestion: "Remove this closing brace or check for extra braces" },
+  ")": { type: "RIGHT_PAREN" /* RIGHT_PAREN */, open: "(", code: SyntaxErrorCode.UNMATCHED_PAREN, suggestion: "Remove this closing parenthesis or check for extra parentheses" },
+  "]": { type: "RIGHT_BRACKET" /* RIGHT_BRACKET */, open: "[", code: SyntaxErrorCode.UNMATCHED_BRACKET, suggestion: "Remove this closing bracket or check for extra brackets" }
+};
+var SIMPLE_PUNCTUATION = {
+  ",": "COMMA" /* COMMA */,
+  ".": "DOT" /* DOT */,
+  ";": "SEMICOLON" /* SEMICOLON */,
+  ":": "COLON" /* COLON */,
+  "?": "QUESTION" /* QUESTION */,
+  "~": "TILDE" /* TILDE */,
+  "^": "CARET" /* CARET */,
+  "@": "AT" /* AT */
+};
+var TWO_CHAR_OPERATORS = {
+  "==": "EQUAL_EQUAL" /* EQUAL_EQUAL */,
+  "!=": "BANG_EQUAL" /* BANG_EQUAL */,
+  "<=": "LESS_EQUAL" /* LESS_EQUAL */,
+  ">=": "GREATER_EQUAL" /* GREATER_EQUAL */,
+  "&&": "AMPERSAND_AMPERSAND" /* AMPERSAND_AMPERSAND */,
+  "||": "PIPE_PIPE" /* PIPE_PIPE */,
+  "++": "PLUS_PLUS" /* PLUS_PLUS */,
+  "--": "MINUS_MINUS" /* MINUS_MINUS */,
+  "+=": "PLUS_EQUAL" /* PLUS_EQUAL */,
+  "-=": "MINUS_EQUAL" /* MINUS_EQUAL */,
+  "*=": "STAR_EQUAL" /* STAR_EQUAL */,
+  "/=": "SLASH_EQUAL" /* SLASH_EQUAL */
+};
+var SKIPPABLE = /* @__PURE__ */ new Set(["\n", "\r", " ", "	"]);
+var SINGLE_CHAR_OPERATORS = {
+  "=": "EQUAL" /* EQUAL */,
+  "!": "BANG" /* BANG */,
+  "<": "LESS" /* LESS */,
+  ">": "GREATER" /* GREATER */,
+  "+": "PLUS" /* PLUS */,
+  "-": "MINUS" /* MINUS */,
+  "*": "STAR" /* STAR */,
+  "%": "PERCENT" /* PERCENT */,
+  "&": "AMPERSAND" /* AMPERSAND */,
+  "|": "PIPE" /* PIPE */
+};
 var GSCTokenizer = class {
   source = "";
   start = 0;
@@ -25347,15 +25200,7 @@ var GSCTokenizer = class {
       column: this.column,
       length: 0
     });
-    this.validateBrackets();
     return { tokens: this.tokens, errors: this.errors };
-  }
-  /**
-   * Validate that all brackets are matched
-   * Only reports errors for UNEXPECTED closing brackets (too many)
-   * Does NOT report missing closing brackets - that could be incomplete code
-   */
-  validateBrackets() {
   }
   isAtEnd() {
     return this.current >= this.source.length;
@@ -25393,64 +25238,9 @@ var GSCTokenizer = class {
   }
   scanToken() {
     const c = this.advance();
-    if (c === "\n" || c === "\r") {
-      return;
-    }
-    if (c === " " || c === "	") {
-      return;
-    }
+    if (SKIPPABLE.has(c)) return;
     if (c === "/") {
-      if (this.peek() === "/") {
-        while (this.peek() !== "\n" && !this.isAtEnd()) {
-          this.advance();
-        }
-        const value = this.source.substring(this.start + 2, this.current);
-        this.tokens.push({
-          type: "COMMENT" /* COMMENT */,
-          value,
-          line: this.line,
-          column: this.column - (this.current - this.start),
-          length: this.current - this.start
-        });
-        return;
-      }
-      if (this.peek() === "*") {
-        this.advance();
-        let foundEnd = false;
-        while (!this.isAtEnd()) {
-          if (this.peek() === "*" && this.peekNext() === "/") {
-            this.advance();
-            this.advance();
-            foundEnd = true;
-            break;
-          }
-          this.advance();
-        }
-        const value = this.source.substring(this.start + 2, this.current - 2);
-        if (!foundEnd) {
-          this.errors.push({
-            message: "Unterminated block comment - missing '*/'",
-            line: this.line,
-            column: this.column - (this.current - this.start),
-            code: SyntaxErrorCode.UNTERMINATED_COMMENT,
-            suggestion: "Add '*/' to close the block comment"
-          });
-        }
-        this.tokens.push({
-          type: "BLOCK_COMMENT" /* BLOCK_COMMENT */,
-          value,
-          line: this.line,
-          column: this.column - (this.current - this.start),
-          length: this.current - this.start
-        });
-        return;
-      }
-      if (this.peek() === "=") {
-        this.advance();
-        this.addToken("SLASH_EQUAL" /* SLASH_EQUAL */);
-        return;
-      }
-      this.addToken("SLASH" /* SLASH */);
+      this.scanSlash();
       return;
     }
     if (c === '"' || c === "'") {
@@ -25469,216 +25259,136 @@ var GSCTokenizer = class {
       this.scanPreprocessor();
       return;
     }
-    switch (c) {
-      case "{":
-        this.addToken("LEFT_BRACE" /* LEFT_BRACE */);
-        this.braceStack.push({ type: "LEFT_BRACE" /* LEFT_BRACE */, line: this.line, column: this.column - 1 });
-        break;
-      case "}":
-        this.addToken("RIGHT_BRACE" /* RIGHT_BRACE */);
-        if (this.braceStack.length > 0) {
-          this.braceStack.pop();
-        } else {
-          this.errors.push({
-            message: `Unexpected '}' - no matching '{'`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.UNMATCHED_BRACE,
-            suggestion: "Remove this closing brace or check for extra braces"
-          });
-        }
-        break;
-      case "(":
-        this.addToken("LEFT_PAREN" /* LEFT_PAREN */);
-        this.parenStack.push({ type: "LEFT_PAREN" /* LEFT_PAREN */, line: this.line, column: this.column - 1 });
-        break;
-      case ")":
-        this.addToken("RIGHT_PAREN" /* RIGHT_PAREN */);
-        if (this.parenStack.length > 0) {
-          this.parenStack.pop();
-        } else {
-          this.errors.push({
-            message: `Unexpected ')' - no matching '('`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.UNMATCHED_PAREN,
-            suggestion: "Remove this closing parenthesis or check for extra parentheses"
-          });
-        }
-        break;
-      case "[":
-        this.addToken("LEFT_BRACKET" /* LEFT_BRACKET */);
-        this.bracketStack.push({ type: "LEFT_BRACKET" /* LEFT_BRACKET */, line: this.line, column: this.column - 1 });
-        break;
-      case "]":
-        this.addToken("RIGHT_BRACKET" /* RIGHT_BRACKET */);
-        if (this.bracketStack.length > 0) {
-          this.bracketStack.pop();
-        } else {
-          this.errors.push({
-            message: `Unexpected ']' - no matching '['`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.UNMATCHED_BRACKET,
-            suggestion: "Remove this closing bracket or check for extra brackets"
-          });
-        }
-        break;
-      case ",":
-        this.addToken("COMMA" /* COMMA */);
-        break;
-      case ".":
-        this.addToken("DOT" /* DOT */);
-        break;
-      case ";":
-        this.addToken("SEMICOLON" /* SEMICOLON */);
-        break;
-      case ":":
-        this.addToken("COLON" /* COLON */);
-        break;
-      case "?":
-        this.addToken("QUESTION" /* QUESTION */);
-        break;
-      case "~":
-        this.addToken("TILDE" /* TILDE */);
-        break;
-      case "^":
-        this.addToken("CARET" /* CARET */);
-        break;
-      case "@":
-        this.addToken("AT" /* AT */);
-        break;
-      default:
-        if (c !== "\0" && c !== "\r" && c !== "\n") {
-          this.errors.push({
-            message: `Invalid character: '${c}'`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.INVALID_CHARACTER,
-            suggestion: "Remove or replace this character"
-          });
-        }
-        break;
+    if (this.scanPunctuation(c)) return;
+    this.scanOperator(c);
+  }
+  /** Handle `/` — line comment, block comment, `/=`, or bare `/`. */
+  scanSlash() {
+    if (this.peek() === "/") {
+      this.scanLineComment();
+      return;
     }
-    if (!this.isAtEnd()) {
-      const second = this.peek();
-      const combined = c + second;
-      switch (combined) {
-        case "==":
-          this.advance();
-          this.addToken("EQUAL_EQUAL" /* EQUAL_EQUAL */);
-          break;
-        case "!=":
-          this.advance();
-          this.addToken("BANG_EQUAL" /* BANG_EQUAL */);
-          break;
-        case "<=":
-          this.advance();
-          this.addToken("LESS_EQUAL" /* LESS_EQUAL */);
-          break;
-        case ">=":
-          this.advance();
-          this.addToken("GREATER_EQUAL" /* GREATER_EQUAL */);
-          break;
-        case "&&":
-          this.advance();
-          this.addToken("AMPERSAND_AMPERSAND" /* AMPERSAND_AMPERSAND */);
-          break;
-        case "||":
-          this.advance();
-          this.addToken("PIPE_PIPE" /* PIPE_PIPE */);
-          break;
-        case "++":
-          this.advance();
-          this.addToken("PLUS_PLUS" /* PLUS_PLUS */);
-          break;
-        case "--":
-          this.advance();
-          this.addToken("MINUS_MINUS" /* MINUS_MINUS */);
-          break;
-        case "+=":
-          this.advance();
-          this.addToken("PLUS_EQUAL" /* PLUS_EQUAL */);
-          break;
-        case "-=":
-          this.advance();
-          this.addToken("MINUS_EQUAL" /* MINUS_EQUAL */);
-          break;
-        case "*=":
-          this.advance();
-          this.addToken("STAR_EQUAL" /* STAR_EQUAL */);
-          break;
-        case "/=":
-          this.advance();
-          this.addToken("SLASH_EQUAL" /* SLASH_EQUAL */);
-          break;
-        default:
-          switch (c) {
-            case "=":
-              this.addToken("EQUAL" /* EQUAL */);
-              break;
-            case "!":
-              this.addToken("BANG" /* BANG */);
-              break;
-            case "<":
-              this.addToken("LESS" /* LESS */);
-              break;
-            case ">":
-              this.addToken("GREATER" /* GREATER */);
-              break;
-            case "+":
-              this.addToken("PLUS" /* PLUS */);
-              break;
-            case "-":
-              this.addToken("MINUS" /* MINUS */);
-              break;
-            case "*":
-              this.addToken("STAR" /* STAR */);
-              break;
-            case "%":
-              this.addToken("PERCENT" /* PERCENT */);
-              break;
-            case "&":
-              this.addToken("AMPERSAND" /* AMPERSAND */);
-              break;
-            case "|":
-              this.addToken("PIPE" /* PIPE */);
-              break;
-          }
+    if (this.peek() === "*") {
+      this.scanBlockComment();
+      return;
+    }
+    if (this.peek() === "=") {
+      this.advance();
+      this.addToken("SLASH_EQUAL" /* SLASH_EQUAL */);
+      return;
+    }
+    this.addToken("SLASH" /* SLASH */);
+  }
+  scanLineComment() {
+    while (this.peek() !== "\n" && !this.isAtEnd()) this.advance();
+    this.pushSpan("COMMENT" /* COMMENT */, this.source.substring(this.start + 2, this.current));
+  }
+  scanBlockComment() {
+    this.advance();
+    let foundEnd = false;
+    while (!this.isAtEnd()) {
+      if (this.peek() === "*" && this.peekNext() === "/") {
+        this.advance();
+        this.advance();
+        foundEnd = true;
+        break;
       }
+      this.advance();
+    }
+    if (!foundEnd) {
+      this.errors.push({
+        message: "Unterminated block comment - missing '*/'",
+        line: this.line,
+        column: this.column - (this.current - this.start),
+        code: SyntaxErrorCode.UNTERMINATED_COMMENT,
+        suggestion: "Add '*/' to close the block comment"
+      });
+    }
+    this.pushSpan("BLOCK_COMMENT" /* BLOCK_COMMENT */, this.source.substring(this.start + 2, this.current - 2));
+  }
+  /** Push a token spanning start..current with an explicit value. */
+  pushSpan(type, value) {
+    this.tokens.push({
+      type,
+      value,
+      line: this.line,
+      column: this.column - (this.current - this.start),
+      length: this.current - this.start
+    });
+  }
+  /** Handle punctuation (brackets + simple single-char tokens). Returns false if `c` isn't punctuation. */
+  scanPunctuation(c) {
+    if (OPENERS[c]) {
+      this.openBracket(c);
+      return true;
+    }
+    if (CLOSERS[c]) {
+      this.closeBracket(c);
+      return true;
+    }
+    const simple = SIMPLE_PUNCTUATION[c];
+    if (simple) {
+      this.addToken(simple);
+      return true;
+    }
+    return false;
+  }
+  stackFor(c) {
+    if (c === "{" || c === "}") return this.braceStack;
+    if (c === "(" || c === ")") return this.parenStack;
+    return this.bracketStack;
+  }
+  openBracket(c) {
+    const type = OPENERS[c];
+    this.addToken(type);
+    this.stackFor(c).push({ type, line: this.line, column: this.column - 1 });
+  }
+  closeBracket(c) {
+    const info = CLOSERS[c];
+    this.addToken(info.type);
+    const stack = this.stackFor(c);
+    if (stack.length > 0) {
+      stack.pop();
+      return;
+    }
+    this.errors.push({
+      message: `Unexpected '${c}' - no matching '${info.open}'`,
+      line: this.line,
+      column: this.column - 1,
+      code: info.code,
+      suggestion: info.suggestion
+    });
+  }
+  /** Handle operators (compound first, then single), or report an invalid character. */
+  scanOperator(c) {
+    if (!this.isAtEnd()) {
+      const twoChar = TWO_CHAR_OPERATORS[c + this.peek()];
+      if (twoChar) {
+        this.advance();
+        this.addToken(twoChar);
+        return;
+      }
+    }
+    const single = SINGLE_CHAR_OPERATORS[c];
+    if (single) {
+      this.addToken(single);
+      return;
+    }
+    if (c !== "\0") {
+      this.errors.push({
+        message: `Invalid character: '${c}'`,
+        line: this.line,
+        column: this.column - 1,
+        code: SyntaxErrorCode.INVALID_CHARACTER,
+        suggestion: "Remove or replace this character"
+      });
     }
   }
   scanString(quote) {
     let value = "";
     while (this.peek() !== quote && !this.isAtEnd()) {
-      if (this.peek() === "\n") {
-        value += "\n";
-        this.advance();
-        continue;
-      }
-      if (this.peek() === "\\" && !this.isAtEnd()) {
-        this.advance();
-        const escaped = this.peek();
-        switch (escaped) {
-          case "n":
-            value += "\n";
-            break;
-          case "t":
-            value += "	";
-            break;
-          case "r":
-            value += "\r";
-            break;
-          case "\\":
-            value += "\\";
-            break;
-          case quote:
-            value += quote;
-            break;
-          default:
-            value += escaped;
-        }
-        this.advance();
+      if (this.peek() === "\\") {
+        value += this.scanEscape(quote);
         continue;
       }
       value += this.advance();
@@ -25697,21 +25407,38 @@ var GSCTokenizer = class {
     this.advance();
     this.addToken("STRING" /* STRING */, value);
   }
-  scanNumber() {
-    while (this.isDigit(this.peek())) {
-      this.advance();
+  /** Consume a `\x` escape (backslash already at peek) and return the decoded text. */
+  scanEscape(quote) {
+    this.advance();
+    const escaped = this.peek();
+    this.advance();
+    switch (escaped) {
+      case "n":
+        return "\n";
+      case "t":
+        return "	";
+      case "r":
+        return "\r";
+      case "\\":
+        return "\\";
+      case quote:
+        return quote;
+      default:
+        return escaped;
     }
+  }
+  consumeWhile(pred) {
+    while (pred(this.peek())) this.advance();
+  }
+  scanNumber() {
+    this.consumeWhile(this.isDigit);
     if (this.peek() === "." && this.isDigit(this.peekNext())) {
       this.advance();
-      while (this.isDigit(this.peek())) {
-        this.advance();
-      }
+      this.consumeWhile(this.isDigit);
     }
     if (this.peek() === "x" || this.peek() === "X") {
       this.advance();
-      while (this.isHexDigit(this.peek())) {
-        this.advance();
-      }
+      this.consumeWhile(this.isHexDigit);
     }
     this.addToken("NUMBER" /* NUMBER */);
   }
@@ -25722,20 +25449,6 @@ var GSCTokenizer = class {
     const text = this.source.substring(this.start, this.current);
     const type = GSC_KEYWORDS.has(text) ? "KEYWORD" /* KEYWORD */ : "IDENTIFIER" /* IDENTIFIER */;
     this.addToken(type, text);
-  }
-  isValidIdentifier(text) {
-    if (!text || text.length === 0) return false;
-    const firstChar = text[0];
-    if (!this.isAlpha(firstChar) && firstChar !== "$" && firstChar !== "_") {
-      return false;
-    }
-    for (let i = 1; i < text.length; i++) {
-      const c = text[i];
-      if (!this.isAlphaNumeric(c) && c !== "_" && c !== "$" && c !== "\\") {
-        return false;
-      }
-    }
-    return true;
   }
   scanPreprocessor() {
     while (this.isAlpha(this.peek()) && !this.isAtEnd()) {
@@ -25765,219 +25478,8 @@ function tokenize(source) {
   return tokenizer.tokenize(source);
 }
 
-// src/gsc/outline.ts
-function outline(source) {
-  const { tokens } = tokenize(source);
-  const sourceLines = source.split("\n");
-  const len = tokens.length;
-  const functions = [];
-  const includes = [];
-  const threads = [];
-  const events = [];
-  const seenProps = /* @__PURE__ */ new Map();
-  let braceDepth = 0;
-  function nextOf(from) {
-    for (let k = from; k < len; k++) {
-      const t = tokens[k];
-      if (t.type !== "COMMENT" /* COMMENT */ && t.type !== "BLOCK_COMMENT" /* BLOCK_COMMENT */ && t.type !== "EOF" /* EOF */) {
-        return k;
-      }
-    }
-    return -1;
-  }
-  for (let i = 0; i < len; i++) {
-    const tok = tokens[i];
-    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
-      braceDepth++;
-      continue;
-    }
-    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
-      braceDepth = Math.max(0, braceDepth - 1);
-      continue;
-    }
-    if (braceDepth === 0 && tok.type === "IDENTIFIER" /* IDENTIFIER */) {
-      const parenIdx = nextOf(i + 1);
-      if (parenIdx === -1 || tokens[parenIdx].type !== "LEFT_PAREN" /* LEFT_PAREN */) continue;
-      const params = [];
-      let j = parenIdx + 1;
-      let depth = 1;
-      while (j < len && depth > 0) {
-        const t = tokens[j];
-        if (t.type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
-        else if (t.type === "RIGHT_PAREN" /* RIGHT_PAREN */) {
-          depth--;
-          if (depth === 0) break;
-        } else if (depth === 1 && t.type === "IDENTIFIER" /* IDENTIFIER */) {
-          params.push(t.value);
-        }
-        j++;
-      }
-      const braceIdx = nextOf(j + 1);
-      if (braceIdx !== -1 && tokens[braceIdx].type === "LEFT_BRACE" /* LEFT_BRACE */) {
-        functions.push({ name: tok.value, params, line: tok.line });
-        i = braceIdx - 1;
-      }
-      continue;
-    }
-    if (tok.type === "HASH" /* HASH */ && (tok.value === "include" || tok.value.startsWith("using"))) {
-      const lineIdx = tok.line - 1;
-      if (lineIdx >= 0 && lineIdx < sourceLines.length) {
-        const lineText = sourceLines[lineIdx];
-        const m = lineText.match(/#\w+\s+(.+?)(?:\s*;.*)?$/);
-        if (m) {
-          includes.push({ path: m[1].trim(), line: tok.line });
-        }
-      }
-      continue;
-    }
-    if (tok.type === "KEYWORD" /* KEYWORD */ && tok.value === "thread") {
-      let entity = null;
-      if (i > 0) {
-        const prev = tokens[i - 1];
-        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
-          entity = prev.value;
-        }
-      }
-      const nxt = nextOf(i + 1);
-      if (nxt !== -1) {
-        let funcName = "";
-        let j = nxt;
-        while (j < len && tokens[j].type !== "LEFT_PAREN" /* LEFT_PAREN */ && tokens[j].type !== "SEMICOLON" /* SEMICOLON */ && tokens[j].type !== "EOF" /* EOF */) {
-          funcName += tokens[j].value;
-          j++;
-        }
-        funcName = funcName.trim();
-        if (funcName) {
-          threads.push({ funcName, entity, line: tok.line });
-        }
-      }
-      continue;
-    }
-    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "waittill" || tok.value === "notify" || tok.value === "endon" || tok.value === "waittillmatch")) {
-      let entity = null;
-      if (i > 0) {
-        const prev = tokens[i - 1];
-        if (prev.type === "IDENTIFIER" /* IDENTIFIER */ || prev.type === "KEYWORD" /* KEYWORD */ && ["level", "self", "game", "player"].includes(prev.value)) {
-          entity = prev.value;
-        }
-      }
-      let eventName = null;
-      const nxt = nextOf(i + 1);
-      if (nxt !== -1 && tokens[nxt].type === "LEFT_PAREN" /* LEFT_PAREN */) {
-        const argIdx = nextOf(nxt + 1);
-        if (argIdx !== -1 && tokens[argIdx].type === "STRING" /* STRING */) {
-          eventName = tokens[argIdx].value;
-        }
-      }
-      events.push({
-        type: tok.value,
-        entity,
-        eventName,
-        line: tok.line
-      });
-      continue;
-    }
-    if (tok.type === "KEYWORD" /* KEYWORD */ && (tok.value === "level" || tok.value === "self" || tok.value === "game")) {
-      const dotIdx = nextOf(i + 1);
-      if (dotIdx === -1 || tokens[dotIdx].type !== "DOT" /* DOT */) continue;
-      const propIdx = nextOf(dotIdx + 1);
-      if (propIdx === -1 || tokens[propIdx].type !== "IDENTIFIER" /* IDENTIFIER */) continue;
-      const eqIdx = nextOf(propIdx + 1);
-      if (eqIdx !== -1 && tokens[eqIdx].type === "EQUAL" /* EQUAL */) {
-        const key = `${tok.value}.${tokens[propIdx].value}`;
-        if (!seenProps.has(key)) {
-          seenProps.set(key, {
-            object: tok.value,
-            property: tokens[propIdx].value,
-            line: tok.line
-          });
-        }
-      }
-    }
-  }
-  return {
-    functions,
-    includes,
-    threads,
-    events,
-    props: Array.from(seenProps.values())
-  };
-}
-function formatOutline(result, source) {
-  const totalLines = source.split("\n").length;
-  let out = `\u{1F4CB} GSC Outline (${totalLines} lines)
-
-`;
-  if (result.includes.length > 0) {
-    out += `\u{1F4E6} Includes (${result.includes.length}):
-`;
-    for (const inc of result.includes) {
-      out += `  #include ${inc.path}
-`;
-    }
-    out += "\n";
-  }
-  if (result.functions.length > 0) {
-    out += `\u{1F527} Functions (${result.functions.length}):
-`;
-    const nameWidth = Math.max(...result.functions.map((f) => f.name.length + f.params.join(", ").length + 2));
-    for (const fn of result.functions) {
-      const sig = `${fn.name}(${fn.params.join(", ")})`;
-      out += `  ${sig.padEnd(Math.min(nameWidth, 40))}  line ${fn.line}
-`;
-    }
-    out += "\n";
-  } else {
-    out += `\u{1F527} Functions: none found
-
-`;
-  }
-  if (result.threads.length > 0) {
-    const seen = /* @__PURE__ */ new Set();
-    const unique = result.threads.filter((t) => {
-      if (seen.has(t.funcName)) return false;
-      seen.add(t.funcName);
-      return true;
-    });
-    out += `\u{1F9F5} Threads spawned (${result.threads.length} calls, ${unique.length} unique):
-`;
-    for (const t of unique) {
-      const prefix = t.entity ? `${t.entity} thread ` : "thread ";
-      out += `  ${prefix}${t.funcName}()  line ${t.line}
-`;
-    }
-    out += "\n";
-  }
-  if (result.events.length > 0) {
-    out += `\u{1F4E1} Events (${result.events.length}):
-`;
-    for (const ev of result.events) {
-      const eventLabel = ev.eventName ? `"${ev.eventName}"` : "(dynamic)";
-      const entityLabel = ev.entity ? `${ev.entity} ` : "";
-      out += `  ${ev.type.padEnd(12)}  ${entityLabel}${eventLabel}  line ${ev.line}
-`;
-    }
-    out += "\n";
-  }
-  if (result.props.length > 0) {
-    out += `\u{1F511} Shared state (${result.props.length} unique properties, first assignment):
-`;
-    const byObj = {};
-    for (const p of result.props) {
-      (byObj[p.object] ??= []).push(p);
-    }
-    for (const obj of ["level", "self", "game"]) {
-      if (!byObj[obj]) continue;
-      for (const p of byObj[obj]) {
-        out += `  ${obj}.${p.property.padEnd(24)}  line ${p.line}
-`;
-      }
-    }
-  }
-  return out.trimEnd();
-}
-
-// src/gsc/linter.ts
+// src/gsc/builtins.ts
+init_utils();
 var CORE_BUILTINS = [
   // IO
   "println",
@@ -26140,656 +25642,731 @@ var CORE_DVARS = [
 ];
 var _knownBuiltins = null;
 var _knownDvars = null;
-async function getKnownBuiltins() {
-  if (_knownBuiltins) return _knownBuiltins;
-  const builtins = new Set(CORE_BUILTINS);
-  const filePath = getKnowledgeDir("gsc-builtins.json");
-  if (filePath) {
-    try {
-      const { readFile } = await import("node:fs/promises");
-      const raw = await readFile(filePath, "utf-8");
-      const data = JSON.parse(raw);
-      if (data.functions && Array.isArray(data.functions)) {
-        for (const func of data.functions) {
-          if (func.name) {
-            builtins.add(func.name);
-            builtins.add(func.name.toLowerCase());
-          }
-        }
-      }
-    } catch {
+async function loadNames(fileName, key, target, add) {
+  const filePath = getKnowledgeDir(fileName);
+  if (!filePath) return target;
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const data = JSON.parse(await readFile(filePath, "utf-8"));
+    const entries = Array.isArray(data[key]) ? data[key] : [];
+    for (const entry of entries) {
+      if (entry.name) add(target, entry.name);
     }
+  } catch {
   }
-  _knownBuiltins = builtins;
-  return builtins;
+  return target;
+}
+async function getKnownBuiltins() {
+  if (!_knownBuiltins) {
+    _knownBuiltins = await loadNames(
+      "gsc-builtins.json",
+      "functions",
+      new Set(CORE_BUILTINS),
+      (set, name) => {
+        set.add(name);
+        set.add(name.toLowerCase());
+      }
+    );
+  }
+  return _knownBuiltins;
 }
 async function getKnownDvars() {
-  if (_knownDvars) return _knownDvars;
-  const dvars = new Set(CORE_DVARS);
-  const filePath = getKnowledgeDir("dvars.json");
-  if (filePath) {
-    try {
-      const { readFile } = await import("node:fs/promises");
-      const raw = await readFile(filePath, "utf-8");
-      const data = JSON.parse(raw);
-      if (data.dvars && Array.isArray(data.dvars)) {
-        for (const dvar of data.dvars) {
-          if (dvar.name) {
-            dvars.add(dvar.name.toLowerCase());
-          }
-        }
-      }
-    } catch {
-    }
+  if (!_knownDvars) {
+    _knownDvars = await loadNames(
+      "dvars.json",
+      "dvars",
+      new Set(CORE_DVARS),
+      (set, name) => set.add(name.toLowerCase())
+    );
   }
-  _knownDvars = dvars;
-  return dvars;
+  return _knownDvars;
 }
-var GSCLinter = class {
-  tokens = [];
-  errors = [];
-  variables = /* @__PURE__ */ new Set();
-  functions = /* @__PURE__ */ new Set();
-  definedFunctions = /* @__PURE__ */ new Map();
-  // name -> line
-  source = "";
-  options = {};
-  /**
-   * Lint GSC source code
-   */
-  async lint(source, options) {
-    this.source = source;
-    this.options = options ?? {};
-    this.errors = [];
-    this.variables = /* @__PURE__ */ new Set(["self", "level", "game", "player"]);
-    this.functions = await getKnownBuiltins();
-    this.definedFunctions = /* @__PURE__ */ new Map();
-    const tokenizeResult = tokenize(source);
-    for (const err2 of tokenizeResult.errors) {
-      this.errors.push({
-        type: "error",
-        code: "TOK-001",
-        message: err2.message,
-        line: err2.line,
-        column: err2.column
-      });
-    }
-    this.tokens = tokenizeResult.tokens;
-    this.collectDefinitions();
-    this.checkCaseCollisions();
-    if (this.options.checkUndefined !== false) {
-      this.analyzeUsage();
-    }
-    if (this.options.checkPatterns !== false) {
-      await this.checkBadPatterns();
-    }
-    const lines = source.split("\n").length;
-    return {
-      errors: this.errors,
-      stats: {
-        lines,
-        tokens: this.tokens.length,
-        errors: this.errors.filter((e) => e.type === "error").length,
-        warnings: this.errors.filter((e) => e.type === "warning").length
-      }
-    };
+
+// src/gsc/outline.ts
+var ENTITY_KEYWORDS = /* @__PURE__ */ new Set(["level", "self", "game", "player"]);
+var EVENT_KEYWORDS = /* @__PURE__ */ new Set(["waittill", "notify", "endon", "waittillmatch"]);
+var SHARED_STATE_KEYWORDS = /* @__PURE__ */ new Set(["level", "self", "game"]);
+var NON_CODE_TYPES = /* @__PURE__ */ new Set(["COMMENT" /* COMMENT */, "BLOCK_COMMENT" /* BLOCK_COMMENT */, "EOF" /* EOF */]);
+function nextOf(tokens, from) {
+  for (let k = from; k < tokens.length; k++) {
+    if (!NON_CODE_TYPES.has(tokens[k].type)) return k;
   }
-  /**
-   * First pass: collect function and variable definitions
-   */
-  collectDefinitions() {
-    let i = 0;
-    while (i < this.tokens.length) {
-      const token = this.tokens[i];
-      if (token.type === "KEYWORD" /* KEYWORD */) {
-        if (token.value === "function" || token.value === "funcdef") {
-          const next = this.tokens[i + 1];
-          if (next && next.type === "IDENTIFIER" /* IDENTIFIER */) {
-            this.functions.add(next.value);
-            this.definedFunctions.set(next.value, next.line);
-          }
-        }
-        if (token.value === "var") {
-          const next = this.tokens[i + 1];
-          if (next && next.type === "IDENTIFIER" /* IDENTIFIER */) {
-            this.variables.add(next.value);
-          }
-        }
-      }
-      if (token.type === "HASH" /* HASH */ && token.value === "define") {
-        const next = this.tokens[i + 1];
-        if (next && next.type === "IDENTIFIER" /* IDENTIFIER */) {
-          this.variables.add(next.value);
-        }
-      }
-      i++;
-    }
-  }
-  /**
-   * Second pass: analyze token usage
-   */
-  analyzeUsage() {
-    let i = 0;
-    let inFunction = false;
-    let braceDepth = 0;
-    while (i < this.tokens.length) {
-      const token = this.tokens[i];
-      const prev = this.tokens[i - 1];
-      const next = this.tokens[i + 1];
-      if (token.type === "LEFT_BRACE" /* LEFT_BRACE */) {
-        braceDepth++;
-      }
-      if (token.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
-        braceDepth--;
-        if (braceDepth === 0) {
-          inFunction = false;
-        }
-      }
-      if (token.type === "IDENTIFIER" /* IDENTIFIER */) {
-        if (prev && prev.type === "EQUAL" /* EQUAL */) {
-          if (!this.variables.has(token.value) && !this.isBuiltinProperty(token.value) && !this.definedFunctions.has(token.value) && !this.isCommonFunctionCall(token.value)) {
-            if (inFunction || braceDepth > 0) {
-              this.errors.push({
-                type: "warning",
-                code: "VAR-001",
-                message: `Undefined variable: '${token.value}'`,
-                line: token.line,
-                column: token.column,
-                length: token.length
-              });
-            }
-          }
-        } else if (prev && (prev.type === "KEYWORD" /* KEYWORD */ || prev.type === "LEFT_PAREN" /* LEFT_PAREN */ || prev.type === "COMMA" /* COMMA */ || prev.type === "COLON" /* COLON */ || prev.type === "LEFT_BRACKET" /* LEFT_BRACKET */)) {
-          const funcLower = token.value.toLowerCase();
-          if (!this.functions.has(funcLower) && !this.definedFunctions.has(token.value)) {
-            if (!this.isCommonFunctionCall(token.value)) {
-              this.errors.push({
-                type: "warning",
-                code: "FUN-001",
-                message: `Undefined function: '${token.value}'`,
-                line: token.line,
-                column: token.column,
-                length: token.length
-              });
-            }
-          }
-        }
-        if (prev && prev.type === "KEYWORD" /* KEYWORD */ && prev.value === "function") {
-          inFunction = true;
-          this.functions.add(token.value);
-          this.definedFunctions.set(token.value, token.line);
-        }
-      }
-      if (token.type === "RIGHT_BRACE" /* RIGHT_BRACE */ || token.type === "RIGHT_PAREN" /* RIGHT_PAREN */) {
-        const nextNonWhitespace = this.findNextNonWhitespace(i + 1);
-        if (nextNonWhitespace) {
-          const nextToken = this.tokens[nextNonWhitespace];
-          if (nextToken && (nextToken.type === "IDENTIFIER" /* IDENTIFIER */ || nextToken.type === "KEYWORD" /* KEYWORD */)) {
-          }
-        }
-      }
-      i++;
-    }
-  }
-  /**
-   * Check for bad patterns / anti-patterns
-   */
-  async checkBadPatterns() {
-    const source = this.source;
-    const lines = source.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineNum = i + 1;
-      if (line.match(/isDefined\s*\(\s*\)/)) {
-        this.errors.push({
-          type: "warning",
-          code: "PAT-001",
-          message: "isDefined() called without checking the result",
-          line: lineNum,
-          column: 0,
-          length: line.length
-        });
-      }
-      if (line.length > MAX_LINE_LENGTH_WARNING) {
-        this.errors.push({
-          type: "info",
-          code: "STY-001",
-          message: `Line exceeds ${MAX_LINE_LENGTH_WARNING} characters (${line.length})`,
-          line: lineNum,
-          column: 0,
-          length: line.length
-        });
-      }
-      if (line.includes('"') && line.match(/"[^"]*[A-Z_]{4,}[^"]*"/)) {
-        const match = line.match(/"[A-Z_]+"/g);
-        if (match) {
-          for (const m of match) {
-            const varName = m.replace(/"/g, "");
-            const dvars = await getKnownDvars();
-            if (!dvars.has(varName.toLowerCase())) {
-              this.errors.push({
-                type: "info",
-                code: "STY-002",
-                message: `Consider using a DVAR instead of hardcoded '${m}'`,
-                line: lineNum,
-                column: line.indexOf(m),
-                length: m.length
-              });
-            }
-          }
-        }
-      }
-      if (line.match(/self\s*=\s*[^;]+;?\s*$/)) {
-      }
-      if (line.includes(".") && !line.includes("isdefined") && !line.includes("isDefined")) {
-      }
-      if (/\bfunction\s+\w+\s*\(/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-010",
-          message: "IW4 GSC does not support the `function` keyword. Write `myFunc() {}` not `function myFunc() {}`",
-          line: lineNum,
-          column: 0,
-          length: line.trimStart().length
-        });
-      }
-      const varMatch011 = line.match(/\b(var|let|const)\s+\w/);
-      if (varMatch011) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-011",
-          message: `IW4 GSC does not support '${varMatch011[1]}'. Use plain assignment: x = 5;`,
-          line: lineNum,
-          column: line.indexOf(varMatch011[0]),
-          length: varMatch011[1].length
-        });
-      }
-      const pushMatch012 = line.match(/\.(push|pop|shift|unshift|splice)\s*\(/);
-      if (pushMatch012) {
-        const fix012 = pushMatch012[1] === "push" ? "use arr[arr.size] = item;" : "no direct equivalent \u2014 rethink with indexed loop";
-        this.errors.push({
-          type: "error",
-          code: "PAT-012",
-          message: `IW4 GSC does not support .${pushMatch012[1]}(). ${fix012}`,
-          line: lineNum,
-          column: line.indexOf(pushMatch012[0]),
-          length: pushMatch012[0].length
-        });
-      }
-      if (/\.length\b/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-013",
-          message: "IW4 GSC uses .size not .length for array/string length",
-          line: lineNum,
-          column: line.indexOf(".length"),
-          length: 7
-        });
-      }
-      if (/===|!==/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-014",
-          message: "IW4 GSC does not support === or !==. Use == or != instead",
-          line: lineNum,
-          column: Math.max(0, line.search(/===|!==/)),
-          length: 3
-        });
-      }
-      if (/\s\?\s/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-015",
-          message: "IW4 GSC does not support the ternary operator (?:). Use if/else instead",
-          line: lineNum,
-          column: Math.max(0, line.search(/\s\?\s/) + 1),
-          length: 1
-        });
-      }
-      if (/=>/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-016",
-          message: "IW4 GSC does not support arrow functions (=>). Use named functions",
-          line: lineNum,
-          column: line.indexOf("=>"),
-          length: 2
-        });
-      }
-      if (/[=(,]\s*\{[^}]*\w+\s*:/.test(line) || /\breturn\s+\{[^}]*\w+\s*:/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-017",
-          message: "IW4 GSC does not support object literals {key: value}. Use spawnstruct() then assign properties",
-          line: lineNum,
-          column: 0,
-          length: line.trimStart().length
-        });
-      }
-      if (/\bnull\b/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-018",
-          message: "IW4 GSC does not have 'null'. Use !isDefined(x) to test for undefined variables",
-          line: lineNum,
-          column: Math.max(0, line.search(/\bnull\b/)),
-          length: 4
-        });
-      }
-      const jsGlobal019 = line.match(/\b(Math\.\w+|parseInt|parseFloat|Number\s*\(|Boolean\s*\(|JSON\.)\s*/);
-      if (jsGlobal019) {
-        const name019 = jsGlobal019[1].replace(/\s*$/, "");
-        const alt019 = name019 === "parseInt" ? "int()" : name019 === "parseFloat" ? "float()" : name019.startsWith("Math.floor") ? "int()" : name019.startsWith("Math.") ? "a built-in GSC math function (randomint, sin, cos, etc.)" : "GSC equivalent";
-        this.errors.push({
-          type: "error",
-          code: "PAT-019",
-          message: `'${name019}' is a JavaScript global not available in IW4 GSC. Use ${alt019}`,
-          line: lineNum,
-          column: line.indexOf(jsGlobal019[0]),
-          length: jsGlobal019[0].trimEnd().length
-        });
-      }
-      if (line.includes("`")) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-020",
-          message: 'IW4 GSC does not support template literals (`). Use string concatenation: "Hello " + name',
-          line: lineNum,
-          column: line.indexOf("`"),
-          length: 1
-        });
-      }
-      if (/\bnew\s+\w/.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-021",
-          message: "IW4 GSC does not support the `new` keyword. Use spawnstruct() to create objects",
-          line: lineNum,
-          column: Math.max(0, line.search(/\bnew\s+\w/)),
-          length: 3
-        });
-      }
-      if (/\bthis\./.test(line)) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-022",
-          message: "IW4 GSC does not have 'this'. Use 'self' for the current entity context",
-          line: lineNum,
-          column: Math.max(0, line.search(/\bthis\./)),
-          length: 5
-        });
-      }
-      const iterMatch023 = line.match(/\bfor\s*\([^)]*\bof\b|\b(forEach|\.map|\.filter|\.reduce)\s*\(/);
-      if (iterMatch023) {
-        this.errors.push({
-          type: "error",
-          code: "PAT-023",
-          message: "IW4 GSC does not support for...of or .forEach. Use: for(i=0; i<arr.size; i++)",
-          line: lineNum,
-          column: 0,
-          length: line.trimStart().length
-        });
-      }
-      const strMethod024 = line.match(/\.(concat|join|slice|indexOf|includes|startsWith|endsWith|split|trim|replace)\s*\(/);
-      if (strMethod024) {
-        const alts024 = {
-          concat: "use + operator for strings",
-          indexOf: "use strtok() or manual loop",
-          split: "use strtok()",
-          trim: "no equivalent \u2014 avoid extra whitespace",
-          replace: "no equivalent \u2014 rethink approach"
-        };
-        const alt024 = alts024[strMethod024[1]] ?? "no direct equivalent in IW4 GSC";
-        this.errors.push({
-          type: "error",
-          code: "PAT-024",
-          message: `IW4 GSC does not support .${strMethod024[1]}(). ${alt024}`,
-          line: lineNum,
-          column: line.indexOf(strMethod024[0]),
-          length: strMethod024[0].length
-        });
-      }
-    }
-    this.checkUnreachableCode();
-  }
-  /**
-   * Check for unreachable code after return/break/continue
-   * Uses token-based analysis to properly track function scopes
-   */
-  checkUnreachableCode() {
-    const functionScopeDepths = [];
-    let currentFunctionDepth = -1;
-    let foundReturn = false;
-    let returnLine = 0;
-    let returnBraceDepth = -1;
-    for (let i = 0; i < this.tokens.length; i++) {
-      const token = this.tokens[i];
-      const prev = this.tokens[i - 1];
-      if (token.type === "KEYWORD" /* KEYWORD */ && token.value === "function") {
-        const nextBrace = this.tokens.findIndex(
-          (t, idx) => idx > i && t.type === "LEFT_BRACE" /* LEFT_BRACE */
-        );
-        if (nextBrace !== -1) {
-        }
-      }
-      if (token.type === "LEFT_BRACE" /* LEFT_BRACE */) {
-        if (prev && (prev.type === "RIGHT_PAREN" /* RIGHT_PAREN */ || prev.type === "IDENTIFIER" /* IDENTIFIER */ && i >= 2 && this.tokens[i - 2]?.type === "KEYWORD" /* KEYWORD */ && this.tokens[i - 2]?.value === "function")) {
-          currentFunctionDepth = functionScopeDepths.length;
-          functionScopeDepths.push(i);
-          foundReturn = false;
-        }
-      }
-      if (token.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
-        if (functionScopeDepths.length > 0) {
-          const lastFuncStart = functionScopeDepths[functionScopeDepths.length - 1];
-          if (functionScopeDepths.length === 1) {
-            functionScopeDepths.pop();
-            currentFunctionDepth = -1;
-            foundReturn = false;
-          }
-        }
-      }
-      if (token.type === "KEYWORD" /* KEYWORD */ && (token.value === "return" || token.value === "break" || token.value === "continue")) {
-        foundReturn = true;
-        returnLine = token.line;
-        returnBraceDepth = functionScopeDepths.length;
-      }
-      if (foundReturn && token.type !== "NEWLINE" /* NEWLINE */ && token.type !== "COMMENT" /* COMMENT */ && token.type !== "BLOCK_COMMENT" /* BLOCK_COMMENT */ && token.type !== "EOF" /* EOF */ && token.type !== "SEMICOLON" /* SEMICOLON */) {
-        if (token.line === returnLine) {
-          continue;
-        }
-        if (functionScopeDepths.length === returnBraceDepth) {
-          this.errors.push({
-            type: "warning",
-            code: "FLOW-001",
-            message: `Unreachable code after ${this.getReturnKeyword(returnLine)} statement (line ${returnLine})`,
-            line: token.line,
-            column: token.column,
-            length: token.length
-          });
-          foundReturn = false;
-        }
-      }
-    }
-  }
-  /**
-   * Get the keyword (return/break/continue) that was used on a given line
-   */
-  getReturnKeyword(lineNum) {
-    for (const token of this.tokens) {
-      if (token.line === lineNum && token.type === "KEYWORD" /* KEYWORD */ && (token.value === "return" || token.value === "break" || token.value === "continue")) {
-        return token.value;
-      }
-    }
-    return "return";
-  }
-  /**
-   * Find next non-whitespace token index
-   */
-  findNextNonWhitespace(start) {
-    for (let i = start; i < this.tokens.length; i++) {
-      const token = this.tokens[i];
-      if (token.type !== "NEWLINE" /* NEWLINE */ && token.value.trim() !== "") {
-        return i;
-      }
-    }
-    return null;
-  }
-  /**
-   * Check if function is commonly used (allowlist)
-   */
-  isCommonFunctionCall(name) {
-    const nameLower = name.toLowerCase();
-    if (this.functions.has(nameLower)) {
-      return true;
-    }
-    if (name.includes("\\") || name.includes("/")) {
-      return true;
-    }
-    if (name.includes(".")) {
-      return true;
-    }
-    const common = [
-      "main",
-      "init",
-      "spawn",
-      "think",
-      "update",
-      "damage",
-      "death",
-      "connect",
-      "disconnect",
-      "spawned",
-      "playing",
-      "onplayerconnect",
-      "onplayerspawn",
-      "onplayerdeath",
-      "onteamchange",
-      "onplayerspawned",
-      "applyfpsboost",
-      "watchtoggle",
-      "showmessage",
-      "onplayerspawned",
-      "apply",
-      "callback",
-      "handler",
-      "callback_playerdamage",
-      "callback_playerlastdamage",
-      "callback_killed"
-    ];
-    return common.includes(nameLower);
-  }
-  /**
-   * Check if identifier is a built-in property access
-   */
-  isBuiltinProperty(name) {
-    const props = [
-      "origin",
-      "angles",
-      "velocity",
-      "model",
-      "classname",
-      "targetname",
-      "script_noteworthy",
-      "script_team",
-      "script_gameobjectname",
-      "u",
-      "v",
-      "forward",
-      "right",
-      "up"
-    ];
-    return props.includes(name.toLowerCase());
-  }
-  /**
-   * Detect case-insensitive function name collisions.
-   * GSC is case-insensitive — two definitions of isAlive / isalive cause a compile crash.
-   */
-  checkCaseCollisions() {
-    const outlineResult = outline(this.source);
-    const byLower = /* @__PURE__ */ new Map();
-    for (const fn of outlineResult.functions) {
-      const lower = fn.name.toLowerCase();
-      const group = byLower.get(lower) ?? [];
-      group.push({ original: fn.name, line: fn.line });
-      byLower.set(lower, group);
-    }
-    for (const [, group] of byLower) {
-      if (group.length < 2) continue;
-      const originals = new Set(group.map((g) => g.original));
-      if (originals.size < 2) continue;
-      const [first, ...rest] = group;
-      for (const dup of rest) {
-        if (dup.original === first.original) continue;
-        this.errors.push({
-          type: "error",
-          code: "DEF-001",
-          message: `Function name collision: '${dup.original}' (line ${dup.line}) and '${first.original}' (line ${first.line}) are the same name in GSC (case-insensitive)`,
-          line: dup.line,
-          column: 0
-          // outline() does not expose column positions
-        });
-      }
-    }
-  }
-};
-async function lint(source, options) {
-  const linter = new GSCLinter();
-  return linter.lint(source, options);
+  return -1;
 }
-function fix(source) {
-  let fixedCode = source;
-  const fixesApplied = [];
-  let hasChanges = false;
-  const unterminatedStringPattern = /("[^"\\]*(?:\\.[^"\\]*)*)(?=[^;"]*$)/g;
-  const lines = source.split("\n");
-  let inString = false;
-  let stringChar = "";
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    let modifiedLine = line;
-    for (let j = 0; j < modifiedLine.length; j++) {
-      const char = modifiedLine[j];
-      if ((char === '"' || char === "'") && (j === 0 || modifiedLine[j - 1] !== "\\")) {
-        if (!inString) {
-          inString = true;
-          stringChar = char;
-        } else if (char === stringChar) {
-          inString = false;
-        }
-      }
-    }
-    if (inString) {
-      modifiedLine += stringChar;
-      fixesApplied.push(`Line ${i + 1}: Added missing closing '${stringChar}'`);
-      hasChanges = true;
-    }
-    lines[i] = modifiedLine;
+function pushIf(arr, item) {
+  if (item) arr.push(item);
+}
+function entityBefore(tokens, i) {
+  if (i === 0) return null;
+  const prev = tokens[i - 1];
+  if (prev.type === "IDENTIFIER" /* IDENTIFIER */) return prev.value;
+  if (prev.type === "KEYWORD" /* KEYWORD */ && ENTITY_KEYWORDS.has(prev.value)) return prev.value;
+  return null;
+}
+function isIncludeDirective(tok) {
+  return tok.type === "HASH" /* HASH */ && (tok.value === "include" || tok.value.startsWith("using"));
+}
+function isKeyword(tok, value) {
+  return tok.type === "KEYWORD" /* KEYWORD */ && tok.value === value;
+}
+function isEventKeyword(tok) {
+  return tok.type === "KEYWORD" /* KEYWORD */ && EVENT_KEYWORDS.has(tok.value);
+}
+function isSharedStateKeyword(tok) {
+  return tok.type === "KEYWORD" /* KEYWORD */ && SHARED_STATE_KEYWORDS.has(tok.value);
+}
+function parseFunctionDef(tokens, i) {
+  const parenIdx = nextOf(tokens, i + 1);
+  if (parenIdx === -1 || tokens[parenIdx].type !== "LEFT_PAREN" /* LEFT_PAREN */) return null;
+  const { params, closeIdx } = collectParams(tokens, parenIdx);
+  const braceIdx = nextOf(tokens, closeIdx + 1);
+  if (braceIdx === -1 || tokens[braceIdx].type !== "LEFT_BRACE" /* LEFT_BRACE */) return null;
+  return { def: { name: tokens[i].value, params, line: tokens[i].line }, nextIndex: braceIdx - 1 };
+}
+function collectParams(tokens, parenIdx) {
+  const params = [];
+  let depth = 1;
+  let j = parenIdx + 1;
+  for (; j < tokens.length && depth > 0; j++) {
+    const t = tokens[j];
+    if (t.type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
+    else if (t.type === "RIGHT_PAREN" /* RIGHT_PAREN */) depth--;
+    else if (depth === 1 && t.type === "IDENTIFIER" /* IDENTIFIER */) params.push(t.value);
+    if (depth === 0) break;
   }
-  if (hasChanges) {
-    fixedCode = lines.join("\n");
+  return { params, closeIdx: j };
+}
+function parseInclude(tok, sourceLines) {
+  const lineIdx = tok.line - 1;
+  if (lineIdx < 0 || lineIdx >= sourceLines.length) return null;
+  const m = sourceLines[lineIdx].match(/#\w+\s+(.+?)(?:\s*;.*)?$/);
+  return m ? { path: m[1].trim(), line: tok.line } : null;
+}
+function endsThreadName(type) {
+  return type === "LEFT_PAREN" /* LEFT_PAREN */ || type === "SEMICOLON" /* SEMICOLON */ || type === "EOF" /* EOF */;
+}
+function parseThread(tokens, i) {
+  const entity = entityBefore(tokens, i);
+  const nxt = nextOf(tokens, i + 1);
+  if (nxt === -1) return null;
+  let funcName = "";
+  for (let j = nxt; j < tokens.length && !endsThreadName(tokens[j].type); j++) {
+    funcName += tokens[j].value;
   }
-  const bracketCounts = countBrackets(fixedCode);
-  if (bracketCounts.unmatchedBraces > 0) {
-    for (let i = 0; i < bracketCounts.unmatchedBraces; i++) {
-      fixedCode += "\n}";
-    }
-    fixesApplied.push(`Added ${bracketCounts.unmatchedBraces} missing closing brace(s)`);
-    hasChanges = true;
-  }
-  if (bracketCounts.unmatchedParens > 0) {
-    fixesApplied.push(`Warning: ${bracketCounts.unmatchedParens} unmatched parenthesis(es) - manual fix required`);
-  }
-  if (bracketCounts.unmatchedBrackets > 0) {
-    fixesApplied.push(`Warning: ${bracketCounts.unmatchedBrackets} unmatched bracket(s) - manual fix required`);
-  }
+  funcName = funcName.trim();
+  return funcName ? { funcName, entity, line: tokens[i].line } : null;
+}
+function parseEvent(tokens, i) {
   return {
-    fixed: hasChanges,
-    original: source,
-    fixedCode,
-    fixesApplied
+    type: tokens[i].value,
+    entity: entityBefore(tokens, i),
+    eventName: eventNameAfter(tokens, i),
+    line: tokens[i].line
   };
 }
+function eventNameAfter(tokens, i) {
+  const parenIdx = nextOf(tokens, i + 1);
+  if (parenIdx === -1 || tokens[parenIdx].type !== "LEFT_PAREN" /* LEFT_PAREN */) return null;
+  const argIdx = nextOf(tokens, parenIdx + 1);
+  if (argIdx === -1 || tokens[argIdx].type !== "STRING" /* STRING */) return null;
+  return tokens[argIdx].value;
+}
+function parsePropAssignment(tokens, i) {
+  const dotIdx = nextOf(tokens, i + 1);
+  if (dotIdx === -1 || tokens[dotIdx].type !== "DOT" /* DOT */) return null;
+  const propIdx = nextOf(tokens, dotIdx + 1);
+  if (propIdx === -1 || tokens[propIdx].type !== "IDENTIFIER" /* IDENTIFIER */) return null;
+  const eqIdx = nextOf(tokens, propIdx + 1);
+  if (eqIdx === -1 || tokens[eqIdx].type !== "EQUAL" /* EQUAL */) return null;
+  return { object: tokens[i].value, property: tokens[propIdx].value, line: tokens[i].line };
+}
+function outline(source) {
+  const { tokens } = tokenize(source);
+  const sourceLines = source.split("\n");
+  const acc = { functions: [], includes: [], threads: [], events: [], seenProps: /* @__PURE__ */ new Map() };
+  let braceDepth = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
+      braceDepth++;
+      continue;
+    }
+    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (braceDepth === 0 && tok.type === "IDENTIFIER" /* IDENTIFIER */) {
+      const fn = parseFunctionDef(tokens, i);
+      if (fn) {
+        acc.functions.push(fn.def);
+        i = fn.nextIndex;
+      }
+      continue;
+    }
+    collectFromToken(tokens, i, sourceLines, acc);
+  }
+  return {
+    functions: acc.functions,
+    includes: acc.includes,
+    threads: acc.threads,
+    events: acc.events,
+    props: Array.from(acc.seenProps.values())
+  };
+}
+function collectFromToken(tokens, i, sourceLines, acc) {
+  const tok = tokens[i];
+  if (isIncludeDirective(tok)) {
+    pushIf(acc.includes, parseInclude(tok, sourceLines));
+  } else if (isKeyword(tok, "thread")) {
+    pushIf(acc.threads, parseThread(tokens, i));
+  } else if (isEventKeyword(tok)) {
+    acc.events.push(parseEvent(tokens, i));
+  } else if (isSharedStateKeyword(tok)) {
+    recordProp(parsePropAssignment(tokens, i), acc.seenProps);
+  }
+}
+function recordProp(prop, seen) {
+  if (!prop) return;
+  const key = `${prop.object}.${prop.property}`;
+  if (!seen.has(key)) seen.set(key, prop);
+}
+function formatOutline(result, source) {
+  const totalLines = source.split("\n").length;
+  return [
+    `\u{1F4CB} GSC Outline (${totalLines} lines)
+
+`,
+    formatIncludes(result.includes),
+    formatFunctions(result.functions),
+    formatThreads(result.threads),
+    formatEvents(result.events),
+    formatProps(result.props)
+  ].join("").trimEnd();
+}
+function formatIncludes(includes) {
+  if (includes.length === 0) return "";
+  let out = `\u{1F4E6} Includes (${includes.length}):
+`;
+  for (const inc of includes) out += `  #include ${inc.path}
+`;
+  return out + "\n";
+}
+function formatFunctions(functions) {
+  if (functions.length === 0) return `\u{1F527} Functions: none found
+
+`;
+  const nameWidth = Math.max(...functions.map((f) => f.name.length + f.params.join(", ").length + 2));
+  let out = `\u{1F527} Functions (${functions.length}):
+`;
+  for (const fn of functions) {
+    const sig = `${fn.name}(${fn.params.join(", ")})`;
+    out += `  ${sig.padEnd(Math.min(nameWidth, 40))}  line ${fn.line}
+`;
+  }
+  return out + "\n";
+}
+function formatThreads(threads) {
+  if (threads.length === 0) return "";
+  const seen = /* @__PURE__ */ new Set();
+  const unique = threads.filter((t) => {
+    if (seen.has(t.funcName)) return false;
+    seen.add(t.funcName);
+    return true;
+  });
+  let out = `\u{1F9F5} Threads spawned (${threads.length} calls, ${unique.length} unique):
+`;
+  for (const t of unique) {
+    const prefix = t.entity ? `${t.entity} thread ` : "thread ";
+    out += `  ${prefix}${t.funcName}()  line ${t.line}
+`;
+  }
+  return out + "\n";
+}
+function formatEvents(events) {
+  if (events.length === 0) return "";
+  let out = `\u{1F4E1} Events (${events.length}):
+`;
+  for (const ev of events) {
+    const eventLabel = ev.eventName ? `"${ev.eventName}"` : "(dynamic)";
+    const entityLabel = ev.entity ? `${ev.entity} ` : "";
+    out += `  ${ev.type.padEnd(12)}  ${entityLabel}${eventLabel}  line ${ev.line}
+`;
+  }
+  return out + "\n";
+}
+function formatProps(props) {
+  if (props.length === 0) return "";
+  let out = `\u{1F511} Shared state (${props.length} unique properties, first assignment):
+`;
+  const byObj = {};
+  for (const p of props) (byObj[p.object] ??= []).push(p);
+  for (const obj of ["level", "self", "game"]) {
+    if (!byObj[obj]) continue;
+    for (const p of byObj[obj]) out += `  ${obj}.${p.property.padEnd(24)}  line ${p.line}
+`;
+  }
+  return out;
+}
+
+// src/gsc/analyzer.ts
+var CALL_CONTEXT_TYPES = /* @__PURE__ */ new Set([
+  "KEYWORD" /* KEYWORD */,
+  "LEFT_PAREN" /* LEFT_PAREN */,
+  "COMMA" /* COMMA */,
+  "COLON" /* COLON */,
+  "LEFT_BRACKET" /* LEFT_BRACKET */
+]);
+var IGNORABLE_TYPES = /* @__PURE__ */ new Set([
+  "NEWLINE" /* NEWLINE */,
+  "COMMENT" /* COMMENT */,
+  "BLOCK_COMMENT" /* BLOCK_COMMENT */,
+  "EOF" /* EOF */,
+  "SEMICOLON" /* SEMICOLON */
+]);
+var FLOW_BREAK_KEYWORDS = /* @__PURE__ */ new Set(["return", "break", "continue"]);
+var BUILTIN_PROPERTIES = /* @__PURE__ */ new Set([
+  "origin",
+  "angles",
+  "velocity",
+  "model",
+  "classname",
+  "targetname",
+  "script_noteworthy",
+  "script_team",
+  "script_gameobjectname",
+  "u",
+  "v",
+  "forward",
+  "right",
+  "up"
+]);
+var COMMON_CALLS = /* @__PURE__ */ new Set([
+  "main",
+  "init",
+  "spawn",
+  "think",
+  "update",
+  "damage",
+  "death",
+  "connect",
+  "disconnect",
+  "spawned",
+  "playing",
+  "onplayerconnect",
+  "onplayerspawn",
+  "onplayerdeath",
+  "onteamchange",
+  "onplayerspawned",
+  "applyfpsboost",
+  "watchtoggle",
+  "showmessage",
+  "apply",
+  "callback",
+  "handler",
+  "callback_playerdamage",
+  "callback_playerlastdamage",
+  "callback_killed"
+]);
+function collectDefinitions(tokens, scope) {
+  for (let i = 0; i < tokens.length; i++) {
+    const next = tokens[i + 1];
+    if (next?.type === "IDENTIFIER" /* IDENTIFIER */) addDefinition(tokens[i], next, scope);
+  }
+}
+function addDefinition(token, next, scope) {
+  if (isFunctionKeyword(token)) {
+    scope.functions.add(next.value);
+    scope.definedFunctions.set(next.value, next.line);
+  } else if (isVarKeyword(token) || isDefineMacro(token)) {
+    scope.variables.add(next.value);
+  }
+}
+function isFunctionKeyword(t) {
+  return t.type === "KEYWORD" /* KEYWORD */ && (t.value === "function" || t.value === "funcdef");
+}
+function isVarKeyword(t) {
+  return t.type === "KEYWORD" /* KEYWORD */ && t.value === "var";
+}
+function isDefineMacro(t) {
+  return t.type === "HASH" /* HASH */ && t.value === "define";
+}
+function analyzeUsage(tokens, scope) {
+  const errors = [];
+  const state = { inFunction: false, braceDepth: 0 };
+  for (let i = 0; i < tokens.length; i++) {
+    trackBraceDepth(tokens[i], state);
+    inspectIdentifier(tokens[i], tokens[i - 1], state, scope, errors);
+  }
+  return errors;
+}
+function trackBraceDepth(token, state) {
+  if (token.type === "LEFT_BRACE" /* LEFT_BRACE */) state.braceDepth++;
+  if (token.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+    state.braceDepth--;
+    if (state.braceDepth === 0) state.inFunction = false;
+  }
+}
+function inspectIdentifier(token, prev, state, scope, errors) {
+  if (token.type !== "IDENTIFIER" /* IDENTIFIER */ || !prev) return;
+  if (prev.type === "EQUAL" /* EQUAL */) {
+    reportUndefinedVar(token, state.inFunction || state.braceDepth > 0, scope, errors);
+  } else if (CALL_CONTEXT_TYPES.has(prev.type)) {
+    reportUndefinedFunc(token, scope, errors);
+  }
+  if (prev.type === "KEYWORD" /* KEYWORD */ && prev.value === "function") {
+    state.inFunction = true;
+    scope.functions.add(token.value);
+    scope.definedFunctions.set(token.value, token.line);
+  }
+}
+function reportUndefinedVar(token, inScope, scope, errors) {
+  if (!inScope) return;
+  if (scope.variables.has(token.value)) return;
+  if (BUILTIN_PROPERTIES.has(token.value.toLowerCase())) return;
+  if (scope.definedFunctions.has(token.value)) return;
+  if (isCommonFunctionCall(token.value, scope.functions)) return;
+  errors.push({
+    type: "warning",
+    code: "VAR-001",
+    message: `Undefined variable: '${token.value}'`,
+    line: token.line,
+    column: token.column,
+    length: token.length
+  });
+}
+function reportUndefinedFunc(token, scope, errors) {
+  if (scope.functions.has(token.value.toLowerCase())) return;
+  if (scope.definedFunctions.has(token.value)) return;
+  if (isCommonFunctionCall(token.value, scope.functions)) return;
+  errors.push({
+    type: "warning",
+    code: "FUN-001",
+    message: `Undefined function: '${token.value}'`,
+    line: token.line,
+    column: token.column,
+    length: token.length
+  });
+}
+function isCommonFunctionCall(name, functions) {
+  const lower = name.toLowerCase();
+  if (functions.has(lower)) return true;
+  if (name.includes("\\")) return true;
+  if (name.includes("/")) return true;
+  if (name.includes(".")) return true;
+  return COMMON_CALLS.has(lower);
+}
+function checkUnreachableCode(tokens) {
+  const errors = [];
+  const st = { scopes: [], found: false, line: 0, depth: -1, keyword: "return" };
+  for (let i = 0; i < tokens.length; i++) {
+    updateFunctionScope(tokens, i, st);
+    detectFlowBreak(tokens[i], st);
+    reportUnreachable(tokens[i], st, errors);
+  }
+  return errors;
+}
+function updateFunctionScope(tokens, i, st) {
+  const token = tokens[i];
+  if (token.type === "LEFT_BRACE" /* LEFT_BRACE */ && opensFunctionScope(tokens, i)) {
+    st.scopes.push(i);
+    st.found = false;
+  }
+  if (token.type === "RIGHT_BRACE" /* RIGHT_BRACE */ && st.scopes.length === 1) {
+    st.scopes.pop();
+    st.found = false;
+  }
+}
+function detectFlowBreak(token, st) {
+  if (token.type !== "KEYWORD" /* KEYWORD */ || !FLOW_BREAK_KEYWORDS.has(token.value)) return;
+  st.found = true;
+  st.line = token.line;
+  st.depth = st.scopes.length;
+  st.keyword = token.value;
+}
+function reportUnreachable(token, st, errors) {
+  if (!st.found || token.line === st.line) return;
+  if (IGNORABLE_TYPES.has(token.type)) return;
+  if (st.scopes.length !== st.depth) return;
+  errors.push({
+    type: "warning",
+    code: "FLOW-001",
+    message: `Unreachable code after ${st.keyword} statement (line ${st.line})`,
+    line: token.line,
+    column: token.column,
+    length: token.length
+  });
+  st.found = false;
+}
+function opensFunctionScope(tokens, i) {
+  const prev = tokens[i - 1];
+  if (!prev) return false;
+  if (prev.type === "RIGHT_PAREN" /* RIGHT_PAREN */) return true;
+  if (prev.type !== "IDENTIFIER" /* IDENTIFIER */ || i < 2) return false;
+  const keyword = tokens[i - 2];
+  return keyword?.type === "KEYWORD" /* KEYWORD */ && keyword?.value === "function";
+}
+function checkCaseCollisions(source) {
+  const errors = [];
+  for (const group of groupFunctionsByLowerName(source).values()) {
+    collectCollisions(group, errors);
+  }
+  return errors;
+}
+function groupFunctionsByLowerName(source) {
+  const byLower = /* @__PURE__ */ new Map();
+  for (const fn of outline(source).functions) {
+    const lower = fn.name.toLowerCase();
+    const group = byLower.get(lower) ?? [];
+    group.push({ original: fn.name, line: fn.line });
+    byLower.set(lower, group);
+  }
+  return byLower;
+}
+function collectCollisions(group, errors) {
+  if (group.length < 2) return;
+  if (new Set(group.map((g) => g.original)).size < 2) return;
+  const [first, ...rest] = group;
+  for (const dup of rest) {
+    if (dup.original === first.original) continue;
+    errors.push({
+      type: "error",
+      code: "DEF-001",
+      message: `Function name collision: '${dup.original}' (line ${dup.line}) and '${first.original}' (line ${first.line}) are the same name in GSC (case-insensitive)`,
+      line: dup.line,
+      column: 0
+      // outline() does not expose column positions
+    });
+  }
+}
+
+// src/gsc/patterns.ts
+init_utils();
+function at(m, message, length) {
+  return { message, column: m.index ?? 0, length: length ?? m[0].length };
+}
+var PATTERN_RULES = [
+  {
+    code: "PAT-001",
+    type: "warning",
+    re: /isDefined\s*\(\s*\)/,
+    build: (line) => ({ message: "isDefined() called without checking the result", column: 0, length: line.length })
+  },
+  {
+    code: "PAT-010",
+    type: "error",
+    re: /\bfunction\s+\w+\s*\(/,
+    build: (line) => ({ message: "IW4 GSC does not support the `function` keyword. Write `myFunc() {}` not `function myFunc() {}`", column: 0, length: line.trimStart().length })
+  },
+  {
+    code: "PAT-011",
+    type: "error",
+    re: /\b(var|let|const)\s+\w/,
+    build: (_l, m) => at(m, `IW4 GSC does not support '${m[1]}'. Use plain assignment: x = 5;`, m[1].length)
+  },
+  {
+    code: "PAT-012",
+    type: "error",
+    re: /\.(push|pop|shift|unshift|splice)\s*\(/,
+    build: (_l, m) => at(m, `IW4 GSC does not support .${m[1]}(). ${m[1] === "push" ? "use arr[arr.size] = item;" : "no direct equivalent \u2014 rethink with indexed loop"}`)
+  },
+  {
+    code: "PAT-013",
+    type: "error",
+    re: /\.length\b/,
+    build: (_l, m) => at(m, "IW4 GSC uses .size not .length for array/string length", 7)
+  },
+  {
+    code: "PAT-014",
+    type: "error",
+    re: /===|!==/,
+    build: (_l, m) => at(m, "IW4 GSC does not support === or !==. Use == or != instead", 3)
+  },
+  {
+    code: "PAT-015",
+    type: "error",
+    re: /\s\?\s/,
+    build: (_l, m) => ({ message: "IW4 GSC does not support the ternary operator (?:). Use if/else instead", column: (m.index ?? 0) + 1, length: 1 })
+  },
+  {
+    code: "PAT-016",
+    type: "error",
+    re: /=>/,
+    build: (_l, m) => at(m, "IW4 GSC does not support arrow functions (=>). Use named functions", 2)
+  },
+  {
+    code: "PAT-017",
+    type: "error",
+    re: /[=(,]\s*\{[^}]*\w+\s*:|\breturn\s+\{[^}]*\w+\s*:/,
+    build: (line) => ({ message: "IW4 GSC does not support object literals {key: value}. Use spawnstruct() then assign properties", column: 0, length: line.trimStart().length })
+  },
+  {
+    code: "PAT-018",
+    type: "error",
+    re: /\bnull\b/,
+    build: (_l, m) => at(m, "IW4 GSC does not have 'null'. Use !isDefined(x) to test for undefined variables", 4)
+  },
+  {
+    code: "PAT-019",
+    type: "error",
+    re: /\b(Math\.\w+|parseInt|parseFloat|Number\s*\(|Boolean\s*\(|JSON\.)\s*/,
+    build: (_l, m) => {
+      const name = m[1].replace(/\s*$/, "");
+      const alt = name === "parseInt" ? "int()" : name === "parseFloat" ? "float()" : name.startsWith("Math.floor") ? "int()" : name.startsWith("Math.") ? "a built-in GSC math function (randomint, sin, cos, etc.)" : "GSC equivalent";
+      return at(m, `'${name}' is a JavaScript global not available in IW4 GSC. Use ${alt}`, m[0].trimEnd().length);
+    }
+  },
+  {
+    code: "PAT-020",
+    type: "error",
+    re: /`/,
+    build: (_l, m) => at(m, 'IW4 GSC does not support template literals (`). Use string concatenation: "Hello " + name', 1)
+  },
+  {
+    code: "PAT-021",
+    type: "error",
+    re: /\bnew\s+\w/,
+    build: (_l, m) => at(m, "IW4 GSC does not support the `new` keyword. Use spawnstruct() to create objects", 3)
+  },
+  {
+    code: "PAT-022",
+    type: "error",
+    re: /\bthis\./,
+    build: (_l, m) => at(m, "IW4 GSC does not have 'this'. Use 'self' for the current entity context", 5)
+  },
+  {
+    code: "PAT-023",
+    type: "error",
+    re: /\bfor\s*\([^)]*\bof\b|\b(forEach|\.map|\.filter|\.reduce)\s*\(/,
+    build: (line) => ({ message: "IW4 GSC does not support for...of or .forEach. Use: for(i=0; i<arr.size; i++)", column: 0, length: line.trimStart().length })
+  },
+  {
+    code: "PAT-024",
+    type: "error",
+    re: /\.(concat|join|slice|indexOf|includes|startsWith|endsWith|split|trim|replace)\s*\(/,
+    build: (_l, m) => {
+      const alts = {
+        concat: "use + operator for strings",
+        indexOf: "use strtok() or manual loop",
+        split: "use strtok()",
+        trim: "no equivalent \u2014 avoid extra whitespace",
+        replace: "no equivalent \u2014 rethink approach"
+      };
+      return at(m, `IW4 GSC does not support .${m[1]}(). ${alts[m[1]] ?? "no direct equivalent in IW4 GSC"}`);
+    }
+  }
+];
+function applyPatternRules(line, lineNum, errors) {
+  for (const rule of PATTERN_RULES) {
+    const m = line.match(rule.re);
+    if (!m) continue;
+    const { message, column, length } = rule.build(line, m);
+    errors.push({ type: rule.type, code: rule.code, message, line: lineNum, column, length });
+  }
+}
+function checkLineLength(line, lineNum, errors) {
+  if (line.length <= MAX_LINE_LENGTH_WARNING) return;
+  errors.push({
+    type: "info",
+    code: "STY-001",
+    message: `Line exceeds ${MAX_LINE_LENGTH_WARNING} characters (${line.length})`,
+    line: lineNum,
+    column: 0,
+    length: line.length
+  });
+}
+async function checkHardcodedDvars(line, lineNum, errors) {
+  if (!line.includes('"') || !line.match(/"[^"]*[A-Z_]{4,}[^"]*"/)) return;
+  const matches = line.match(/"[A-Z_]+"/g);
+  if (!matches) return;
+  const dvars = await getKnownDvars();
+  for (const m of matches) {
+    if (dvars.has(m.replace(/"/g, "").toLowerCase())) continue;
+    errors.push({
+      type: "info",
+      code: "STY-002",
+      message: `Consider using a DVAR instead of hardcoded '${m}'`,
+      line: lineNum,
+      column: line.indexOf(m),
+      length: m.length
+    });
+  }
+}
+async function checkLinePatterns(source) {
+  const errors = [];
+  const lines = source.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const lineNum = i + 1;
+    applyPatternRules(lines[i], lineNum, errors);
+    checkLineLength(lines[i], lineNum, errors);
+    await checkHardcodedDvars(lines[i], lineNum, errors);
+  }
+  return errors;
+}
+
+// src/gsc/fixer.ts
+function isUnescapedQuote(char, prev) {
+  return (char === '"' || char === "'") && prev !== "\\";
+}
+function fix(source) {
+  const strFix = closeUnterminatedStrings(source);
+  const braceFix = closeUnmatchedBraces(strFix.code);
+  return {
+    fixed: strFix.changed || braceFix.changed,
+    original: source,
+    fixedCode: braceFix.code,
+    fixesApplied: [...strFix.fixes, ...braceFix.fixes]
+  };
+}
+function scanQuotes(line, state) {
+  for (let j = 0; j < line.length; j++) {
+    if (!isUnescapedQuote(line[j], j === 0 ? void 0 : line[j - 1])) continue;
+    if (!state.inString) {
+      state.inString = true;
+      state.stringChar = line[j];
+    } else if (line[j] === state.stringChar) {
+      state.inString = false;
+    }
+  }
+}
+function closeUnterminatedStrings(source) {
+  const lines = source.split("\n");
+  const state = { inString: false, stringChar: "" };
+  const fixes = [];
+  for (let i = 0; i < lines.length; i++) {
+    scanQuotes(lines[i], state);
+    if (state.inString) {
+      lines[i] += state.stringChar;
+      fixes.push(`Line ${i + 1}: Added missing closing '${state.stringChar}'`);
+    }
+  }
+  const changed = fixes.length > 0;
+  return { code: changed ? lines.join("\n") : source, changed, fixes };
+}
+function closeUnmatchedBraces(code) {
+  const counts = countBrackets(code);
+  const fixes = [];
+  let changed = false;
+  if (counts.unmatchedBraces > 0) {
+    code += "\n}".repeat(counts.unmatchedBraces);
+    fixes.push(`Added ${counts.unmatchedBraces} missing closing brace(s)`);
+    changed = true;
+  }
+  if (counts.unmatchedParens > 0) {
+    fixes.push(`Warning: ${counts.unmatchedParens} unmatched parenthesis(es) - manual fix required`);
+  }
+  if (counts.unmatchedBrackets > 0) {
+    fixes.push(`Warning: ${counts.unmatchedBrackets} unmatched bracket(s) - manual fix required`);
+  }
+  return { code, changed, fixes };
+}
+var BRACKET_DELTA = {
+  "{": [1, 0, 0],
+  "}": [-1, 0, 0],
+  "(": [0, 1, 0],
+  ")": [0, -1, 0],
+  "[": [0, 0, 1],
+  "]": [0, 0, -1]
+};
 function countBrackets(code) {
   let braces = 0;
   let parens = 0;
@@ -26798,7 +26375,7 @@ function countBrackets(code) {
   let stringChar = "";
   for (let i = 0; i < code.length; i++) {
     const char = code[i];
-    if ((char === '"' || char === "'") && (i === 0 || code[i - 1] !== "\\")) {
+    if (isUnescapedQuote(char, code[i - 1])) {
       if (!inString) {
         inString = true;
         stringChar = char;
@@ -26808,42 +26385,16 @@ function countBrackets(code) {
       continue;
     }
     if (inString) continue;
-    if (char === "/" && i + 1 < code.length) {
-      if (code[i + 1] === "/") {
-        while (i < code.length && code[i] !== "\n") i++;
-        continue;
-      }
-      if (code[i + 1] === "*") {
-        i += 2;
-        while (i < code.length - 1) {
-          if (code[i] === "*" && code[i + 1] === "/") {
-            i += 2;
-            break;
-          }
-          i++;
-        }
-        continue;
-      }
+    const afterComment = skipCommentAt(code, i);
+    if (afterComment !== i) {
+      i = afterComment;
+      continue;
     }
-    switch (char) {
-      case "{":
-        braces++;
-        break;
-      case "}":
-        braces--;
-        break;
-      case "(":
-        parens++;
-        break;
-      case ")":
-        parens--;
-        break;
-      case "[":
-        brackets++;
-        break;
-      case "]":
-        brackets--;
-        break;
+    const delta = BRACKET_DELTA[char];
+    if (delta) {
+      braces += delta[0];
+      parens += delta[1];
+      brackets += delta[2];
     }
   }
   return {
@@ -26852,6 +26403,65 @@ function countBrackets(code) {
     unmatchedBrackets: Math.max(0, brackets)
   };
 }
+function skipCommentAt(code, i) {
+  if (code[i] !== "/" || i + 1 >= code.length) return i;
+  if (code[i + 1] === "/") return endOfLineComment(code, i);
+  if (code[i + 1] === "*") return endOfBlockComment(code, i);
+  return i;
+}
+function endOfLineComment(code, i) {
+  let j = i;
+  while (j < code.length && code[j] !== "\n") j++;
+  return j;
+}
+function endOfBlockComment(code, start) {
+  for (let j = start + 2; j < code.length - 1; j++) {
+    if (code[j] === "*" && code[j + 1] === "/") return j + 2;
+  }
+  return code.length - 1;
+}
+
+// src/gsc/linter.ts
+var GSCLinter = class {
+  /** Lint GSC source code. */
+  async lint(source, options) {
+    const opts = options ?? {};
+    const errors = [];
+    const scope = {
+      functions: await getKnownBuiltins(),
+      definedFunctions: /* @__PURE__ */ new Map(),
+      variables: /* @__PURE__ */ new Set(["self", "level", "game", "player"])
+    };
+    const { tokens, errors: tokenErrors } = tokenize(source);
+    for (const err2 of tokenErrors) {
+      errors.push({ type: "error", code: "TOK-001", message: err2.message, line: err2.line, column: err2.column });
+    }
+    collectDefinitions(tokens, scope);
+    errors.push(...checkCaseCollisions(source));
+    if (opts.checkUndefined !== false) {
+      errors.push(...analyzeUsage(tokens, scope));
+    }
+    if (opts.checkPatterns !== false) {
+      errors.push(...await checkLinePatterns(source));
+      errors.push(...checkUnreachableCode(tokens));
+    }
+    return { errors, stats: buildStats(source, tokens.length, errors) };
+  }
+};
+function buildStats(source, tokenCount, errors) {
+  return {
+    lines: source.split("\n").length,
+    tokens: tokenCount,
+    errors: errors.filter((e) => e.type === "error").length,
+    warnings: errors.filter((e) => e.type === "warning").length
+  };
+}
+async function lint(source, options) {
+  return new GSCLinter().lint(source, options);
+}
+
+// src/gsc/tools.ts
+init_utils();
 
 // src/gsc/formatter.ts
 var WORD_TYPES = /* @__PURE__ */ new Set([
@@ -26892,138 +26502,175 @@ var CONTROL_KEYWORDS = /* @__PURE__ */ new Set([
   "foreach",
   "do"
 ]);
+var UNARY_CONTEXT_TYPES = /* @__PURE__ */ new Set([
+  "LEFT_PAREN" /* LEFT_PAREN */,
+  "LEFT_BRACKET" /* LEFT_BRACKET */,
+  "EQUAL" /* EQUAL */,
+  "PLUS_EQUAL" /* PLUS_EQUAL */,
+  "MINUS_EQUAL" /* MINUS_EQUAL */,
+  "STAR_EQUAL" /* STAR_EQUAL */,
+  "SLASH_EQUAL" /* SLASH_EQUAL */,
+  "COMMA" /* COMMA */,
+  "SEMICOLON" /* SEMICOLON */,
+  "EQUAL_EQUAL" /* EQUAL_EQUAL */,
+  "BANG_EQUAL" /* BANG_EQUAL */,
+  "LESS" /* LESS */,
+  "GREATER" /* GREATER */,
+  "LESS_EQUAL" /* LESS_EQUAL */,
+  "GREATER_EQUAL" /* GREATER_EQUAL */,
+  "AMPERSAND_AMPERSAND" /* AMPERSAND_AMPERSAND */,
+  "PIPE_PIPE" /* PIPE_PIPE */,
+  "BANG" /* BANG */
+]);
 function isUnaryContext(prev) {
-  if (!prev) return true;
-  return [
-    "LEFT_PAREN" /* LEFT_PAREN */,
-    "LEFT_BRACKET" /* LEFT_BRACKET */,
-    "EQUAL" /* EQUAL */,
-    "PLUS_EQUAL" /* PLUS_EQUAL */,
-    "MINUS_EQUAL" /* MINUS_EQUAL */,
-    "STAR_EQUAL" /* STAR_EQUAL */,
-    "SLASH_EQUAL" /* SLASH_EQUAL */,
-    "COMMA" /* COMMA */,
-    "SEMICOLON" /* SEMICOLON */,
-    "EQUAL_EQUAL" /* EQUAL_EQUAL */,
-    "BANG_EQUAL" /* BANG_EQUAL */,
-    "LESS" /* LESS */,
-    "GREATER" /* GREATER */,
-    "LESS_EQUAL" /* LESS_EQUAL */,
-    "GREATER_EQUAL" /* GREATER_EQUAL */,
-    "AMPERSAND_AMPERSAND" /* AMPERSAND_AMPERSAND */,
-    "PIPE_PIPE" /* PIPE_PIPE */,
-    "BANG" /* BANG */
-  ].includes(prev.type);
+  return !prev || UNARY_CONTEXT_TYPES.has(prev.type);
 }
-function needsSpaceBefore(prev, cur, prevPrev = null) {
-  if (cur.type === "COLON" /* COLON */ || prev.type === "COLON" /* COLON */) return false;
-  if (cur.type === "COMMA" /* COMMA */ || cur.type === "SEMICOLON" /* SEMICOLON */) return false;
-  if (prev.type === "LEFT_PAREN" /* LEFT_PAREN */ || prev.type === "LEFT_BRACKET" /* LEFT_BRACKET */) return false;
-  if (cur.type === "RIGHT_PAREN" /* RIGHT_PAREN */ || cur.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */) return false;
-  if (cur.type === "LEFT_PAREN" /* LEFT_PAREN */ && prev.type === "IDENTIFIER" /* IDENTIFIER */) return false;
-  if (prev.type === "COMMA" /* COMMA */) return true;
-  if (prev.type === "KEYWORD" /* KEYWORD */ && CONTROL_KEYWORDS.has(prev.value) && cur.type === "LEFT_PAREN" /* LEFT_PAREN */) return true;
-  if (BINARY_OP_TYPES.has(cur.type)) return true;
-  if (BINARY_OP_TYPES.has(prev.type)) {
-    if ((prev.type === "MINUS" /* MINUS */ || prev.type === "PLUS" /* PLUS */) && isUnaryContext(prevPrev)) return false;
-    return true;
-  }
-  if (WORD_TYPES.has(prev.type) && WORD_TYPES.has(cur.type)) return true;
-  if ((prev.type === "RIGHT_PAREN" /* RIGHT_PAREN */ || prev.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */) && WORD_TYPES.has(cur.type)) return true;
+function forcesNoSpace(prev, cur) {
+  if (cur.type === "COLON" /* COLON */ || prev.type === "COLON" /* COLON */) return true;
+  if (cur.type === "COMMA" /* COMMA */ || cur.type === "SEMICOLON" /* SEMICOLON */) return true;
+  if (prev.type === "LEFT_PAREN" /* LEFT_PAREN */ || prev.type === "LEFT_BRACKET" /* LEFT_BRACKET */) return true;
+  if (cur.type === "RIGHT_PAREN" /* RIGHT_PAREN */ || cur.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */) return true;
+  if (cur.type === "LEFT_PAREN" /* LEFT_PAREN */ && prev.type === "IDENTIFIER" /* IDENTIFIER */) return true;
   return false;
 }
-function format(tokens, opts) {
-  const indentSize = opts?.indentSize ?? 4;
-  const toks = tokens.filter((t) => t.type !== "EOF" /* EOF */);
-  if (toks.length === 0) return "";
-  const lines = [];
-  let currentLine = [];
-  let indentLevel = 0;
-  let prevTok = null;
-  let prevPrevTok = null;
-  const flushLine = () => {
-    const content = currentLine.join("").trimEnd();
-    lines.push(content.length > 0 ? " ".repeat(indentSize * indentLevel) + content : "");
-    currentLine = [];
-  };
-  for (let i = 0; i < toks.length; i++) {
-    const tok = toks[i];
-    if (tok.type === "NEWLINE" /* NEWLINE */) {
-      flushLine();
-      prevPrevTok = null;
-      prevTok = null;
-      continue;
-    }
-    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
-      if (currentLine.length > 0 && !currentLine[currentLine.length - 1].endsWith(" ")) {
-        currentLine.push(" ");
-      }
-      currentLine.push("{");
-      flushLine();
-      indentLevel++;
-      prevPrevTok = prevTok;
-      prevTok = tok;
-      continue;
-    }
-    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
-      if (currentLine.length > 0) flushLine();
-      indentLevel = Math.max(0, indentLevel - 1);
-      currentLine.push("}");
-      flushLine();
-      prevPrevTok = prevTok;
-      prevTok = tok;
-      continue;
-    }
-    if (tok.type === "SEMICOLON" /* SEMICOLON */) {
-      currentLine.push(";");
-      flushLine();
-      prevPrevTok = prevTok;
-      prevTok = tok;
-      continue;
-    }
-    if (tok.type === "COMMENT" /* COMMENT */) {
-      if (currentLine.length > 0) currentLine.push(" ");
-      currentLine.push("//" + tok.value);
-      flushLine();
-      prevPrevTok = prevTok;
-      prevTok = tok;
-      continue;
-    }
-    if (tok.type === "BLOCK_COMMENT" /* BLOCK_COMMENT */) {
-      if (currentLine.length > 0) flushLine();
-      currentLine.push("/*" + tok.value + "*/");
-      flushLine();
-      prevPrevTok = prevTok;
-      prevTok = tok;
-      continue;
-    }
-    if (prevTok !== null && currentLine.length > 0 && needsSpaceBefore(prevTok, tok, prevPrevTok)) {
-      currentLine.push(" ");
-    }
-    currentLine.push(tok.value);
-    prevPrevTok = prevTok;
-    prevTok = tok;
-  }
-  if (currentLine.length > 0) flushLine();
+function isControlKeywordParen(prev, cur) {
+  return prev.type === "KEYWORD" /* KEYWORD */ && CONTROL_KEYWORDS.has(prev.value) && cur.type === "LEFT_PAREN" /* LEFT_PAREN */;
+}
+function isUnarySign(prev, prevPrev) {
+  return (prev.type === "MINUS" /* MINUS */ || prev.type === "PLUS" /* PLUS */) && isUnaryContext(prevPrev);
+}
+function isCloserBeforeWord(prev, cur) {
+  return (prev.type === "RIGHT_PAREN" /* RIGHT_PAREN */ || prev.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */) && WORD_TYPES.has(cur.type);
+}
+function forcesSpace(prev, cur, prevPrev) {
+  if (prev.type === "COMMA" /* COMMA */) return true;
+  if (isControlKeywordParen(prev, cur)) return true;
+  if (BINARY_OP_TYPES.has(cur.type)) return true;
+  if (BINARY_OP_TYPES.has(prev.type)) return !isUnarySign(prev, prevPrev);
+  if (WORD_TYPES.has(prev.type) && WORD_TYPES.has(cur.type)) return true;
+  if (isCloserBeforeWord(prev, cur)) return true;
+  return false;
+}
+function needsSpaceBefore(prev, cur, prevPrev = null) {
+  if (forcesNoSpace(prev, cur)) return false;
+  return forcesSpace(prev, cur, prevPrev);
+}
+function isCollapsibleBlank(line, prevLine) {
+  return line.trim() === "" && (prevLine === void 0 || prevLine.trim() === "");
+}
+function needsBlankBeforeFunction(line, prevLine) {
+  return prevLine === "}" && line.trim() !== "" && !line.trim().startsWith("}");
+}
+function postProcessLines(lines) {
   const processed = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const line of lines) {
     const prevLine = processed[processed.length - 1];
-    if (line.trim() === "" && (prevLine === void 0 || prevLine.trim() === "")) continue;
-    if (prevLine === "}" && line.trim() !== "" && !line.trim().startsWith("}")) {
-      processed.push("");
-    }
+    if (isCollapsibleBlank(line, prevLine)) continue;
+    if (needsBlankBeforeFunction(line, prevLine)) processed.push("");
     processed.push(line);
   }
-  while (processed.length > 0 && processed[processed.length - 1].trim() === "") {
-    processed.pop();
+  while (processed.length > 0 && processed[processed.length - 1].trim() === "") processed.pop();
+  return processed;
+}
+var GscFormatter = class {
+  constructor(indentSize) {
+    this.indentSize = indentSize;
   }
-  return processed.join("\n");
+  lines = [];
+  current = [];
+  indent = 0;
+  prev = null;
+  prevPrev = null;
+  format(toks) {
+    for (const tok of toks) this.handle(tok);
+    if (this.current.length > 0) this.flush();
+    return postProcessLines(this.lines).join("\n");
+  }
+  flush() {
+    const content = this.current.join("").trimEnd();
+    this.lines.push(content.length > 0 ? " ".repeat(this.indentSize * this.indent) + content : "");
+    this.current = [];
+  }
+  advance(tok) {
+    this.prevPrev = this.prev;
+    this.prev = tok;
+  }
+  handle(tok) {
+    switch (tok.type) {
+      case "NEWLINE" /* NEWLINE */:
+        this.flush();
+        this.prevPrev = null;
+        this.prev = null;
+        return;
+      case "LEFT_BRACE" /* LEFT_BRACE */:
+        this.openBrace(tok);
+        return;
+      case "RIGHT_BRACE" /* RIGHT_BRACE */:
+        this.closeBrace(tok);
+        return;
+      case "SEMICOLON" /* SEMICOLON */:
+        this.current.push(";");
+        this.flush();
+        this.advance(tok);
+        return;
+      case "COMMENT" /* COMMENT */:
+        this.lineComment(tok);
+        return;
+      case "BLOCK_COMMENT" /* BLOCK_COMMENT */:
+        this.blockComment(tok);
+        return;
+      default:
+        this.word(tok);
+    }
+  }
+  // K&R: opening brace stays on the line; content after it goes to the next line.
+  openBrace(tok) {
+    if (this.current.length > 0 && !this.current[this.current.length - 1].endsWith(" ")) {
+      this.current.push(" ");
+    }
+    this.current.push("{");
+    this.flush();
+    this.indent++;
+    this.advance(tok);
+  }
+  closeBrace(tok) {
+    if (this.current.length > 0) this.flush();
+    this.indent = Math.max(0, this.indent - 1);
+    this.current.push("}");
+    this.flush();
+    this.advance(tok);
+  }
+  lineComment(tok) {
+    if (this.current.length > 0) this.current.push(" ");
+    this.current.push("//" + tok.value);
+    this.flush();
+    this.advance(tok);
+  }
+  blockComment(tok) {
+    if (this.current.length > 0) this.flush();
+    this.current.push("/*" + tok.value + "*/");
+    this.flush();
+    this.advance(tok);
+  }
+  wantsSpaceBefore(tok) {
+    return this.prev !== null && this.current.length > 0 && needsSpaceBefore(this.prev, tok, this.prevPrev);
+  }
+  word(tok) {
+    if (this.wantsSpaceBefore(tok)) this.current.push(" ");
+    this.current.push(tok.value);
+    this.advance(tok);
+  }
+};
+function format(tokens, opts) {
+  const toks = tokens.filter((t) => t.type !== "EOF" /* EOF */);
+  if (toks.length === 0) return "";
+  return new GscFormatter(opts?.indentSize ?? 4).format(toks);
 }
 
 // src/gsc/symbols.ts
 import * as fs3 from "node:fs";
 import * as path6 from "node:path";
+init_utils();
 var symbolCache = /* @__PURE__ */ new Map();
 var fileSet = /* @__PURE__ */ new Set();
 var archiveSet = /* @__PURE__ */ new Set();
@@ -27196,890 +26843,694 @@ function loadTemplates() {
     return templatesCache;
   }
 }
+function loadFromPathOrContent(filePath, content) {
+  if (filePath) {
+    const resolved = path7.resolve(filePath);
+    if (!fs4.existsSync(resolved)) {
+      return { error: { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] } };
+    }
+    try {
+      return { source: fs4.readFileSync(resolved, "utf-8") };
+    } catch (e) {
+      return { error: { content: [{ type: "text", text: `\u274C Error reading file: ${e}` }] } };
+    }
+  }
+  if (content) return { source: content };
+  return { error: { content: [{ type: "text", text: "\u274C Either path or content must be provided" }] } };
+}
+function formatErrorGroup(heading, errors, trailingBlank) {
+  if (errors.length === 0) return "";
+  let out = `${heading}
+`;
+  for (const err2 of errors) out += `  Line ${err2.line}: ${err2.message}
+`;
+  return trailingBlank ? out + "\n" : out;
+}
 function formatLintResult(result) {
+  const stats = `Stats: ${result.stats.lines} lines, ${result.stats.tokens} tokens`;
   if (result.errors.length === 0) {
     return `\u2705 No issues found!
 
-Stats: ${result.stats.lines} lines, ${result.stats.tokens} tokens`;
+${stats}`;
   }
   const errors = result.errors.filter((e) => e.type === "error");
   const warnings = result.errors.filter((e) => e.type === "warning");
   const infos = result.errors.filter((e) => e.type === "info");
-  let output = `\u{1F4CA} Results: ${errors.length} errors, ${warnings.length} warnings, ${infos.length} suggestions
+  return `\u{1F4CA} Results: ${errors.length} errors, ${warnings.length} warnings, ${infos.length} suggestions
+
+` + formatErrorGroup("\u274C **Errors:**", errors, true) + formatErrorGroup("\u26A0\uFE0F  **Warnings:**", warnings, true) + formatErrorGroup("\u{1F4A1} **Suggestions:**", infos, false) + `
+---
+${stats}`;
+}
+async function handleGscLint({ path: filePath, content, check_undefined, check_patterns }) {
+  let source;
+  if (filePath) {
+    const resolved = path7.resolve(filePath);
+    if (!fs4.existsSync(resolved)) {
+      return { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] };
+    }
+    if (!resolved.toLowerCase().endsWith(".gsc") && !resolved.toLowerCase().endsWith(".gsh")) {
+      return { content: [{ type: "text", text: `\u26A0\uFE0F Warning: File doesn't appear to be a GSC file (.gsc or .gsh)` }] };
+    }
+    try {
+      source = fs4.readFileSync(resolved, "utf-8");
+    } catch (e) {
+      return { content: [{ type: "text", text: `\u274C Error reading file: ${e}` }] };
+    }
+  } else if (content) {
+    source = content;
+  } else {
+    return { content: [{ type: "text", text: "\u274C Either path or content must be provided" }] };
+  }
+  const lintOptions = {
+    checkUndefined: check_undefined,
+    checkPatterns: check_patterns
+  };
+  const result = await lint(source, lintOptions);
+  const formatted = formatLintResult(result);
+  return { content: [{ type: "text", text: formatted }] };
+}
+function matchesBuiltin(name, func, q, cat) {
+  const nameMatch = name.toLowerCase().includes(q);
+  const descMatch = func.description?.toLowerCase().includes(q) ?? false;
+  const catMatch = cat ? func.category?.toLowerCase() === cat : true;
+  return (nameMatch || descMatch) && catMatch;
+}
+function formatBuiltinEntry(func) {
+  let s = `**${func.name}**`;
+  if (func.category) s += ` [${func.category}]`;
+  s += "\n";
+  if (func.description) s += `  ${func.description}
+`;
+  if (func.parameters) s += `  Params: ${func.parameters.map((p) => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}
+`;
+  if (func.returnType) s += `  Returns: ${func.returnType}
+`;
+  s += "\n";
+  return s;
+}
+async function handleGscLookup({ query, category }) {
+  const builtins = loadGscBuiltins2();
+  const q = query.toLowerCase();
+  const cat = category?.toLowerCase();
+  const matches = [];
+  for (const [name, func] of builtins) {
+    if (matchesBuiltin(name, func, q, cat)) matches.push(func);
+  }
+  if (matches.length === 0) {
+    return { content: [{ type: "text", text: `No functions found matching '${query}'${cat ? ` in category '${cat}'` : ""}` }] };
+  }
+  let output = `Found ${matches.length} functions:
 
 `;
-  if (errors.length > 0) {
-    output += `\u274C **Errors:**
+  for (const func of matches.slice(0, 20)) output += formatBuiltinEntry(func);
+  if (matches.length > 20) {
+    output += `
+...and ${matches.length - 20} more.`;
+  }
+  return { content: [{ type: "text", text: output }] };
+}
+function listTemplates(templates) {
+  const names = Object.keys(templates);
+  if (names.length === 0) {
+    return "No templates available. Templates should be defined in knowledge/templates.json";
+  }
+  let output = "Available templates:\n\n";
+  for (const name of names) {
+    const t = templates[name];
+    output += `**${name}**
 `;
-    for (const err2 of errors) {
-      output += `  Line ${err2.line}: ${err2.message}
+    if (t.description) output += `  ${t.description}
 `;
-    }
+    if (t.category) output += `  Category: ${t.category}
+`;
     output += "\n";
   }
-  if (warnings.length > 0) {
-    output += `\u26A0\uFE0F  **Warnings:**
-`;
-    for (const err2 of warnings) {
-      output += `  Line ${err2.line}: ${err2.message}
-`;
-    }
-    output += "\n";
-  }
-  if (infos.length > 0) {
-    output += `\u{1F4A1} **Suggestions:**
-`;
-    for (const err2 of infos) {
-      output += `  Line ${err2.line}: ${err2.message}
-`;
-    }
-  }
-  output += `
----
-Stats: ${result.stats.lines} lines, ${result.stats.tokens} tokens`;
   return output;
 }
-function registerGscTools(server2) {
-  server2.registerTool(
-    "gsc_lint",
-    {
-      title: "Lint GSC Code",
-      description: "Lints GSC (Game Script) code for syntax errors, undefined variables, bad patterns, and best practice violations. Use this to validate GSC scripts before testing in-game. Supports vibe coding: the LLM should run this after writing/modifying .gsc files.",
-      inputSchema: {
-        path: external_exports.string().optional().describe(
-          "Path to .gsc file to lint. Either this or content must be provided."
-        ),
-        content: external_exports.string().optional().describe(
-          "GSC source code to lint directly. Either this or path must be provided."
-        ),
-        check_undefined: external_exports.boolean().optional().default(true).describe(
-          "Check for undefined variables and functions"
-        ),
-        check_patterns: external_exports.boolean().optional().default(true).describe(
-          "Check for bad patterns and anti-patterns"
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ path: filePath, content, check_undefined, check_patterns }) => {
-      let source;
-      if (filePath) {
-        const resolved = path7.resolve(filePath);
-        if (!fs4.existsSync(resolved)) {
-          return {
-            content: [{
-              type: "text",
-              text: `\u274C File not found: ${resolved}`
-            }]
-          };
-        }
-        if (!resolved.toLowerCase().endsWith(".gsc") && !resolved.toLowerCase().endsWith(".gsh")) {
-          return {
-            content: [{
-              type: "text",
-              text: `\u26A0\uFE0F Warning: File doesn't appear to be a GSC file (.gsc or .gsh)`
-            }]
-          };
-        }
-        try {
-          source = fs4.readFileSync(resolved, "utf-8");
-        } catch (e) {
-          return {
-            content: [{
-              type: "text",
-              text: `\u274C Error reading file: ${e}`
-            }]
-          };
-        }
-      } else if (content) {
-        source = content;
-      } else {
-        return {
-          content: [{
-            type: "text",
-            text: "\u274C Either path or content must be provided"
-          }]
-        };
-      }
-      const lintOptions = {
-        checkUndefined: check_undefined,
-        checkPatterns: check_patterns
-      };
-      const result = await lint(source, lintOptions);
-      const formatted = formatLintResult(result);
-      return {
-        content: [{
-          type: "text",
-          text: formatted
-        }]
-      };
-    }
-  );
-  server2.registerTool(
-    "gsc_lookup",
-    {
-      title: "GSC Function Lookup",
-      description: "Search the GSC built-in function reference. Use this to find correct function signatures and descriptions. Helps prevent hallucinated function names in vibe coding.",
-      inputSchema: {
-        query: external_exports.string().describe("Search term (function name or keyword)"),
-        category: external_exports.string().optional().describe("Optional category filter")
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ query, category }) => {
-      const builtins = loadGscBuiltins2();
-      const q = query.toLowerCase();
-      const cat = category?.toLowerCase();
-      const matches = [];
-      for (const [name, func] of builtins) {
-        const nameMatch = name.toLowerCase().includes(q);
-        const descMatch = func.description?.toLowerCase().includes(q) ?? false;
-        const catMatch = cat ? func.category?.toLowerCase() === cat : true;
-        if ((nameMatch || descMatch) && catMatch) {
-          matches.push(func);
-        }
-      }
-      if (matches.length === 0) {
-        return {
-          content: [{
-            type: "text",
-            text: `No functions found matching '${query}'${cat ? ` in category '${cat}'` : ""}`
-          }]
-        };
-      }
-      const limited = matches.slice(0, 20);
-      let output = `Found ${matches.length} functions:
-
-`;
-      for (const func of limited) {
-        output += `**${func.name}**`;
-        if (func.category) output += ` [${func.category}]`;
-        output += "\n";
-        if (func.description) output += `  ${func.description}
-`;
-        if (func.parameters) output += `  Params: ${func.parameters.map((p) => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}
-`;
-        if (func.returnType) output += `  Returns: ${func.returnType}
-`;
-        output += "\n";
-      }
-      if (matches.length > 20) {
-        output += `
-...and ${matches.length - 20} more.`;
-      }
-      return {
-        content: [{
-          type: "text",
-          text: output
-        }]
-      };
-    }
-  );
-  server2.registerTool(
-    "gsc_template",
-    {
-      title: "Generate GSC from Template",
-      description: "Generate GSC code from common templates. Use this to quickly scaffold common patterns like callbacks, gametypes, menus, etc. Reduces boilerplate errors.",
-      inputSchema: {
-        template: external_exports.string().optional().describe(
-          "Template name (e.g., 'player_connect', 'killstreak'). Not required if list=true"
-        ),
-        variables: external_exports.record(external_exports.string()).optional().describe(
-          "Variables to substitute in template (e.g., {player: 'self'})"
-        ),
-        list: external_exports.boolean().optional().default(false).describe(
-          "If true, list available templates instead of generating"
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ template, variables, list }) => {
-      const templates = loadTemplates();
-      if (list || !template) {
-        const names = Object.keys(templates);
-        if (names.length === 0) {
-          return {
-            content: [{
-              type: "text",
-              text: "No templates available. Templates should be defined in knowledge/templates.json"
-            }]
-          };
-        }
-        let output = "Available templates:\n\n";
-        for (const name of names) {
-          const t2 = templates[name];
-          output += `**${name}**
-`;
-          if (t2.description) output += `  ${t2.description}
-`;
-          if (t2.category) output += `  Category: ${t2.category}
-`;
-          output += "\n";
-        }
-        return {
-          content: [{
-            type: "text",
-            text: output
-          }]
-        };
-      }
-      const t = templates[template];
-      if (!t) {
-        return {
-          content: [{
-            type: "text",
-            text: `Template '${template}' not found. Use list=true to see available templates.`
-          }]
-        };
-      }
-      let code = t.code || "";
-      if (variables) {
-        for (const [key, value] of Object.entries(variables)) {
-          const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          code = code.replace(new RegExp(`{{${escapedKey}}}`, "g"), value);
-        }
-      }
-      return {
-        content: [{
-          type: "text",
-          text: `Generated from '${template}':
+function renderTemplate(code, variables) {
+  if (!variables) return code;
+  for (const [key, value] of Object.entries(variables)) {
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    code = code.replace(new RegExp(`{{${escapedKey}}}`, "g"), value);
+  }
+  return code;
+}
+async function handleGscTemplate({ template, variables, list }) {
+  const templates = loadTemplates();
+  if (list || !template) {
+    return { content: [{ type: "text", text: listTemplates(templates) }] };
+  }
+  const t = templates[template];
+  if (!t) {
+    return { content: [{ type: "text", text: `Template '${template}' not found. Use list=true to see available templates.` }] };
+  }
+  const code = renderTemplate(t.code || "", variables);
+  return { content: [{ type: "text", text: `Generated from '${template}':
 
 \`\`\`gsc
 ${code}
-\`\`\``
-        }]
-      };
+\`\`\`` }] };
+}
+async function handleGscFix({ path: filePath, content, write_back }) {
+  const loaded = loadFromPathOrContent(filePath, content);
+  if ("error" in loaded) return loaded.error;
+  const source = loaded.source;
+  const result = fix(source);
+  let output;
+  if (!result.fixed) {
+    output = "\u2139\uFE0F  No auto-fixable issues found.\n\nRun gsc_lint for a full diagnostic report.";
+  } else {
+    output = `\u2705 Fixed ${result.fixesApplied.length} issue(s):
+`;
+    for (const change of result.fixesApplied) {
+      output += `  \u2022 ${change}
+`;
     }
-  );
-  server2.registerTool(
-    "gsc_fix",
-    {
-      title: "Auto-fix GSC Syntax Errors",
-      description: "Attempts to auto-fix common GSC syntax errors: unmatched braces, unterminated strings, and missing closing brackets. Returns the fixed code and a list of changes made. Use after gsc_lint reports fixable errors. Set write_back=true to write the fix directly to a file path.",
-      inputSchema: {
-        path: external_exports.string().optional().describe(
-          "Path to .gsc file to fix. Either this or content must be provided."
-        ),
-        content: external_exports.string().optional().describe(
-          "GSC source code to fix directly. Either this or path must be provided."
-        ),
-        write_back: external_exports.boolean().optional().default(false).describe(
-          "If true and path is provided, write the fixed code back to the file."
-        )
-      }
-    },
-    async ({ path: filePath, content, write_back }) => {
-      let source;
-      if (filePath) {
-        const resolved = path7.resolve(filePath);
-        if (!fs4.existsSync(resolved)) {
-          return {
-            content: [{ type: "text", text: `\u274C File not found: ${resolved}` }]
-          };
-        }
-        try {
-          source = fs4.readFileSync(resolved, "utf-8");
-        } catch (e) {
-          return {
-            content: [{ type: "text", text: `\u274C Error reading file: ${e}` }]
-          };
-        }
-      } else if (content) {
-        source = content;
-      } else {
-        return {
-          content: [{ type: "text", text: "\u274C Either path or content must be provided" }]
-        };
-      }
-      const result = fix(source);
-      let output;
-      if (!result.fixed) {
-        output = "\u2139\uFE0F  No auto-fixable issues found.\n\nRun gsc_lint for a full diagnostic report.";
-      } else {
-        output = `\u2705 Fixed ${result.fixesApplied.length} issue(s):
-`;
-        for (const change of result.fixesApplied) {
-          output += `  \u2022 ${change}
-`;
-        }
-        output += `
+    output += `
 **Fixed code:**
 \`\`\`gsc
 ${result.fixedCode}
 \`\`\``;
-        if (write_back && filePath) {
-          try {
-            fs4.writeFileSync(path7.resolve(filePath), result.fixedCode, "utf-8");
-            output += `
+    if (write_back && filePath) {
+      try {
+        fs4.writeFileSync(path7.resolve(filePath), result.fixedCode, "utf-8");
+        output += `
 
 \u270D\uFE0F  Written back to: ${filePath}`;
-          } catch (e) {
-            output += `
+      } catch (e) {
+        output += `
 
 \u274C Write failed: ${e}`;
-          }
-        }
       }
-      return { content: [{ type: "text", text: output }] };
     }
-  );
-  server2.registerTool(
-    "gsc_outline",
-    {
-      title: "GSC File Outline",
-      description: "Parses a GSC file and returns its structural skeleton: function definitions (name, params, line), #include directives, thread calls, event listeners (waittill/notify/endon), and shared-state property assignments (level.x, self.x, game.x). Use this BEFORE editing a GSC file to understand its structure and avoid accidentally deleting functions or breaking event chains.",
-      inputSchema: {
-        path: external_exports.string().optional().describe(
-          "Path to .gsc file to outline. Either this or content must be provided."
-        ),
-        content: external_exports.string().optional().describe(
-          "GSC source code to outline directly. Either this or path must be provided."
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ path: filePath, content }) => {
-      let source;
-      if (filePath) {
-        const resolved = path7.resolve(filePath);
-        if (!fs4.existsSync(resolved)) {
-          return {
-            content: [{ type: "text", text: `\u274C File not found: ${resolved}` }]
-          };
-        }
-        try {
-          source = fs4.readFileSync(resolved, "utf-8");
-        } catch (e) {
-          return {
-            content: [{ type: "text", text: `\u274C Error reading file: ${e}` }]
-          };
-        }
-      } else if (content) {
-        source = content;
-      } else {
-        return {
-          content: [{ type: "text", text: "\u274C Either path or content must be provided" }]
-        };
-      }
-      const result = outline(source);
-      const formatted = formatOutline(result, source);
-      return { content: [{ type: "text", text: formatted }] };
-    }
-  );
-  server2.registerTool(
-    "gsc_anti_patterns",
-    {
-      title: "GSC Anti-Patterns Reference",
-      description: "Search IW4 GSC anti-patterns: common mistakes from JS/BO3/modern languages with correct IW4 equivalents. Call this BEFORE writing code to check how to do something correctly in IW4. Returns wrong\u2192right pairs with explanations. Examples: query='push' for array append, query='null' for null checks, query='object' for struct creation, list=true to see all categories.",
-      inputSchema: {
-        query: external_exports.string().optional().describe(
-          "Search term (e.g. 'push', 'null', 'object', 'loop', 'event'). Not required if list=true."
-        ),
-        category: external_exports.string().optional().describe(
-          "Filter by category: syntax, arrays, objects, types, loops, events, entities"
-        ),
-        list: external_exports.boolean().optional().default(false).describe(
-          "If true, list all categories with entry counts instead of searching"
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ query, category, list }) => {
-      const patterns = loadAntiPatterns();
-      if (list || !query && !category) {
-        const counts = {};
-        for (const p of patterns) {
-          counts[p.category] = (counts[p.category] ?? 0) + 1;
-        }
-        if (Object.keys(counts).length === 0) {
-          return {
-            content: [{ type: "text", text: "No anti-patterns loaded. Check knowledge/gsc-anti-patterns.json." }]
-          };
-        }
-        let out2 = `\u{1F4DA} Anti-pattern categories (${patterns.length} total):
+  }
+  return { content: [{ type: "text", text: output }] };
+}
+async function handleGscOutline({ path: filePath, content }) {
+  const loaded = loadFromPathOrContent(filePath, content);
+  if ("error" in loaded) return loaded.error;
+  const source = loaded.source;
+  const result = outline(source);
+  const formatted = formatOutline(result, source);
+  return { content: [{ type: "text", text: formatted }] };
+}
+function matchesAntiPattern(p, q, cat) {
+  const inCat = cat ? p.category === cat : true;
+  const inSearch = q ? p.title.toLowerCase().includes(q) || p.wrong.toLowerCase().includes(q) || p.right.toLowerCase().includes(q) || p.explanation.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) : true;
+  return inCat && inSearch;
+}
+function formatAntiPatternCategories(patterns) {
+  const counts = {};
+  for (const p of patterns) {
+    counts[p.category] = (counts[p.category] ?? 0) + 1;
+  }
+  if (Object.keys(counts).length === 0) {
+    return "No anti-patterns loaded. Check knowledge/gsc-anti-patterns.json.";
+  }
+  let out = `\u{1F4DA} Anti-pattern categories (${patterns.length} total):
 
 `;
-        for (const [cat2, count] of Object.entries(counts).sort()) {
-          out2 += `  **${cat2}** \u2014 ${count} entries
+  for (const [cat, count] of Object.entries(counts).sort()) {
+    out += `  **${cat}** \u2014 ${count} entries
 `;
-        }
-        out2 += "\nUse query='<term>' to search, or category='<name>' to filter.";
-        return { content: [{ type: "text", text: out2 }] };
-      }
-      const q = query?.toLowerCase() ?? "";
-      const cat = category?.toLowerCase();
-      const matches = patterns.filter((p) => {
-        const inCat = cat ? p.category === cat : true;
-        const inSearch = q ? p.title.toLowerCase().includes(q) || p.wrong.toLowerCase().includes(q) || p.right.toLowerCase().includes(q) || p.explanation.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) : true;
-        return inCat && inSearch;
-      });
-      if (matches.length === 0) {
-        return {
-          content: [{ type: "text", text: `No patterns found for '${query}'${cat ? ` in category '${cat}'` : ""}.
-Use list=true to see all categories.` }]
-        };
-      }
-      let out = `Found ${matches.length} pattern(s):
+  }
+  out += "\nUse query='<term>' to search, or category='<name>' to filter.";
+  return out;
+}
+function formatAntiPatternEntry(p) {
+  return `### ${p.id}: ${p.title} [${p.category}]
 
-`;
-      for (const p of matches.slice(0, 10)) {
-        out += `### ${p.id}: ${p.title} [${p.category}]
-
-`;
-        out += `**Wrong:**
+**Wrong:**
 \`\`\`gsc
 ${p.wrong}
 \`\`\`
 
-`;
-        out += `**Right:**
+**Right:**
 \`\`\`gsc
 ${p.right}
 \`\`\`
 
-`;
-        out += `**Why:** ${p.explanation}
+**Why:** ${p.explanation}
 
 ---
 
 `;
-      }
-      if (matches.length > 10) {
-        out += `...and ${matches.length - 10} more. Narrow your query.`;
-      }
-      return { content: [{ type: "text", text: out }] };
-    }
-  );
-  server2.registerTool(
-    "iwd_index_symbols",
-    {
-      title: "Index GSC Symbols from IWD Archives",
-      description: "Scans one or more IWD archives and indexes every GSC function definition into an in-memory symbol registry. Run this once before gsc_find_orphans to enable cross-archive symbol resolution. Accepts .iwd file paths or directories containing .iwd files. The index persists for the duration of the MCP server session.",
-      inputSchema: {
-        paths: external_exports.array(external_exports.string()).describe(
-          "Paths to .iwd files or directories containing .iwd files to index"
-        ),
-        clear: external_exports.boolean().optional().default(false).describe(
-          "If true, clear the existing index before scanning (default: false \u2014 adds to existing)"
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: false
-      }
-    },
-    async ({ paths, clear }) => {
-      const iwdPaths = [];
-      for (const p of paths) {
-        const resolved = path7.resolve(p);
-        if (!fs4.existsSync(resolved)) {
-          continue;
-        }
-        let stat;
-        try {
-          stat = fs4.statSync(resolved);
-        } catch {
-          continue;
-        }
-        if (stat.isDirectory()) {
-          let dirEntries;
-          try {
-            dirEntries = fs4.readdirSync(resolved);
-          } catch {
-            continue;
-          }
-          for (const entry of dirEntries) {
-            if (entry.toLowerCase().endsWith(".iwd")) {
-              iwdPaths.push(path7.join(resolved, entry));
-            }
-          }
-        } else if (resolved.toLowerCase().endsWith(".iwd")) {
-          iwdPaths.push(resolved);
-        }
-      }
-      const prevStats = getStats();
-      const result = buildIndex(iwdPaths, clear);
-      let out = `Indexed ${result.stats.symbols} symbols across ${result.stats.files} files in ${result.stats.archives} archive(s)`;
-      if (result.perArchive.length === 0) {
-        out += ".\nNo valid .iwd archives found in provided paths.";
-      } else {
-        out += ":\n";
-        for (const a of result.perArchive) {
-          const name = path7.basename(a.archive);
-          out += `  ${name.padEnd(40)} \u2014 ${a.symbols} symbols (${a.files} files)
+}
+function renderAntiPatternMatches(matches) {
+  let out = `Found ${matches.length} pattern(s):
+
 `;
-        }
-      }
-      if (result.stats.symbols === 0) {
-        out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
-      }
-      if (clear || prevStats.symbols > 0) {
-        out += `
+  for (const p of matches.slice(0, 10)) out += formatAntiPatternEntry(p);
+  if (matches.length > 10) out += `...and ${matches.length - 10} more. Narrow your query.`;
+  return out;
+}
+async function handleGscAntiPatterns({ query, category, list }) {
+  const patterns = loadAntiPatterns();
+  const hasFilter = Boolean(query || category);
+  if (list || !hasFilter) {
+    return { content: [{ type: "text", text: formatAntiPatternCategories(patterns) }] };
+  }
+  const cat = category?.toLowerCase();
+  const matches = patterns.filter((p) => matchesAntiPattern(p, query?.toLowerCase() ?? "", cat));
+  if (matches.length === 0) {
+    return { content: [{ type: "text", text: `No patterns found for '${query}'${cat ? ` in category '${cat}'` : ""}.
+Use list=true to see all categories.` }] };
+  }
+  return { content: [{ type: "text", text: renderAntiPatternMatches(matches) }] };
+}
+var isIwdFile = (p) => p.toLowerCase().endsWith(".iwd");
+var statOrNull = (p) => {
+  try {
+    return fs4.statSync(p);
+  } catch {
+    return null;
+  }
+};
+var readdirOrNull = (p) => {
+  try {
+    return fs4.readdirSync(p);
+  } catch {
+    return null;
+  }
+};
+function iwdFilesAt(resolved) {
+  const stat = statOrNull(resolved);
+  if (!stat) return [];
+  if (!stat.isDirectory()) return isIwdFile(resolved) ? [resolved] : [];
+  return (readdirOrNull(resolved) ?? []).filter(isIwdFile).map((e) => path7.join(resolved, e));
+}
+function expandIwdPaths(paths) {
+  return paths.flatMap((p) => iwdFilesAt(path7.resolve(p)));
+}
+async function handleIwdIndexSymbols({ paths, clear }) {
+  const iwdPaths = expandIwdPaths(paths);
+  const prevStats = getStats();
+  const result = buildIndex(iwdPaths, clear);
+  let out = `Indexed ${result.stats.symbols} symbols across ${result.stats.files} files in ${result.stats.archives} archive(s)`;
+  if (result.perArchive.length === 0) {
+    out += ".\nNo valid .iwd archives found in provided paths.";
+  } else {
+    out += ":\n";
+    for (const a of result.perArchive) {
+      const name = path7.basename(a.archive);
+      out += `  ${name.padEnd(40)} \u2014 ${a.symbols} symbols (${a.files} files)
+`;
+    }
+  }
+  if (result.stats.symbols === 0) {
+    out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
+  }
+  if (clear || prevStats.symbols > 0) {
+    out += `
 Replaced previous index (was ${prevStats.symbols} symbols).`;
-      }
-      return { content: [{ type: "text", text: out }] };
+  }
+  return { content: [{ type: "text", text: out }] };
+}
+var orphanErr = (text) => ({ error: { content: [{ type: "text", text }] } });
+function readOrphanFromIwd(filePath, iwd) {
+  const iwdResult = openIwd(path7.resolve(iwd));
+  if (!iwdResult.ok) return orphanErr(`\u274C ${iwdResult.error}`);
+  const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
+  const entry = iwdResult.value.getEntry(normalized);
+  if (!entry) return orphanErr(`\u274C Entry not found in archive: ${normalized}`);
+  try {
+    return { source: entry.getData().toString("utf-8") };
+  } catch (e) {
+    return orphanErr(`\u274C Failed to read entry: ${e}`);
+  }
+}
+function readOrphanFromDisk(filePath) {
+  const resolved = path7.resolve(filePath);
+  if (!fs4.existsSync(resolved)) return orphanErr(`\u274C File not found: ${resolved}`);
+  try {
+    return { source: fs4.readFileSync(resolved, "utf-8"), hintDir: path7.dirname(resolved) };
+  } catch (e) {
+    return orphanErr(`\u274C Failed to read file: ${e}`);
+  }
+}
+function loadOrphanSource(content, filePath, iwd) {
+  if (content) return { source: content };
+  if (filePath && iwd) return readOrphanFromIwd(filePath, iwd);
+  if (filePath) return readOrphanFromDisk(filePath);
+  return orphanErr("\u274C Either content or path must be provided");
+}
+var NON_CODE_TOKENS = /* @__PURE__ */ new Set(["COMMENT" /* COMMENT */, "BLOCK_COMMENT" /* BLOCK_COMMENT */, "EOF" /* EOF */]);
+function nextRealToken(tokens, from) {
+  for (let k = from; k < tokens.length; k++) {
+    if (!NON_CODE_TOKENS.has(tokens[k].type)) return k;
+  }
+  return -1;
+}
+function isFunctionDefParen(tokens, parenIndex) {
+  let j = parenIndex + 1;
+  let depth = 1;
+  while (j < tokens.length && depth > 0) {
+    if (tokens[j].type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
+    else if (tokens[j].type === "RIGHT_PAREN" /* RIGHT_PAREN */) depth--;
+    j++;
+  }
+  const afterParen = nextRealToken(tokens, j);
+  return afterParen !== -1 && tokens[afterParen].type === "LEFT_BRACE" /* LEFT_BRACE */;
+}
+function isDoubleBracket(tokens, i) {
+  return tokens[i].type === "RIGHT_BRACKET" /* RIGHT_BRACKET */ && tokens[i + 1]?.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */;
+}
+function skipPointerCall(tokens, i) {
+  while (i < tokens.length - 1 && !isDoubleBracket(tokens, i)) i++;
+  return i + 1;
+}
+function callSiteAt(tokens, i, braceDepth) {
+  if (tokens[i].type !== "IDENTIFIER" /* IDENTIFIER */) return null;
+  const nxt = nextRealToken(tokens, i + 1);
+  if (nxt === -1 || tokens[nxt].type !== "LEFT_PAREN" /* LEFT_PAREN */) return null;
+  if (braceDepth === 0 && isFunctionDefParen(tokens, nxt)) return null;
+  return { name: tokens[i].value, line: tokens[i].line };
+}
+function collectCallSites(tokens) {
+  const callSites = [];
+  let ptrCallCount = 0;
+  let braceDepth = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
+      braceDepth++;
+      continue;
     }
-  );
-  server2.registerTool(
-    "gsc_find_orphans",
-    {
-      title: "Find Orphaned GSC Function Calls",
-      description: "Statically analyzes a GSC file and reports every function call that cannot be resolved: not defined locally, not in any #include, not a known IW4 builtin, and not in the symbol index (run iwd_index_symbols first for cross-archive resolution). Converts the 'one crash at a time' Promod porting cycle into a single batch fix.",
-      inputSchema: {
-        content: external_exports.string().optional().describe(
-          "GSC source code to analyze. Either this or path must be provided."
-        ),
-        path: external_exports.string().optional().describe(
-          "Path to a .gsc file on disk. Either this or content must be provided."
-        ),
-        iwd: external_exports.string().optional().describe(
-          "Path to an IWD archive. If provided, reads the file specified by path from inside this archive."
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ content, path: filePath, iwd }) => {
-      let source;
-      let hintDir;
-      if (content) {
-        source = content;
-      } else if (filePath && iwd) {
-        const resolved = path7.resolve(iwd);
-        const iwdResult = openIwd(resolved);
-        if (!iwdResult.ok) {
-          return { content: [{ type: "text", text: `\u274C ${iwdResult.error}` }] };
-        }
-        const zip = iwdResult.value;
-        const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
-        const entry = zip.getEntry(normalized);
-        if (!entry) {
-          return { content: [{ type: "text", text: `\u274C Entry not found in archive: ${normalized}` }] };
-        }
-        try {
-          source = entry.getData().toString("utf-8");
-        } catch (e) {
-          return { content: [{ type: "text", text: `\u274C Failed to read entry: ${e}` }] };
-        }
-      } else if (filePath) {
-        const resolved = path7.resolve(filePath);
-        if (!fs4.existsSync(resolved)) {
-          return { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] };
-        }
-        try {
-          source = fs4.readFileSync(resolved, "utf-8");
-          hintDir = path7.dirname(resolved);
-        } catch (e) {
-          return { content: [{ type: "text", text: `\u274C Failed to read file: ${e}` }] };
-        }
-      } else {
-        return { content: [{ type: "text", text: "\u274C Either content or path must be provided" }] };
-      }
-      const builtins = await getKnownBuiltins();
-      const outlineResult = outline(source);
-      const localFunctions = new Set(outlineResult.functions.map((f) => f.name.toLowerCase()));
-      const includedFunctions = /* @__PURE__ */ new Set();
-      const unresolvedIncludes = [];
-      for (const inc of outlineResult.includes) {
-        const resolved = resolveInclude(inc.path, hintDir);
-        if (resolved.source === "unresolved") {
-          unresolvedIncludes.push(inc.path);
-        } else {
-          for (const sym of resolved.symbols) {
-            includedFunctions.add(sym);
-          }
-        }
-      }
-      const { tokens } = tokenize(source);
-      const callSites = [];
-      let ptrCallCount = 0;
-      let braceDepth = 0;
-      function nextReal(from) {
-        for (let k = from; k < tokens.length; k++) {
-          const t = tokens[k];
-          if (t.type !== "COMMENT" /* COMMENT */ && t.type !== "BLOCK_COMMENT" /* BLOCK_COMMENT */ && t.type !== "EOF" /* EOF */) return k;
-        }
-        return -1;
-      }
-      for (let i = 0; i < tokens.length; i++) {
-        const tok = tokens[i];
-        if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
-          braceDepth++;
-          continue;
-        }
-        if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
-          braceDepth = Math.max(0, braceDepth - 1);
-          continue;
-        }
-        if (tok.type === "LEFT_BRACKET" /* LEFT_BRACKET */ && tokens[i + 1]?.type === "LEFT_BRACKET" /* LEFT_BRACKET */) {
-          ptrCallCount++;
-          while (i < tokens.length - 1 && !(tokens[i].type === "RIGHT_BRACKET" /* RIGHT_BRACKET */ && tokens[i + 1]?.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */)) i++;
-          i += 1;
-          continue;
-        }
-        if (tok.type !== "IDENTIFIER" /* IDENTIFIER */) continue;
-        const nxt = nextReal(i + 1);
-        if (nxt === -1 || tokens[nxt].type !== "LEFT_PAREN" /* LEFT_PAREN */) continue;
-        if (braceDepth === 0) {
-          let j = nxt + 1;
-          let depth = 1;
-          while (j < tokens.length && depth > 0) {
-            if (tokens[j].type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
-            else if (tokens[j].type === "RIGHT_PAREN" /* RIGHT_PAREN */) depth--;
-            j++;
-          }
-          const afterParen = nextReal(j);
-          if (afterParen !== -1 && tokens[afterParen].type === "LEFT_BRACE" /* LEFT_BRACE */) {
-            continue;
-          }
-        }
-        callSites.push({ name: tok.value, line: tok.line });
-      }
-      const indexStats = getStats();
-      const orphans = [];
-      for (const call of callSites) {
-        const lower = call.name.toLowerCase();
-        if (!localFunctions.has(lower) && !includedFunctions.has(lower) && !builtins.has(lower) && !hasSymbol(lower)) {
-          orphans.push({ name: call.name, line: call.line });
-        }
-      }
-      const fileName = filePath ? path7.basename(filePath) : "<inline>";
-      const uniqueOrphans = new Set(orphans.map((o) => o.name.toLowerCase())).size;
-      let out;
-      if (orphans.length === 0) {
-        out = `\u2705 0 orphaned calls in ${fileName}.
-All function calls are resolved (local, includes, builtins, or symbol index).`;
-      } else {
-        out = `Found ${orphans.length} orphaned call(s) (${uniqueOrphans} unique) in ${fileName}
+    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (tok.type === "LEFT_BRACKET" /* LEFT_BRACKET */ && tokens[i + 1]?.type === "LEFT_BRACKET" /* LEFT_BRACKET */) {
+      ptrCallCount++;
+      i = skipPointerCall(tokens, i);
+      continue;
+    }
+    const call = callSiteAt(tokens, i, braceDepth);
+    if (call) callSites.push(call);
+  }
+  return { callSites, ptrCallCount };
+}
+function formatOrphanList(orphans, fileName, indexStats) {
+  const uniqueOrphans = new Set(orphans.map((o) => o.name.toLowerCase())).size;
+  let out = `Found ${orphans.length} orphaned call(s) (${uniqueOrphans} unique) in ${fileName}
 `;
-        if (indexStats.symbols === 0) {
-          out += `\u26A0\uFE0F  Symbol index is empty \u2014 run iwd_index_symbols first to reduce false positives.
+  out += indexStats.symbols === 0 ? `\u26A0\uFE0F  Symbol index is empty \u2014 run iwd_index_symbols first to reduce false positives.
+` : `Symbol index: ${indexStats.symbols} symbols \u2014 indexed at ${indexStats.indexedAt?.toLocaleTimeString() ?? "unknown"}
 `;
-        } else {
-          out += `Symbol index: ${indexStats.symbols} symbols \u2014 indexed at ${indexStats.indexedAt?.toLocaleTimeString() ?? "unknown"}
+  out += "\n";
+  const seen = /* @__PURE__ */ new Set();
+  for (const o of orphans) {
+    const isDup = seen.has(o.name.toLowerCase());
+    seen.add(o.name.toLowerCase());
+    out += `  Line ${String(o.line).padStart(4)}  ${o.name}()${isDup ? "  (duplicate)" : ""}
 `;
-        }
-        out += "\n";
-        const seenInOutput = /* @__PURE__ */ new Set();
-        for (const o of orphans) {
-          const isDup = seenInOutput.has(o.name.toLowerCase());
-          seenInOutput.add(o.name.toLowerCase());
-          out += `  Line ${String(o.line).padStart(4)}  ${o.name}()${isDup ? "  (duplicate)" : ""}
-`;
-        }
-      }
-      if (unresolvedIncludes.length > 0) {
-        out += `
+  }
+  return out;
+}
+function formatOrphanFooter(unresolvedIncludes, ptrCallCount) {
+  let out = "";
+  if (unresolvedIncludes.length > 0) {
+    out += `
 Unresolved includes (symbols unknown \u2014 not on disk, not in index):
 `;
-        for (const inc of unresolvedIncludes) {
-          out += `  ${inc}
+    for (const inc of unresolvedIncludes) out += `  ${inc}
 `;
-        }
-      }
-      if (ptrCallCount > 0) {
-        out += `
+  }
+  if (ptrCallCount > 0) {
+    out += `
 Note: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped \u2014 not statically resolvable.
 `;
-      }
-      return { content: [{ type: "text", text: out }] };
+  }
+  return out;
+}
+function formatOrphanReport({ orphans, fileName, indexStats, unresolvedIncludes, ptrCallCount }) {
+  const body = orphans.length === 0 ? `\u2705 0 orphaned calls in ${fileName}.
+All function calls are resolved (local, includes, builtins, or symbol index).` : formatOrphanList(orphans, fileName, indexStats);
+  return body + formatOrphanFooter(unresolvedIncludes, ptrCallCount);
+}
+function resolveIncludedSymbols(includes, hintDir) {
+  const included = /* @__PURE__ */ new Set();
+  const unresolved = [];
+  for (const inc of includes) {
+    const resolved = resolveInclude(inc.path, hintDir);
+    if (resolved.source === "unresolved") unresolved.push(inc.path);
+    else for (const sym of resolved.symbols) included.add(sym);
+  }
+  return { included, unresolved };
+}
+function isUnresolvedCall(name, local, included, builtins) {
+  const lower = name.toLowerCase();
+  return !local.has(lower) && !included.has(lower) && !builtins.has(lower) && !hasSymbol(lower);
+}
+async function handleGscFindOrphans({ content, path: filePath, iwd }) {
+  const loaded = loadOrphanSource(content, filePath, iwd);
+  if ("error" in loaded) return loaded.error;
+  const { source, hintDir } = loaded;
+  const outlineResult = outline(source);
+  const localFunctions = new Set(outlineResult.functions.map((f) => f.name.toLowerCase()));
+  const { included, unresolved } = resolveIncludedSymbols(outlineResult.includes, hintDir);
+  const builtins = await getKnownBuiltins();
+  const { callSites, ptrCallCount } = collectCallSites(tokenize(source).tokens);
+  const orphans = callSites.filter((c) => isUnresolvedCall(c.name, localFunctions, included, builtins));
+  const fileName = filePath ? path7.basename(filePath) : "<inline>";
+  const out = formatOrphanReport({ orphans, fileName, indexStats: getStats(), unresolvedIncludes: unresolved, ptrCallCount });
+  return { content: [{ type: "text", text: out }] };
+}
+function extractDvarAccesses(source) {
+  const DVAR_CALL_RE = /\b(getDvar|getDvarInt|getDvarFloat|getDvarVector|setDvar|setDvarifuninitialized)\s*\(\s*"([^"]+)"/gi;
+  const lines = source.split("\n");
+  const accesses = [];
+  for (let i = 0; i < lines.length; i++) {
+    let match;
+    DVAR_CALL_RE.lastIndex = 0;
+    while ((match = DVAR_CALL_RE.exec(lines[i])) !== null) {
+      accesses.push({ fn: match[1], name: match[2], line: i + 1 });
     }
-  );
-  server2.registerTool(
-    "dvar_integrity_check",
-    {
-      title: "DVAR Integrity Check",
-      description: "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string literals against the known IW4x/MW2 DVAR database (1900+ entries). Reports unknown names that are likely typos or unsupported DVARs. Skips dynamic (non-literal) arguments silently. Use path or content as input (same as gsc_lint).",
-      inputSchema: {
-        path: external_exports.string().optional().describe(
-          "Path to .gsc / .gsh file. Either this or content must be provided."
-        ),
-        content: external_exports.string().optional().describe(
-          "Raw GSC source code. Either this or path must be provided."
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    async ({ path: filePath, content }) => {
-      let source;
-      if (filePath) {
-        const resolved = path7.resolve(filePath);
-        if (!fs4.existsSync(resolved)) {
-          return { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] };
-        }
-        try {
-          source = fs4.readFileSync(resolved, "utf-8");
-        } catch (e) {
-          return { content: [{ type: "text", text: `\u274C Error reading file: ${e}` }] };
-        }
-      } else if (content) {
-        source = content;
-      } else {
-        return { content: [{ type: "text", text: "\u274C Either path or content must be provided." }] };
-      }
-      const DVAR_CALL_RE = /\b(getDvar|getDvarInt|getDvarFloat|getDvarVector|setDvar|setDvarifuninitialized)\s*\(\s*"([^"]+)"/gi;
-      const lines = source.split("\n");
-      const accesses = [];
-      for (let i = 0; i < lines.length; i++) {
-        let match;
-        DVAR_CALL_RE.lastIndex = 0;
-        while ((match = DVAR_CALL_RE.exec(lines[i])) !== null) {
-          accesses.push({ fn: match[1], name: match[2], line: i + 1 });
-        }
-      }
-      if (accesses.length === 0) {
-        return { content: [{ type: "text", text: "\u2705 No DVAR string literal accesses found." }] };
-      }
-      const knownDvars = await getKnownDvars();
-      const known = [];
-      const unknown2 = [];
-      for (const a of accesses) {
-        if (knownDvars.has(a.name.toLowerCase())) {
-          known.push(a);
-        } else {
-          unknown2.push(a);
-        }
-      }
-      const fileName = filePath ? path7.basename(filePath) : "<inline>";
-      let out = `DVAR integrity check: ${fileName}
+  }
+  return accesses;
+}
+function formatDvarReport(fileName, known, unknown2) {
+  let out = `DVAR integrity check: ${fileName}
 `;
-      out += `Scanned ${accesses.length} DVAR access(es) \u2014 ${known.length} known, ${unknown2.length} unknown
+  out += `Scanned ${known.length + unknown2.length} DVAR access(es) \u2014 ${known.length} known, ${unknown2.length} unknown
 
 `;
-      if (unknown2.length > 0) {
-        out += `\u26A0\uFE0F  Unknown DVARs (possible typos or unsupported):
+  if (unknown2.length > 0) {
+    out += `\u26A0\uFE0F  Unknown DVARs (possible typos or unsupported):
 `;
-        for (const a of unknown2) {
-          out += `  line ${a.line}: ${a.fn}("${a.name}")
+    for (const a of unknown2) out += `  line ${a.line}: ${a.fn}("${a.name}")
 `;
-        }
-        out += "\n";
-      } else {
-        out += `\u2705 All DVAR names are valid.
+    out += "\n";
+  } else {
+    out += `\u2705 All DVAR names are valid.
 
 `;
-      }
-      if (known.length > 0) {
-        out += `\u2713 Known DVARs (${known.length}):
+  }
+  if (known.length > 0) {
+    const uniqueKnown = [...new Set(known.map((a) => a.name))];
+    out += `\u2713 Known DVARs (${known.length}):
+  ${uniqueKnown.join(", ")}
 `;
-        const uniqueKnown = [...new Set(known.map((a) => a.name))];
-        out += `  ${uniqueKnown.join(", ")}
-`;
-      }
-      return { content: [{ type: "text", text: out }] };
-    }
-  );
-  server2.registerTool(
-    "gsc_format",
-    {
-      title: "Format GSC Source Code",
-      description: "Format GSC source code with consistent 4-space indentation, K&R brace style, and proper operator spacing. Accepts raw code or an IWD path+entry. Use write_back=true to save the formatted result back to the IWD.",
-      inputSchema: {
-        code: external_exports.string().optional().describe("Raw GSC source code to format"),
-        iwd_path: external_exports.string().optional().describe("Absolute path to the .iwd archive"),
-        entry: external_exports.string().optional().describe(
-          "Entry path within the IWD (e.g. maps/mp/gametypes/_mymod.gsc)"
-        ),
-        write_back: external_exports.boolean().optional().describe(
-          "Write formatted result back to IWD entry (default: false)"
-        ),
-        dry_run: external_exports.boolean().optional().describe(
-          "Preview diff without writing when write_back=true (default: false)"
-        )
-      },
-      annotations: {
-        readOnlyHint: false,
-        idempotentHint: true
-      }
-    },
-    async ({ code, iwd_path, entry, write_back, dry_run }) => {
-      if (!code && !(iwd_path && entry)) {
-        return errResult("Provide either 'code', or both 'iwd_path' and 'entry'.");
-      }
-      let source;
-      if (code) {
-        source = code;
-      } else {
-        const iwdResult = openIwd(iwd_path);
-        if (!iwdResult.ok) return errResult(iwdResult.error);
-        const zip = iwdResult.value;
-        const fileEntry = zip.getEntry(entry);
-        if (!fileEntry) return errResult(`Entry not found: ${entry}`);
-        source = fileEntry.getData().toString("utf-8");
-      }
-      const { tokens, errors: tokErrors } = tokenize(source);
-      const formatted = format(tokens);
-      if (write_back && iwd_path && entry) {
-        const iwdResult2 = openIwd(iwd_path);
-        if (!iwdResult2.ok) return errResult(iwdResult2.error);
-        const zipToWrite = iwdResult2.value;
-        if (dry_run) {
-          const { snippet: snippet2 } = buildDiffSnippet(source, formatted);
-          return okResult(`[dry_run] Would write formatted ${entry}:
-
-${snippet2}`);
-        }
-        zipToWrite.updateFile(entry, Buffer.from(formatted, "utf-8"));
-        zipToWrite.writeZip(iwd_path);
-        const { snippet } = buildDiffSnippet(source, formatted);
-        return okResult(`Formatted and wrote ${entry}:
+  }
+  return out;
+}
+async function handleDvarIntegrityCheck({ path: filePath, content }) {
+  const loaded = loadFromPathOrContent(filePath, content);
+  if ("error" in loaded) return loaded.error;
+  const accesses = extractDvarAccesses(loaded.source);
+  if (accesses.length === 0) {
+    return { content: [{ type: "text", text: "\u2705 No DVAR string literal accesses found." }] };
+  }
+  const knownDvars = await getKnownDvars();
+  const known = accesses.filter((a) => knownDvars.has(a.name.toLowerCase()));
+  const unknown2 = accesses.filter((a) => !knownDvars.has(a.name.toLowerCase()));
+  const fileName = filePath ? path7.basename(filePath) : "<inline>";
+  return { content: [{ type: "text", text: formatDvarReport(fileName, known, unknown2) }] };
+}
+function loadFormatSource(code, iwd_path, entry) {
+  if (code) return { source: code };
+  const iwdResult = openIwd(iwd_path);
+  if (!iwdResult.ok) return { error: errResult(iwdResult.error) };
+  const fileEntry = iwdResult.value.getEntry(entry);
+  if (!fileEntry) return { error: errResult(`Entry not found: ${entry}`) };
+  return { source: fileEntry.getData().toString("utf-8") };
+}
+function writeFormattedToIwd({ iwd_path, entry, source, formatted, dry_run }) {
+  const iwdResult = openIwd(iwd_path);
+  if (!iwdResult.ok) return errResult(iwdResult.error);
+  const { snippet } = buildDiffSnippet(source, formatted);
+  if (dry_run) {
+    return okResult(`[dry_run] Would write formatted ${entry}:
 
 ${snippet}`);
-      }
-      const warnings = tokErrors.length > 0 ? `
+  }
+  iwdResult.value.updateFile(entry, Buffer.from(formatted, "utf-8"));
+  iwdResult.value.writeZip(iwd_path);
+  return okResult(`Formatted and wrote ${entry}:
+
+${snippet}`);
+}
+function formatTokenizerWarnings(tokErrors) {
+  if (tokErrors.length === 0) return "";
+  return `
 
 \u26A0\uFE0F Tokenizer warnings (${tokErrors.length}):
-` + tokErrors.map((e) => `  L${e.line}: ${e.message}`).join("\n") : "";
-      return okResult("```gsc\n" + formatted + "\n```" + warnings);
+` + tokErrors.map((e) => `  L${e.line}: ${e.message}`).join("\n");
+}
+async function handleGscFormat({ code, iwd_path, entry, write_back, dry_run }) {
+  const hasIwdTarget = Boolean(iwd_path && entry);
+  if (!code && !hasIwdTarget) {
+    return errResult("Provide either 'code', or both 'iwd_path' and 'entry'.");
+  }
+  const loaded = loadFormatSource(code, iwd_path, entry);
+  if ("error" in loaded) return loaded.error;
+  const { tokens, errors: tokErrors } = tokenize(loaded.source);
+  const formatted = format(tokens);
+  if (write_back && hasIwdTarget) {
+    return writeFormattedToIwd({ iwd_path, entry, source: loaded.source, formatted, dry_run: dry_run ?? false });
+  }
+  return okResult("```gsc\n" + formatted + "\n```" + formatTokenizerWarnings(tokErrors));
+}
+var READ_ONLY = { readOnlyHint: true, idempotentHint: true };
+function gscTool(name, config2, handler) {
+  return (server2) => {
+    server2.registerTool(name, config2, handler);
+  };
+}
+var GSC_TOOLS = [
+  gscTool("gsc_lint", {
+    title: "Lint GSC Code",
+    description: "Lints GSC (Game Script) code for syntax errors, undefined variables, bad patterns, and best practice violations. Use this to validate GSC scripts before testing in-game. Supports vibe coding: the LLM should run this after writing/modifying .gsc files.",
+    inputSchema: {
+      path: external_exports.string().optional().describe("Path to .gsc file to lint. Either this or content must be provided."),
+      content: external_exports.string().optional().describe("GSC source code to lint directly. Either this or path must be provided."),
+      check_undefined: external_exports.boolean().optional().default(true).describe("Check for undefined variables and functions"),
+      check_patterns: external_exports.boolean().optional().default(true).describe("Check for bad patterns and anti-patterns")
+    },
+    annotations: READ_ONLY
+  }, handleGscLint),
+  gscTool("gsc_lookup", {
+    title: "GSC Function Lookup",
+    description: "Search the GSC built-in function reference. Use this to find correct function signatures and descriptions. Helps prevent hallucinated function names in vibe coding.",
+    inputSchema: {
+      query: external_exports.string().describe("Search term (function name or keyword)"),
+      category: external_exports.string().optional().describe("Optional category filter")
+    },
+    annotations: READ_ONLY
+  }, handleGscLookup),
+  gscTool("gsc_template", {
+    title: "Generate GSC from Template",
+    description: "Generate GSC code from common templates. Use this to quickly scaffold common patterns like callbacks, gametypes, menus, etc. Reduces boilerplate errors.",
+    inputSchema: {
+      template: external_exports.string().optional().describe("Template name (e.g., 'player_connect', 'killstreak'). Not required if list=true"),
+      variables: external_exports.record(external_exports.string()).optional().describe("Variables to substitute in template (e.g., {player: 'self'})"),
+      list: external_exports.boolean().optional().default(false).describe("If true, list available templates instead of generating")
+    },
+    annotations: READ_ONLY
+  }, handleGscTemplate),
+  gscTool("gsc_fix", {
+    title: "Auto-fix GSC Syntax Errors",
+    description: "Attempts to auto-fix common GSC syntax errors: unmatched braces, unterminated strings, and missing closing brackets. Returns the fixed code and a list of changes made. Use after gsc_lint reports fixable errors. Set write_back=true to write the fix directly to a file path.",
+    inputSchema: {
+      path: external_exports.string().optional().describe("Path to .gsc file to fix. Either this or content must be provided."),
+      content: external_exports.string().optional().describe("GSC source code to fix directly. Either this or path must be provided."),
+      write_back: external_exports.boolean().optional().default(false).describe("If true and path is provided, write the fixed code back to the file.")
     }
-  );
+  }, handleGscFix),
+  gscTool("gsc_outline", {
+    title: "GSC File Outline",
+    description: "Parses a GSC file and returns its structural skeleton: function definitions (name, params, line), #include directives, thread calls, event listeners (waittill/notify/endon), and shared-state property assignments (level.x, self.x, game.x). Use this BEFORE editing a GSC file to understand its structure and avoid accidentally deleting functions or breaking event chains.",
+    inputSchema: {
+      path: external_exports.string().optional().describe("Path to .gsc file to outline. Either this or content must be provided."),
+      content: external_exports.string().optional().describe("GSC source code to outline directly. Either this or path must be provided.")
+    },
+    annotations: READ_ONLY
+  }, handleGscOutline),
+  gscTool("gsc_anti_patterns", {
+    title: "GSC Anti-Patterns Reference",
+    description: "Search IW4 GSC anti-patterns: common mistakes from JS/BO3/modern languages with correct IW4 equivalents. Call this BEFORE writing code to check how to do something correctly in IW4. Returns wrong\u2192right pairs with explanations. Examples: query='push' for array append, query='null' for null checks, query='object' for struct creation, list=true to see all categories.",
+    inputSchema: {
+      query: external_exports.string().optional().describe("Search term (e.g. 'push', 'null', 'object', 'loop', 'event'). Not required if list=true."),
+      category: external_exports.string().optional().describe("Filter by category: syntax, arrays, objects, types, loops, events, entities"),
+      list: external_exports.boolean().optional().default(false).describe("If true, list all categories with entry counts instead of searching")
+    },
+    annotations: READ_ONLY
+  }, handleGscAntiPatterns),
+  gscTool("iwd_index_symbols", {
+    title: "Index GSC Symbols from IWD Archives",
+    description: "Scans one or more IWD archives and indexes every GSC function definition into an in-memory symbol registry. Run this once before gsc_find_orphans to enable cross-archive symbol resolution. Accepts .iwd file paths or directories containing .iwd files. The index persists for the duration of the MCP server session.",
+    inputSchema: {
+      paths: external_exports.array(external_exports.string()).describe("Paths to .iwd files or directories containing .iwd files to index"),
+      clear: external_exports.boolean().optional().default(false).describe("If true, clear the existing index before scanning (default: false \u2014 adds to existing)")
+    },
+    annotations: { readOnlyHint: true, idempotentHint: false }
+  }, handleIwdIndexSymbols),
+  gscTool("gsc_find_orphans", {
+    title: "Find Orphaned GSC Function Calls",
+    description: "Statically analyzes a GSC file and reports every function call that cannot be resolved: not defined locally, not in any #include, not a known IW4 builtin, and not in the symbol index (run iwd_index_symbols first for cross-archive resolution). Converts the 'one crash at a time' Promod porting cycle into a single batch fix.",
+    inputSchema: {
+      content: external_exports.string().optional().describe("GSC source code to analyze. Either this or path must be provided."),
+      path: external_exports.string().optional().describe("Path to a .gsc file on disk. Either this or content must be provided."),
+      iwd: external_exports.string().optional().describe("Path to an IWD archive. If provided, reads the file specified by path from inside this archive.")
+    },
+    annotations: READ_ONLY
+  }, handleGscFindOrphans),
+  gscTool("dvar_integrity_check", {
+    title: "DVAR Integrity Check",
+    description: "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string literals against the known IW4x/MW2 DVAR database (1900+ entries). Reports unknown names that are likely typos or unsupported DVARs. Skips dynamic (non-literal) arguments silently. Use path or content as input (same as gsc_lint).",
+    inputSchema: {
+      path: external_exports.string().optional().describe("Path to .gsc / .gsh file. Either this or content must be provided."),
+      content: external_exports.string().optional().describe("Raw GSC source code. Either this or path must be provided.")
+    },
+    annotations: READ_ONLY
+  }, handleDvarIntegrityCheck),
+  gscTool("gsc_format", {
+    title: "Format GSC Source Code",
+    description: "Format GSC source code with consistent 4-space indentation, K&R brace style, and proper operator spacing. Accepts raw code or an IWD path+entry. Use write_back=true to save the formatted result back to the IWD.",
+    inputSchema: {
+      code: external_exports.string().optional().describe("Raw GSC source code to format"),
+      iwd_path: external_exports.string().optional().describe("Absolute path to the .iwd archive"),
+      entry: external_exports.string().optional().describe("Entry path within the IWD (e.g. maps/mp/gametypes/_mymod.gsc)"),
+      write_back: external_exports.boolean().optional().describe("Write formatted result back to IWD entry (default: false)"),
+      dry_run: external_exports.boolean().optional().describe("Preview diff without writing when write_back=true (default: false)")
+    },
+    annotations: { readOnlyHint: false, idempotentHint: true }
+  }, handleGscFormat)
+];
+function registerGscTools(server2) {
+  for (const register of GSC_TOOLS) register(server2);
 }
 
 // src/index.ts
+init_utils();
 async function cleanupOrphanedTempFiles() {
   const fs5 = await import("node:fs/promises");
   const path8 = await import("node:path");
-  const cwd = process.cwd();
-  try {
-    const entries = await fs5.readdir(cwd, { withFileTypes: true });
-    let cleaned = 0;
-    for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith(".tmp")) {
-        try {
-          const fullPath = path8.join(cwd, entry.name);
-          const stat = await fs5.stat(fullPath);
-          if (Date.now() - stat.mtimeMs > 36e5) {
-            await fs5.unlink(fullPath);
-            cleaned++;
+  const { atomicWriteDirs: atomicWriteDirs2 } = await Promise.resolve().then(() => (init_utils(), utils_exports));
+  const dirsToScan = /* @__PURE__ */ new Set([...atomicWriteDirs2, process.cwd()]);
+  let cleaned = 0;
+  for (const dir of dirsToScan) {
+    try {
+      const entries = await fs5.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(".tmp")) {
+          try {
+            const fullPath = path8.join(dir, entry.name);
+            const stat = await fs5.stat(fullPath);
+            if (Date.now() - stat.mtimeMs > 36e5) {
+              await fs5.unlink(fullPath);
+              cleaned++;
+            }
+          } catch {
           }
-        } catch {
         }
       }
+    } catch {
     }
-    if (cleaned > 0) {
-      console.error(`[iw4x-toolkit] Cleaned up ${cleaned} orphaned .tmp file(s)`);
-    }
-  } catch {
+  }
+  if (cleaned > 0) {
+    console.error(`[iw4x-toolkit] Cleaned up ${cleaned} orphaned .tmp file(s)`);
   }
 }
 var server = new McpServer({
@@ -28108,7 +27559,9 @@ if (isDirectRun) {
 }
 export {
   RATE_LIMITS,
+  RATE_LIMIT_MAX_SIZE,
   atomicWrite,
+  atomicWriteDirs,
   backedUp,
   buildDiffSnippet,
   checkRateLimit,
@@ -28125,6 +27578,7 @@ export {
   normalizeEntry,
   openIwd,
   openIwdAsync,
+  rateLimitMap,
   resolveIwdPath,
   server
 };

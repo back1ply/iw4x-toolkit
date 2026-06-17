@@ -51,70 +51,48 @@ interface ParsedDvarsCache {
 const KNOWLEDGE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let dvarsCache: ParsedDvarsCache | null = null;
-let gscRawCache: RawCache | null = null;
-let menuHudCache: RawCache | null = null;
+const rawCaches = new Map<string, RawCache>();
 
-/**
- * Checks if a cache entry has expired based on TTL.
- */
-function isCacheExpired(cachedAt: number): boolean {
-  return Date.now() - cachedAt > KNOWLEDGE_CACHE_TTL_MS;
+/** A cache entry is fresh when the file is unchanged and within the TTL. */
+function isCacheFresh(cache: { mtime: number; cachedAt: number }, mtime: number): boolean {
+  const expired = Date.now() - cache.cachedAt > KNOWLEDGE_CACHE_TTL_MS;
+  return cache.mtime === mtime && !expired;
 }
 
 /**
- * Loads `dvars.json` as a raw JSON string.
- * Uses getParsedDvars to fetch from the single cache, then serializes it.
+ * Load a knowledge-base file as a raw JSON string, cached by mtime — disk is
+ * only re-read when the file changes (or the TTL lapses). On any failure,
+ * returns a JSON `{ error }` string so callers always get valid JSON.
  */
+function loadCachedRaw(fileName: string): string {
+  const filePath = getKnowledgeDir(fileName);
+  if (!filePath) return JSON.stringify({ error: `${fileName} not found` });
+  try {
+    const mtime = fs.statSync(filePath).mtimeMs;
+    const cached = rawCaches.get(fileName);
+    if (cached && isCacheFresh(cached, mtime)) return cached.raw;
+    const raw = fs.readFileSync(filePath, "utf-8");
+    rawCaches.set(fileName, { raw, mtime, cachedAt: Date.now() });
+    return raw;
+  } catch (e) {
+    return JSON.stringify({ error: `Failed to load ${fileName}: ${getErrMsg(e)}` });
+  }
+}
+
+/** Loads `dvars.json` as a pretty-printed JSON string (or a JSON error string). */
 export function loadDvars(): string {
   const result = getParsedDvars();
-  if ("error" in result) {
-    return JSON.stringify(result);
-  }
-  return JSON.stringify(result, null, 2);
+  return "error" in result ? JSON.stringify(result) : JSON.stringify(result, null, 2);
 }
 
-/**
- * Loads `gsc-builtins.json` as a raw JSON string.
- * Cached by mtime — disk is only re-read when the file changes.
- */
+/** Loads `gsc-builtins.json` as a raw JSON string. */
 export function loadGscBuiltins(): string {
-  const filePath = getKnowledgeDir("gsc-builtins.json");
-  if (!filePath) {
-    return JSON.stringify({ error: "gsc-builtins.json not found" });
-  }
-  try {
-    const mtime = fs.statSync(filePath).mtimeMs;
-    if (gscRawCache && gscRawCache.mtime === mtime && !isCacheExpired(gscRawCache.cachedAt)) {
-      return gscRawCache.raw;
-    }
-    const raw = fs.readFileSync(filePath, "utf-8");
-    gscRawCache = { raw, mtime, cachedAt: Date.now() };
-    return raw;
-  } catch (e) {
-    return JSON.stringify({ error: `Failed to load gsc-builtins.json: ${getErrMsg(e)}` });
-  }
+  return loadCachedRaw("gsc-builtins.json");
 }
 
-/**
- * Loads `gsc-menu-hud.json` as a raw JSON string.
- * Cached by mtime.
- */
+/** Loads `gsc-menu-hud.json` as a raw JSON string. */
 export function loadMenuHud(): string {
-  const filePath = getKnowledgeDir("gsc-menu-hud.json");
-  if (!filePath) {
-    return JSON.stringify({ error: "gsc-menu-hud.json not found" });
-  }
-  try {
-    const mtime = fs.statSync(filePath).mtimeMs;
-    if (menuHudCache && menuHudCache.mtime === mtime && !isCacheExpired(menuHudCache.cachedAt)) {
-      return menuHudCache.raw;
-    }
-    const raw = fs.readFileSync(filePath, "utf-8");
-    menuHudCache = { raw, mtime, cachedAt: Date.now() };
-    return raw;
-  } catch (e) {
-    return JSON.stringify({ error: `Failed to load gsc-menu-hud.json: ${getErrMsg(e)}` });
-  }
+  return loadCachedRaw("gsc-menu-hud.json");
 }
 
 /**
@@ -127,10 +105,8 @@ function getParsedDvars(): { dvars: Dvar[] } | { error: string } {
 
   try {
     const mtime = fs.statSync(filePath).mtimeMs;
-    if (dvarsCache && dvarsCache.mtime === mtime && !isCacheExpired(dvarsCache.cachedAt)) {
-      return dvarsCache.data;
-    }
-    
+    if (dvarsCache && isCacheFresh(dvarsCache, mtime)) return dvarsCache.data;
+
     const raw = fs.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw) as { dvars: Dvar[] };
     dvarsCache = { data, mtime, cachedAt: Date.now() };
@@ -138,6 +114,119 @@ function getParsedDvars(): { dvars: Dvar[] } | { error: string } {
   } catch (e) {
     return { error: `Failed to parse dvars.json: ${getErrMsg(e)}` };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Tool handlers
+// ---------------------------------------------------------------------------
+
+type ToolResult = ReturnType<typeof okResult>;
+
+/** Match a DVAR against the query (name/description) and optional category filter. */
+function matchesDvar(d: Dvar, q: string, cat: string | undefined): boolean {
+  if (cat !== undefined && d.category?.toLowerCase() !== cat) return false;
+  const desc = d.description?.toLowerCase() ?? "";
+  return d.name.toLowerCase().includes(q) || desc.includes(q);
+}
+
+/** Render one DVAR search-result line. */
+function formatDvarLine(d: Dvar): string {
+  const desc = d.description ? `\n  ${d.description}` : "";
+  return `- ${d.name} [${d.type}, default: ${d.default}] (${d.category}/${d.subcategory ?? ""})${desc}`;
+}
+
+async function handleDvarSearch({ query, category }: { query: string; category?: string }): Promise<ToolResult> {
+  const result = getParsedDvars();
+  if ("error" in result) return errResult(result.error);
+  if (!Array.isArray(result.dvars)) return errResult("Invalid dvars.json structure: missing 'dvars' array.");
+
+  const cat = category?.toLowerCase();
+  const matches = result.dvars.filter(d => matchesDvar(d, query.toLowerCase(), cat));
+  if (matches.length === 0) {
+    return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
+  }
+
+  const output = matches.slice(0, 20).map(formatDvarLine).join("\n");
+  const footer = matches.length > 20 ? `\n\n... and ${matches.length - 20} more. Refine your search.` : "";
+  return okResult(`Found ${matches.length} DVARs matching '${query}':\n\n${output}${footer}`);
+}
+
+// Maps a menu-hud topic alias to its key path within the JSON `sections` object.
+const MENU_HUD_PATHS: Record<string, string[]> = {
+  positioning: ["positioning"],
+  properties: ["properties"],
+  layering: ["layering"],
+  setpoint: ["positioning", "setPoint"],
+  fonts: ["properties", "text", "font"],
+  font: ["properties", "text", "font"],
+  sort: ["layering", "sort_system"],
+  color: ["properties", "visual", "color"],
+  colour: ["properties", "visual", "color"],
+  alpha: ["properties", "visual", "alpha"],
+  cleanup: ["layering", "cleanup"],
+  destroy: ["layering", "cleanup"],
+  foreground: ["properties", "visual", "foreground"],
+};
+
+const MENU_HUD_VALID_TOPICS = "positioning, properties, layering, setPoint, fonts, sort, color, alpha, foreground, cleanup, all";
+
+/** Parse gsc-menu-hud.json and return its `sections` object, or an error message. */
+function loadMenuHudSections(): { sections: Record<string, unknown> } | { error: string } {
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(loadMenuHud()) as Record<string, unknown>;
+  } catch {
+    return { error: "Failed to parse gsc-menu-hud.json" };
+  }
+  if ("error" in data) return { error: String(data.error) };
+  const sections = data.sections;
+  if (!sections || typeof sections !== "object") {
+    return { error: "gsc-menu-hud.json: missing or invalid 'sections' key." };
+  }
+  return { sections: sections as Record<string, unknown> };
+}
+
+/** Walk a key path through `sections`; returns the value, or undefined if absent. */
+function resolvePath(sections: Record<string, unknown>, keys: string[]): unknown {
+  let current: unknown = sections;
+  for (const key of keys) {
+    if (!isPlainObject(current)) return undefined;
+    current = current[key];
+  }
+  return current;
+}
+
+/** Fallback search: scan every section for a key matching the topic. */
+function searchMenuTopic(sections: Record<string, unknown>, term: string, topic: string): ToolResult {
+  const results: Record<string, unknown> = {};
+  for (const [sectionName, section] of Object.entries(sections)) {
+    const found = findInSection(section as Record<string, unknown>, term);
+    if (found !== null) results[sectionName] = found;
+  }
+  if (Object.keys(results).length > 0) return okResult(JSON.stringify(results, null, 2));
+  return okResult(
+    `No match found for topic '${topic}'.\n` +
+    `Valid topics: ${MENU_HUD_VALID_TOPICS}.\n` +
+    `Or use any property name (e.g. 'fontscale', 'glowAlpha').`
+  );
+}
+
+async function handleMenuHud({ topic }: { topic: string }): Promise<ToolResult> {
+  const loaded = loadMenuHudSections();
+  if ("error" in loaded) return errResult(loaded.error);
+  const { sections } = loaded;
+
+  const t = topic.toLowerCase().trim();
+  if (t === "all") return okResult(JSON.stringify(sections, null, 2));
+
+  const keys = MENU_HUD_PATHS[t];
+  if (keys) {
+    const val = resolvePath(sections, keys);
+    if (val === undefined) return errResult(`gsc-menu-hud.json: '${keys.join(".")}' not found.`);
+    return okResult(JSON.stringify(val, null, 2));
+  }
+
+  return searchMenuTopic(sections, t, topic);
 }
 
 // ---------------------------------------------------------------------------
@@ -207,45 +296,7 @@ export function registerKnowledgeTools(server: McpServer): void {
         idempotentHint: true,
       },
     },
-    async ({ query, category }) => {
-      const result = getParsedDvars();
-      if ("error" in result) {
-        return errResult(result.error);
-      }
-
-      if (!Array.isArray(result.dvars)) {
-        return errResult("Invalid dvars.json structure: missing 'dvars' array.");
-      }
-
-      const q = query.toLowerCase();
-      const cat = category?.toLowerCase();
-
-      const matches = result.dvars.filter((d) => {
-        const nameMatch = d.name.toLowerCase().includes(q);
-        const descMatch = d.description?.toLowerCase().includes(q) ?? false;
-        const catMatch = cat !== undefined ? d.category?.toLowerCase() === cat : true;
-        return (nameMatch || descMatch) && catMatch;
-      });
-
-      const count = matches.length;
-      if (count === 0) {
-        return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
-      }
-
-      const limited = matches.slice(0, 20);
-      const output = limited.map((d) => {
-        const desc = d.description ? `\n  ${d.description}` : "";
-        const meta = `[${d.type}, default: ${d.default}]`;
-        const catInfo = `(${d.category}/${d.subcategory ?? ""})`;
-        return `- ${d.name} ${meta} ${catInfo}${desc}`;
-      }).join("\n");
-
-      const footer = count > 20
-        ? `\n\n... and ${count - 20} more. Refine your search.`
-        : "";
-
-      return okResult(`Found ${count} DVARs matching '${query}':\n\n${output}${footer}`);
-    },
+    handleDvarSearch,
   );
 
   // --- Tool: gsc_menu_hud ---
@@ -270,96 +321,16 @@ export function registerKnowledgeTools(server: McpServer): void {
         idempotentHint: true,
       },
     },
-    async ({ topic }) => {
-      const raw = loadMenuHud();
-      let data: Record<string, unknown>;
-      try {
-        data = JSON.parse(raw) as Record<string, unknown>;
-      } catch {
-        return errResult("Failed to parse gsc-menu-hud.json");
-      }
-      if ("error" in data) {
-        return errResult(String(data.error));
-      }
-
-      const sections = data.sections as Record<string, unknown> | undefined;
-      if (!sections || typeof sections !== "object") {
-        return errResult("gsc-menu-hud.json: missing or invalid 'sections' key.");
-      }
-      const t = topic.toLowerCase().trim();
-
-      if (t === "all") {
-        return okResult(JSON.stringify(sections, null, 2));
-      }
-      if (t === "positioning" || t === "properties" || t === "layering") {
-        return okResult(JSON.stringify(sections[t], null, 2));
-      }
-      if (t === "setpoint") {
-        const pos = sections.positioning as Record<string, unknown> | undefined;
-        const val = pos?.setPoint;
-        if (val === undefined) return errResult("gsc-menu-hud.json: 'positioning.setPoint' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "fonts" || t === "font") {
-        const props = sections.properties as Record<string, unknown> | undefined;
-        const text = props?.text as Record<string, unknown> | undefined;
-        const val = text?.font;
-        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.text.font' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "sort") {
-        const layer = sections.layering as Record<string, unknown> | undefined;
-        const val = layer?.sort_system;
-        if (val === undefined) return errResult("gsc-menu-hud.json: 'layering.sort_system' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "color" || t === "colour") {
-        const props = sections.properties as Record<string, unknown> | undefined;
-        const vis = props?.visual as Record<string, unknown> | undefined;
-        const val = vis?.color;
-        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.visual.color' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "alpha") {
-        const props = sections.properties as Record<string, unknown> | undefined;
-        const vis = props?.visual as Record<string, unknown> | undefined;
-        const val = vis?.alpha;
-        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.visual.alpha' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "cleanup" || t === "destroy") {
-        const layer = sections.layering as Record<string, unknown> | undefined;
-        const val = layer?.cleanup;
-        if (val === undefined) return errResult("gsc-menu-hud.json: 'layering.cleanup' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-      if (t === "foreground") {
-        const props = sections.properties as Record<string, unknown> | undefined;
-        const vis = props?.visual as Record<string, unknown> | undefined;
-        const val = vis?.foreground;
-        if (val === undefined) return errResult("gsc-menu-hud.json: 'properties.visual.foreground' not found.");
-        return okResult(JSON.stringify(val, null, 2));
-      }
-
-      // Generic property search across all sections
-      const results: Record<string, unknown> = {};
-      for (const [sectionName, section] of Object.entries(sections)) {
-        const found = findInSection(section as Record<string, unknown>, t);
-        if (found !== null) results[sectionName] = found;
-      }
-      if (Object.keys(results).length > 0) {
-        return okResult(JSON.stringify(results, null, 2));
-      }
-
-      return okResult(
-        `No match found for topic '${topic}'.\n` +
-        `Valid topics: positioning, properties, layering, setPoint, fonts, sort, color, alpha, foreground, cleanup, all.\n` +
-        `Or use any property name (e.g. 'fontscale', 'glowAlpha').`
-      );
-    },
+    handleMenuHud,
   );
 
 } // end registerKnowledgeTools
+
+/** A non-null, non-array object — i.e. a plain `{ ... }` record. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false;
+  return !Array.isArray(value);
+}
 
 /**
  * Recursively searches a nested object for a key matching the search term.
@@ -373,8 +344,8 @@ function findInSection(
   for (const [key, value] of Object.entries(obj)) {
     if (key.toLowerCase() === term) {
       results[key] = value;
-    } else if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      const nested = findInSection(value as Record<string, unknown>, term);
+    } else if (isPlainObject(value)) {
+      const nested = findInSection(value, term);
       if (nested !== null) results[key] = nested;
     }
   }

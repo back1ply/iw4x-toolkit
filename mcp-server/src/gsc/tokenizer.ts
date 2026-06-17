@@ -122,6 +122,65 @@ export const SyntaxErrorCode = {
   UNTERMINATED_COMMENT: "TOK-008",
 } as const;
 
+// Opening brackets -> token type (also pushed onto the matching stack).
+const OPENERS: Record<string, TokenType> = {
+  "{": TokenType.LEFT_BRACE,
+  "(": TokenType.LEFT_PAREN,
+  "[": TokenType.LEFT_BRACKET,
+};
+
+// Closing brackets -> token type plus the data needed to report an unmatched close.
+const CLOSERS: Record<string, { type: TokenType; open: string; code: string; suggestion: string }> = {
+  "}": { type: TokenType.RIGHT_BRACE, open: "{", code: SyntaxErrorCode.UNMATCHED_BRACE, suggestion: "Remove this closing brace or check for extra braces" },
+  ")": { type: TokenType.RIGHT_PAREN, open: "(", code: SyntaxErrorCode.UNMATCHED_PAREN, suggestion: "Remove this closing parenthesis or check for extra parentheses" },
+  "]": { type: TokenType.RIGHT_BRACKET, open: "[", code: SyntaxErrorCode.UNMATCHED_BRACKET, suggestion: "Remove this closing bracket or check for extra brackets" },
+};
+
+// Single-character punctuation with no bracket tracking or compound form.
+const SIMPLE_PUNCTUATION: Record<string, TokenType> = {
+  ",": TokenType.COMMA,
+  ".": TokenType.DOT,
+  ";": TokenType.SEMICOLON,
+  ":": TokenType.COLON,
+  "?": TokenType.QUESTION,
+  "~": TokenType.TILDE,
+  "^": TokenType.CARET,
+  "@": TokenType.AT,
+};
+
+// Two-character operators, keyed by the literal pair.
+const TWO_CHAR_OPERATORS: Record<string, TokenType> = {
+  "==": TokenType.EQUAL_EQUAL,
+  "!=": TokenType.BANG_EQUAL,
+  "<=": TokenType.LESS_EQUAL,
+  ">=": TokenType.GREATER_EQUAL,
+  "&&": TokenType.AMPERSAND_AMPERSAND,
+  "||": TokenType.PIPE_PIPE,
+  "++": TokenType.PLUS_PLUS,
+  "--": TokenType.MINUS_MINUS,
+  "+=": TokenType.PLUS_EQUAL,
+  "-=": TokenType.MINUS_EQUAL,
+  "*=": TokenType.STAR_EQUAL,
+  "/=": TokenType.SLASH_EQUAL,
+};
+
+// Characters skipped between tokens (newlines + whitespace).
+const SKIPPABLE = new Set(["\n", "\r", " ", "\t"]);
+
+// Single-character operators.
+const SINGLE_CHAR_OPERATORS: Record<string, TokenType> = {
+  "=": TokenType.EQUAL,
+  "!": TokenType.BANG,
+  "<": TokenType.LESS,
+  ">": TokenType.GREATER,
+  "+": TokenType.PLUS,
+  "-": TokenType.MINUS,
+  "*": TokenType.STAR,
+  "%": TokenType.PERCENT,
+  "&": TokenType.AMPERSAND,
+  "|": TokenType.PIPE,
+};
+
 export class GSCTokenizer {
   private source: string = "";
   private start: number = 0;
@@ -177,28 +236,10 @@ export class GSCTokenizer {
       length: 0,
     });
 
-    // Validate bracket matching at the end
-    this.validateBrackets();
-    
+    // Note: unmatched closing brackets are reported during scanning. Unmatched
+    // *opening* brackets are intentionally not reported here — the code may be
+    // incomplete and the linter handles deeper validation.
     return { tokens: this.tokens, errors: this.errors };
-  }
-
-  /**
-   * Validate that all brackets are matched
-   * Only reports errors for UNEXPECTED closing brackets (too many)
-   * Does NOT report missing closing brackets - that could be incomplete code
-   */
-  private validateBrackets(): void {
-    // We only report errors for UNEXPECTED closing brackets (extra closing without opening)
-    // We don't report missing opening brackets - the code might just be incomplete
-    // The linter will handle more complex validation
-    
-    // Note: The bracketStack, parenStack, braceStack tracking during scanning
-    // already handles detecting unexpected closing brackets (too many closing)
-    
-    // For unmatched opening brackets, we don't report them here because:
-    // 1. The code could be incomplete
-    // 2. The linter should handle more sophisticated validation
   }
 
   private isAtEnd(): boolean {
@@ -243,233 +284,136 @@ export class GSCTokenizer {
   private scanToken(): void {
     const c = this.advance();
 
-    // Handle newlines
-    if (c === "\n" || c === "\r") {
-      return;
-    }
+    if (SKIPPABLE.has(c)) return; // newline / whitespace
+    if (c === "/") { this.scanSlash(); return; }
+    if (c === '"' || c === "'") { this.scanString(c); return; }
+    if (this.isDigit(c)) { this.scanNumber(); return; }
+    if (this.isAlpha(c)) { this.scanIdentifier(); return; }
+    if (c === "#") { this.scanPreprocessor(); return; }
+    if (this.scanPunctuation(c)) return;
+    this.scanOperator(c);
+  }
 
-    // Whitespace (skip)
-    if (c === " " || c === "\t") {
-      return;
-    }
+  /** Handle `/` — line comment, block comment, `/=`, or bare `/`. */
+  private scanSlash(): void {
+    if (this.peek() === "/") { this.scanLineComment(); return; }
+    if (this.peek() === "*") { this.scanBlockComment(); return; }
+    if (this.peek() === "=") { this.advance(); this.addToken(TokenType.SLASH_EQUAL); return; }
+    this.addToken(TokenType.SLASH);
+  }
 
-    // Comments
-    if (c === "/") {
-      if (this.peek() === "/") {
-        while (this.peek() !== "\n" && !this.isAtEnd()) {
-          this.advance();
-        }
-        const value = this.source.substring(this.start + 2, this.current);
-        this.tokens.push({
-          type: TokenType.COMMENT,
-          value,
-          line: this.line,
-          column: this.column - (this.current - this.start),
-          length: this.current - this.start,
-        });
-        return;
-      }
-      if (this.peek() === "*") {
+  private scanLineComment(): void {
+    while (this.peek() !== "\n" && !this.isAtEnd()) this.advance();
+    this.pushSpan(TokenType.COMMENT, this.source.substring(this.start + 2, this.current));
+  }
+
+  private scanBlockComment(): void {
+    this.advance(); // consume the '*'
+    let foundEnd = false;
+    while (!this.isAtEnd()) {
+      if (this.peek() === "*" && this.peekNext() === "/") {
         this.advance();
-        let foundEnd = false;
-        while (!this.isAtEnd()) {
-          if (this.peek() === "*" && this.peekNext() === "/") {
-            this.advance();
-            this.advance();
-            foundEnd = true;
-            break;
-          }
-          this.advance();
-        }
-        const value = this.source.substring(this.start + 2, this.current - 2);
-        
-        if (!foundEnd) {
-          this.errors.push({
-            message: "Unterminated block comment - missing '*/'",
-            line: this.line,
-            column: this.column - (this.current - this.start),
-            code: SyntaxErrorCode.UNTERMINATED_COMMENT,
-            suggestion: "Add '*/' to close the block comment",
-          });
-        }
-        
-        this.tokens.push({
-          type: TokenType.BLOCK_COMMENT,
-          value,
-          line: this.line,
-          column: this.column - (this.current - this.start),
-          length: this.current - this.start,
-        });
-        return;
-      }
-      if (this.peek() === "=") {
         this.advance();
-        this.addToken(TokenType.SLASH_EQUAL);
-        return;
+        foundEnd = true;
+        break;
       }
-      this.addToken(TokenType.SLASH);
+      this.advance();
+    }
+    if (!foundEnd) {
+      this.errors.push({
+        message: "Unterminated block comment - missing '*/'",
+        line: this.line,
+        column: this.column - (this.current - this.start),
+        code: SyntaxErrorCode.UNTERMINATED_COMMENT,
+        suggestion: "Add '*/' to close the block comment",
+      });
+    }
+    this.pushSpan(TokenType.BLOCK_COMMENT, this.source.substring(this.start + 2, this.current - 2));
+  }
+
+  /** Push a token spanning start..current with an explicit value. */
+  private pushSpan(type: TokenType, value: string): void {
+    this.tokens.push({
+      type,
+      value,
+      line: this.line,
+      column: this.column - (this.current - this.start),
+      length: this.current - this.start,
+    });
+  }
+
+  /** Handle punctuation (brackets + simple single-char tokens). Returns false if `c` isn't punctuation. */
+  private scanPunctuation(c: string): boolean {
+    if (OPENERS[c]) { this.openBracket(c); return true; }
+    if (CLOSERS[c]) { this.closeBracket(c); return true; }
+    const simple = SIMPLE_PUNCTUATION[c];
+    if (simple) { this.addToken(simple); return true; }
+    return false;
+  }
+
+  private stackFor(c: string): { type: TokenType; line: number; column: number }[] {
+    if (c === "{" || c === "}") return this.braceStack;
+    if (c === "(" || c === ")") return this.parenStack;
+    return this.bracketStack;
+  }
+
+  private openBracket(c: string): void {
+    const type = OPENERS[c];
+    this.addToken(type);
+    this.stackFor(c).push({ type, line: this.line, column: this.column - 1 });
+  }
+
+  private closeBracket(c: string): void {
+    const info = CLOSERS[c];
+    this.addToken(info.type);
+    const stack = this.stackFor(c);
+    if (stack.length > 0) {
+      stack.pop();
       return;
     }
+    this.errors.push({
+      message: `Unexpected '${c}' - no matching '${info.open}'`,
+      line: this.line,
+      column: this.column - 1,
+      code: info.code,
+      suggestion: info.suggestion,
+    });
+  }
 
-    // Strings
-    if (c === '"' || c === "'") {
-      this.scanString(c);
-      return;
-    }
-
-    // Numbers
-    if (this.isDigit(c)) {
-      this.scanNumber();
-      return;
-    }
-
-    // Identifiers and keywords
-    if (this.isAlpha(c)) {
-      this.scanIdentifier();
-      return;
-    }
-
-    // Preprocessor
-    if (c === "#") {
-      this.scanPreprocessor();
-      return;
-    }
-
-    // Single-character tokens
-    switch (c) {
-      case "{": 
-        this.addToken(TokenType.LEFT_BRACE); 
-        this.braceStack.push({ type: TokenType.LEFT_BRACE, line: this.line, column: this.column - 1 });
-        break;
-      case "}": 
-        this.addToken(TokenType.RIGHT_BRACE); 
-        if (this.braceStack.length > 0) {
-          this.braceStack.pop();
-        } else {
-          this.errors.push({
-            message: `Unexpected '}' - no matching '{'`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.UNMATCHED_BRACE,
-            suggestion: "Remove this closing brace or check for extra braces",
-          });
-        }
-        break;
-      case "(": 
-        this.addToken(TokenType.LEFT_PAREN); 
-        this.parenStack.push({ type: TokenType.LEFT_PAREN, line: this.line, column: this.column - 1 });
-        break;
-      case ")": 
-        this.addToken(TokenType.RIGHT_PAREN); 
-        if (this.parenStack.length > 0) {
-          this.parenStack.pop();
-        } else {
-          this.errors.push({
-            message: `Unexpected ')' - no matching '('`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.UNMATCHED_PAREN,
-            suggestion: "Remove this closing parenthesis or check for extra parentheses",
-          });
-        }
-        break;
-      case "[": 
-        this.addToken(TokenType.LEFT_BRACKET); 
-        this.bracketStack.push({ type: TokenType.LEFT_BRACKET, line: this.line, column: this.column - 1 });
-        break;
-      case "]": 
-        this.addToken(TokenType.RIGHT_BRACKET); 
-        if (this.bracketStack.length > 0) {
-          this.bracketStack.pop();
-        } else {
-          this.errors.push({
-            message: `Unexpected ']' - no matching '['`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.UNMATCHED_BRACKET,
-            suggestion: "Remove this closing bracket or check for extra brackets",
-          });
-        }
-        break;
-      case ",": this.addToken(TokenType.COMMA); break;
-      case ".": this.addToken(TokenType.DOT); break;
-      case ";": this.addToken(TokenType.SEMICOLON); break;
-      case ":": this.addToken(TokenType.COLON); break;
-      case "?": this.addToken(TokenType.QUESTION); break;
-      case "~": this.addToken(TokenType.TILDE); break;
-      case "^": this.addToken(TokenType.CARET); break;
-      case "@": this.addToken(TokenType.AT); break;
-      default:
-        if (c !== "\0" && c !== "\r" && c !== "\n") {
-          this.errors.push({
-            message: `Invalid character: '${c}'`,
-            line: this.line,
-            column: this.column - 1,
-            code: SyntaxErrorCode.INVALID_CHARACTER,
-            suggestion: "Remove or replace this character",
-          });
-        }
-        break;
-    }
-
-    // Two-character operators
+  /** Handle operators (compound first, then single), or report an invalid character. */
+  private scanOperator(c: string): void {
     if (!this.isAtEnd()) {
-      const second = this.peek();
-      const combined = c + second;
-
-      switch (combined) {
-        case "==": this.advance(); this.addToken(TokenType.EQUAL_EQUAL); break;
-        case "!=": this.advance(); this.addToken(TokenType.BANG_EQUAL); break;
-        case "<=": this.advance(); this.addToken(TokenType.LESS_EQUAL); break;
-        case ">=": this.advance(); this.addToken(TokenType.GREATER_EQUAL); break;
-        case "&&": this.advance(); this.addToken(TokenType.AMPERSAND_AMPERSAND); break;
-        case "||": this.advance(); this.addToken(TokenType.PIPE_PIPE); break;
-        case "++": this.advance(); this.addToken(TokenType.PLUS_PLUS); break;
-        case "--": this.advance(); this.addToken(TokenType.MINUS_MINUS); break;
-        case "+=": this.advance(); this.addToken(TokenType.PLUS_EQUAL); break;
-        case "-=": this.advance(); this.addToken(TokenType.MINUS_EQUAL); break;
-        case "*=": this.advance(); this.addToken(TokenType.STAR_EQUAL); break;
-        case "/=": this.advance(); this.addToken(TokenType.SLASH_EQUAL); break;
-        default:
-          switch (c) {
-            case "=": this.addToken(TokenType.EQUAL); break;
-            case "!": this.addToken(TokenType.BANG); break;
-            case "<": this.addToken(TokenType.LESS); break;
-            case ">": this.addToken(TokenType.GREATER); break;
-            case "+": this.addToken(TokenType.PLUS); break;
-            case "-": this.addToken(TokenType.MINUS); break;
-            case "*": this.addToken(TokenType.STAR); break;
-            case "%": this.addToken(TokenType.PERCENT); break;
-            case "&": this.addToken(TokenType.AMPERSAND); break;
-            case "|": this.addToken(TokenType.PIPE); break;
-          }
+      const twoChar = TWO_CHAR_OPERATORS[c + this.peek()];
+      if (twoChar) {
+        this.advance();
+        this.addToken(twoChar);
+        return;
       }
+    }
+    const single = SINGLE_CHAR_OPERATORS[c];
+    if (single) {
+      this.addToken(single);
+      return;
+    }
+    if (c !== "\0") {
+      this.errors.push({
+        message: `Invalid character: '${c}'`,
+        line: this.line,
+        column: this.column - 1,
+        code: SyntaxErrorCode.INVALID_CHARACTER,
+        suggestion: "Remove or replace this character",
+      });
     }
   }
 
   private scanString(quote: string): void {
     let value = "";
     while (this.peek() !== quote && !this.isAtEnd()) {
-      if (this.peek() === "\n") {
-        value += "\n";
-        this.advance();
+      if (this.peek() === "\\") {
+        value += this.scanEscape(quote);
         continue;
       }
-      if (this.peek() === "\\" && !this.isAtEnd()) {
-        this.advance();
-        const escaped = this.peek();
-        switch (escaped) {
-          case "n": value += "\n"; break;
-          case "t": value += "\t"; break;
-          case "r": value += "\r"; break;
-          case "\\": value += "\\"; break;
-          case quote: value += quote; break;
-          default: value += escaped;
-        }
-        this.advance();
-        continue;
-      }
-      value += this.advance();
+      value += this.advance(); // newlines included verbatim
     }
 
     if (this.isAtEnd()) {
@@ -488,25 +432,35 @@ export class GSCTokenizer {
     this.addToken(TokenType.STRING, value);
   }
 
-  private scanNumber(): void {
-    while (this.isDigit(this.peek())) {
-      this.advance();
+  /** Consume a `\x` escape (backslash already at peek) and return the decoded text. */
+  private scanEscape(quote: string): string {
+    this.advance(); // consume backslash
+    const escaped = this.peek();
+    this.advance(); // consume escaped char
+    switch (escaped) {
+      case "n": return "\n";
+      case "t": return "\t";
+      case "r": return "\r";
+      case "\\": return "\\";
+      case quote: return quote;
+      default: return escaped;
     }
+  }
 
+  private consumeWhile(pred: (c: string) => boolean): void {
+    while (pred(this.peek())) this.advance();
+  }
+
+  private scanNumber(): void {
+    this.consumeWhile(this.isDigit);
     if (this.peek() === "." && this.isDigit(this.peekNext())) {
       this.advance();
-      while (this.isDigit(this.peek())) {
-        this.advance();
-      }
+      this.consumeWhile(this.isDigit);
     }
-
     if (this.peek() === "x" || this.peek() === "X") {
       this.advance();
-      while (this.isHexDigit(this.peek())) {
-        this.advance();
-      }
+      this.consumeWhile(this.isHexDigit);
     }
-
     this.addToken(TokenType.NUMBER);
   }
 
@@ -522,24 +476,6 @@ export class GSCTokenizer {
 
     const type = GSC_KEYWORDS.has(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
     this.addToken(type, text);
-  }
-
-  private isValidIdentifier(text: string): boolean {
-    if (!text || text.length === 0) return false;
-    
-    const firstChar = text[0];
-    if (!this.isAlpha(firstChar) && firstChar !== "$" && firstChar !== "_") {
-      return false;
-    }
-    
-    for (let i = 1; i < text.length; i++) {
-      const c = text[i];
-      if (!this.isAlphaNumeric(c) && c !== "_" && c !== "$" && c !== "\\") {
-        return false;
-      }
-    }
-    
-    return true;
   }
 
   private scanPreprocessor(): void {

@@ -337,22 +337,23 @@ export function normalizeEntry(entry: string): string {
  * @param entry - The entry path to validate (should be normalized first)
  * @returns `true` if safe, `false` if potentially malicious
  */
-export function isSafeEntryPath(entry: string): boolean {
-  // Block empty paths
-  if (!entry || entry.length === 0) return false;
-  
-  // Block null bytes (could be used to bypass checks)
-  if (entry.includes("\0")) return false;
-  
-  // Block absolute paths (Unix or Windows style)
-  if (entry.startsWith("/") || /^[A-Za-z]:/.test(entry)) return false;
-  
-  // Block path traversal sequences (both normalized and unnormalized)
-  // Check for ../ and ..\ and any URL-encoded variants
+/** Absolute path, Unix (`/foo`) or Windows (`C:\…`) style. */
+function isAbsolutePath(entry: string): boolean {
+  return entry.startsWith("/") || /^[A-Za-z]:/.test(entry);
+}
+
+/** Contains a `..` path-traversal segment (normalizing `\` to `/`). */
+function hasPathTraversal(entry: string): boolean {
   const normalized = entry.replace(/\\/g, "/");
-  if (normalized.includes("../") || normalized.includes("/..") || normalized === "..") return false;
-  
-  return true;
+  if (normalized === "..") return true;
+  return normalized.includes("../") || normalized.includes("/..");
+}
+
+export function isSafeEntryPath(entry: string): boolean {
+  if (!entry) return false;                 // empty path
+  if (entry.includes("\0")) return false;   // null byte (bypass attempt)
+  if (isAbsolutePath(entry)) return false;
+  return !hasPathTraversal(entry);
 }
 
 /**
@@ -389,6 +390,70 @@ export function globToRegex(pattern: string): RegExp {
  * @param ctx       - Number of context lines around changes (default 3)
  * @returns Formatted side-by-side diff string
  */
+const DIFF_COL_WIDTH = 40;
+const DIFF_BOX_TOP = "┌─────────────────────────────────────────────────────────────────────────────┐";
+const DIFF_BOX_HEADER = "│ Original (A)                          │ Modified (B)                      │";
+const DIFF_BOX_SEP = "├─────────────────────────────────────────────────────────────────────────────┤";
+const DIFF_BOX_BOTTOM = "└─────────────────────────────────────────────────────────────────────────────┘";
+
+/** Indices where the two line arrays differ. */
+function findChangedIndices(a: string[], b: string[]): number[] {
+  const changes: number[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] !== b[i]) changes.push(i);
+  }
+  return changes;
+}
+
+/** Collapse changed indices into context regions, merging ones within 2*ctx. */
+function groupIntoRegions(changes: number[], ctx: number): { start: number; end: number }[] {
+  const regions: { start: number; end: number }[] = [];
+  for (const idx of changes) {
+    const prev = regions[regions.length - 1];
+    if (prev && idx - prev.end <= ctx * 2) {
+      prev.end = idx + ctx;
+    } else {
+      regions.push({ start: Math.max(0, idx - ctx), end: idx + ctx });
+    }
+  }
+  return regions;
+}
+
+/** Marker + per-column prefixes for one diff row. */
+function diffRowMarkers(origLine: string, patchLine: string, idx: number, origLen: number, patchLen: number) {
+  if (origLine === patchLine) return { marker: " │", origPrefix: "  ", patchPrefix: "  " };
+  if (idx >= origLen) return { marker: " +│", origPrefix: "  ", patchPrefix: "+ " };  // addition
+  if (idx >= patchLen) return { marker: " -│", origPrefix: "- ", patchPrefix: "  " };  // deletion
+  return { marker: " ~│", origPrefix: "~ ", patchPrefix: "~ " };                        // modification
+}
+
+function truncateForColumn(line: string): string {
+  return line.length > DIFF_COL_WIDTH ? line.substring(0, DIFF_COL_WIDTH - 3) + "..." : line;
+}
+
+function renderDiffRow(idx: number, originalLines: string[], patchedLines: string[]): string {
+  const origLine = idx < originalLines.length ? originalLines[idx] : "";
+  const patchLine = idx < patchedLines.length ? patchedLines[idx] : "";
+  const { marker, origPrefix, patchPrefix } = diffRowMarkers(origLine, patchLine, idx, originalLines.length, patchedLines.length);
+  const lineNum = String(idx + 1).padStart(4, " ");
+  const displayOrig = truncateForColumn(origLine).padEnd(DIFF_COL_WIDTH);
+  return `${lineNum}${origPrefix}${displayOrig}${marker}${patchPrefix}${truncateForColumn(patchLine)}`;
+}
+
+function renderDiffRegion(region: { start: number; end: number }, originalLines: string[], patchedLines: string[]): string[] {
+  const maxLines = Math.max(
+    region.end - region.start,
+    originalLines.slice(region.start, region.end).length,
+    patchedLines.slice(region.start, region.end).length,
+  );
+  const rows = [DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP];
+  for (let i = 0; i < maxLines; i++) {
+    rows.push(renderDiffRow(region.start + i, originalLines, patchedLines));
+  }
+  rows.push(DIFF_BOX_BOTTOM);
+  return rows;
+}
+
 export function buildSideBySideDiff(
   original: string,
   patched: string,
@@ -396,102 +461,43 @@ export function buildSideBySideDiff(
 ): string {
   const originalLines = original.split(/\r?\n/);
   const patchedLines = patched.split(/\r?\n/);
-  
-  // Find all changed lines
-  const changes: { origIdx: number; patchIdx: number }[] = [];
-  for (let i = 0; i < Math.max(originalLines.length, patchedLines.length); i++) {
-    if (originalLines[i] !== patchedLines[i]) {
-      changes.push({ origIdx: i, patchIdx: i });
-    }
-  }
-  
-  // If no changes, return simple message
-  if (changes.length === 0) {
-    return "Files are identical (no changes)";
-  }
-  
-  // Group changes into regions
-  const regions: { start: number; end: number }[] = [];
-  for (let i = 0; i < changes.length; i++) {
-    const change = changes[i];
-    const prevChange = regions.length > 0 ? regions[regions.length - 1] : null;
-    
-    if (prevChange && change.origIdx - prevChange.end <= ctx * 2) {
-      // Extend existing region
-      prevChange.end = change.origIdx + ctx;
-    } else {
-      // Start new region
-      regions.push({
-        start: Math.max(0, change.origIdx - ctx),
-        end: change.origIdx + ctx
-      });
-    }
-  }
-  
+
+  const changes = findChangedIndices(originalLines, patchedLines);
+  if (changes.length === 0) return "Files are identical (no changes)";
+
+  const regions = groupIntoRegions(changes, ctx);
   const lines: string[] = [];
-  
-  for (const region of regions) {
-    if (regions.indexOf(region) > 0) {
-      lines.push("\n... (more changes) ...\n");
-    }
-    
-    const maxLines = Math.max(
-      region.end - region.start,
-      originalLines.slice(region.start, region.end).length,
-      patchedLines.slice(region.start, region.end).length
-    );
-    
-    // Header
-    lines.push("┌─────────────────────────────────────────────────────────────────────────────┐");
-    lines.push("│ Original (A)                          │ Modified (B)                      │");
-    lines.push("├─────────────────────────────────────────────────────────────────────────────┤");
-    
-    for (let i = 0; i < maxLines; i++) {
-      const origLineIdx = region.start + i;
-      const patchLineIdx = region.start + i;
-      
-      const origLine = origLineIdx < originalLines.length ? originalLines[origLineIdx] : "";
-      const patchLine = patchLineIdx < patchedLines.length ? patchedLines[patchLineIdx] : "";
-      
-      // Determine line type
-      let marker = " │";
-      let origPrefix = "  ";
-      let patchPrefix = "  ";
-      
-      if (origLine !== patchLine) {
-        if (origLineIdx >= originalLines.length) {
-          // Addition
-          marker = " +│";
-          patchPrefix = "+ ";
-        } else if (patchLineIdx >= patchedLines.length) {
-          // Deletion
-          marker = " -│";
-          origPrefix = "- ";
-        } else {
-          // Modification
-          marker = " ~│";
-          origPrefix = "~ ";
-          patchPrefix = "~ ";
-        }
-      }
-      
-      // Pad line numbers
-      const origLineNum = String(origLineIdx + 1).padStart(4, ' ');
-      const patchLineNum = String(patchLineIdx + 1).padStart(4, ' ');
-      
-      // Truncate long lines for display
-      const maxColWidth = 40;
-      const displayOrig = origLine.length > maxColWidth ? origLine.substring(0, maxColWidth - 3) + "..." : origLine;
-      const displayPatch = patchLine.length > maxColWidth ? patchLine.substring(0, maxColWidth - 3) + "..." : patchLine;
-      
-      lines.push(`${origLineNum}${origPrefix}${displayOrig.padEnd(maxColWidth)}${marker}${patchPrefix}${displayPatch}`);
-    }
-    
-    lines.push("└─────────────────────────────────────────────────────────────────────────────┘");
-  }
-  
+  regions.forEach((region, i) => {
+    if (i > 0) lines.push("\n... (more changes) ...\n");
+    lines.push(...renderDiffRegion(region, originalLines, patchedLines));
+  });
   return lines.join("\n");
 }
+/** Index of the first differing line, or 0 if the arrays match. */
+function firstChangedLine(a: string[], b: string[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] !== b[i]) return i;
+  }
+  return 0;
+}
+
+/** Unified `+`/`-`/` ` lines for one before/after row. */
+function unifiedDiffRow(before: string, after: string, hasBefore: boolean, hasAfter: boolean): string[] {
+  if (hasBefore && hasAfter) {
+    return before !== after ? [`- ${before}`, `+ ${after}`] : [`  ${before}`];
+  }
+  return hasBefore ? [`- ${before}`] : [`+ ${after}`];
+}
+
+function renderUnifiedDiff(before: string[], after: string[]): string[] {
+  const out: string[] = [];
+  const maxLen = Math.max(before.length, after.length);
+  for (let i = 0; i < maxLen; i++) {
+    out.push(...unifiedDiffRow(before[i], after[i], i < before.length, i < after.length));
+  }
+  return out;
+}
+
 export function buildDiffSnippet(
   original: string,
   patched: string,
@@ -501,45 +507,12 @@ export function buildDiffSnippet(
   const originalLines = original.split(/\r?\n/);
   const patchedLines = patched.split(/\r?\n/);
 
-  let changedLine = hintLine ?? 0;
-  if (hintLine === undefined) {
-    for (
-      let i = 0;
-      i < Math.max(originalLines.length, patchedLines.length);
-      i++
-    ) {
-      if (originalLines[i] !== patchedLines[i]) {
-        changedLine = i;
-        break;
-      }
-    }
-  }
-
+  const changedLine = hintLine ?? firstChangedLine(originalLines, patchedLines);
   const start = Math.max(0, changedLine - ctx);
-  const endOrig = Math.min(originalLines.length, changedLine + ctx + 1);
-  const endPatched = Math.min(patchedLines.length, changedLine + ctx + 1);
+  const before = originalLines.slice(start, Math.min(originalLines.length, changedLine + ctx + 1));
+  const after = patchedLines.slice(start, Math.min(patchedLines.length, changedLine + ctx + 1));
 
-  const before = originalLines.slice(start, endOrig);
-  const after = patchedLines.slice(start, endPatched);
-
-  const diffLines: string[] = [];
-  const maxLen = Math.max(before.length, after.length);
-  for (let i = 0; i < maxLen; i++) {
-    if (i < before.length && i < after.length) {
-      if (before[i] !== after[i]) {
-        diffLines.push(`- ${before[i]}`);
-        diffLines.push(`+ ${after[i]}`);
-      } else {
-        diffLines.push(`  ${before[i]}`);
-      }
-    } else if (i < before.length) {
-      diffLines.push(`- ${before[i]}`);
-    } else {
-      diffLines.push(`+ ${after[i]}`);
-    }
-  }
-
-  return { snippet: diffLines.join("\n"), changedLine };
+  return { snippet: renderUnifiedDiff(before, after).join("\n"), changedLine };
 }
 
 // ---------------------------------------------------------------------------
@@ -554,6 +527,46 @@ export function buildDiffSnippet(
  *
  * @returns `Result<AdmZip>` - use `unwrapResult()` for early returns in tool handlers
  */
+/** Return a cached zip if present and unchanged (refreshing its LRU access time). */
+function getCachedZip(resolved: string, mtime: number): AdmZip | null {
+  const cached = iwdCache.get(resolved);
+  if (cached && cached.mtime === mtime) {
+    cached.lastAccess = Date.now(); // refresh for LRU
+    return cached.zip;
+  }
+  return null;
+}
+
+/** Evict the least-recently-used cache entry when at capacity. */
+function evictLruIfFull(): void {
+  if (iwdCache.size < IWD_CACHE_MAX) return;
+  let lruKey: string | undefined;
+  let lruTime = Infinity;
+  for (const [key, entry] of iwdCache.entries()) {
+    if (entry.lastAccess < lruTime) {
+      lruTime = entry.lastAccess;
+      lruKey = key;
+    }
+  }
+  if (lruKey !== undefined) iwdCache.delete(lruKey);
+}
+
+/** Parse an IWD from disk, store it in the cache (evicting LRU first), and return it. */
+function parseAndCacheZip(resolved: string, mtime: number): Result<AdmZip> {
+  try {
+    const zip = new AdmZip(resolved);
+    evictLruIfFull();
+    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
+    return ok(zip);
+  } catch (e) {
+    return err(
+      `Failed to open IWD archive: ${resolved}\n` +
+      `Reason: ${getErrMsg(e)}\n` +
+      `Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
+    );
+  }
+}
+
 export function openIwd(resolved: string): Result<AdmZip> {
   if (!fs.existsSync(resolved)) {
     return err(
@@ -569,44 +582,8 @@ export function openIwd(resolved: string): Result<AdmZip> {
     return err(`Failed to stat IWD file: ${resolved}\nReason: ${getErrMsg(e)}`);
   }
 
-  const cached = iwdCache.get(resolved);
-  if (cached && cached.mtime === mtime) {
-    // Update access time for LRU - this is what makes it "least recently used"
-    cached.lastAccess = Date.now();
-    return ok(cached.zip);
-  }
-
-  // Cache miss or file changed — parse from disk
-  try {
-    const zip = new AdmZip(resolved);
-
-    // Evict least recently used when at capacity
-    if (iwdCache.size >= IWD_CACHE_MAX) {
-      let lruKey: string | undefined;
-      let lruTime = Infinity;
-      
-      // Find the least recently used entry by lastAccess time
-      for (const [key, entry] of iwdCache.entries()) {
-        if (entry.lastAccess < lruTime) {
-          lruTime = entry.lastAccess;
-          lruKey = key;
-        }
-      }
-      
-      if (lruKey !== undefined) {
-        iwdCache.delete(lruKey);
-      }
-    }
-
-    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
-    return ok(zip);
-  } catch (e) {
-    return err(
-      `Failed to open IWD archive: ${resolved}\n` +
-      `Reason: ${getErrMsg(e)}\n` +
-      `Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
-    );
-  }
+  const cached = getCachedZip(resolved, mtime);
+  return cached ? ok(cached) : parseAndCacheZip(resolved, mtime);
 }
 
 /**
@@ -620,9 +597,10 @@ export function openIwd(resolved: string): Result<AdmZip> {
  */
 export async function openIwdAsync(resolved: string): Promise<Result<AdmZip>> {
   const fsPromises = await import("node:fs/promises");
-  
+
+  let mtime: number;
   try {
-    await fsPromises.access(resolved);
+    mtime = (await fsPromises.stat(resolved)).mtimeMs;
   } catch {
     return err(
       `IWD file not found: ${resolved}\n` +
@@ -630,45 +608,8 @@ export async function openIwdAsync(resolved: string): Promise<Result<AdmZip>> {
     );
   }
 
-  let mtime: number;
-  try {
-    const stats = await fsPromises.stat(resolved);
-    mtime = stats.mtimeMs;
-  } catch (e) {
-    return err(`Failed to stat IWD file: ${resolved}\nReason: ${getErrMsg(e)}`);
-  }
-
-  const cached = iwdCache.get(resolved);
-  if (cached && cached.mtime === mtime) {
-    cached.lastAccess = Date.now();
-    return ok(cached.zip);
-  }
-
-  try {
-    const zip = new AdmZip(resolved);
-    
-    // LRU eviction
-    if (iwdCache.size >= IWD_CACHE_MAX) {
-      let lruKey: string | undefined;
-      let lruTime = Infinity;
-      for (const [key, entry] of iwdCache.entries()) {
-        if (entry.lastAccess < lruTime) {
-          lruTime = entry.lastAccess;
-          lruKey = key;
-        }
-      }
-      if (lruKey) iwdCache.delete(lruKey);
-    }
-
-    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
-    return ok(zip);
-  } catch (e) {
-    return err(
-      `Failed to open IWD archive: ${resolved}\n` +
-      `Reason: ${getErrMsg(e)}\n` +
-      `Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
-    );
-  }
+  const cached = getCachedZip(resolved, mtime);
+  return cached ? ok(cached) : parseAndCacheZip(resolved, mtime);
 }
 
 // ---------------------------------------------------------------------------
