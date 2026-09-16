@@ -13,7 +13,7 @@ import { KNOWLEDGE_COMMANDS } from "./knowledge/tools.js";
 import { GSC_COMMANDS } from "./gsc/tools.js";
 
 /** Shared by the MCP server info and `iw4x-toolkit --version`. */
-export const VERSION = "1.0.1";
+export const VERSION = "2.0.0";
 
 export const COMMANDS: readonly AnyCommand[] = [
   ...READ_COMMANDS,

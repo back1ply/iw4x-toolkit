@@ -71764,7 +71764,7 @@ var init_commands = __esm({
     init_sync_tools();
     init_tools();
     init_tools2();
-    VERSION = "1.0.1";
+    VERSION = "2.0.0";
     COMMANDS = [
       ...READ_COMMANDS,
       ...WRITE_COMMANDS,

@@ -1,10 +1,30 @@
 {
   "name": "iw4x-toolkit",
-  "version": "1.0.1",
-  "description": "IW4X/MW2 modding toolkit — IWD file operations, DVAR reference",
+  "version": "2.0.0",
+  "description": "IW4X/MW2 modding toolkit — IWD archive tools, GSC lint/format/orphan analysis, and a DVAR knowledge base, as MCP tools and the iw4x-toolkit CLI",
   "author": {
     "name": "back1ply"
   },
-  "keywords": ["iw4x", "mw2", "modding", "iwd", "dvar", "cod"],
-  "skills": ["./skills/dvar-lookup", "./skills/gsc-writer"]
+  "keywords": [
+    "iw4x",
+    "mw2",
+    "modding",
+    "iwd",
+    "gsc",
+    "dvar",
+    "cod",
+    "mcp"
+  ],
+  "skills": [
+    "./skills/dvar-lookup",
+    "./skills/gsc-writer"
+  ],
+  "mcpServers": {
+    "iw4x": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-server/dist/index.js"
+      ]
+    }
+  }
 }

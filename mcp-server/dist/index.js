@@ -84853,7 +84853,7 @@ var GSC_COMMANDS = [
 ];
 
 // src/commands.ts
-var VERSION = "1.0.1";
+var VERSION = "2.0.0";
 var COMMANDS = [
   ...READ_COMMANDS,
   ...WRITE_COMMANDS,
