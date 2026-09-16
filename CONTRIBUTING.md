@@ -1,166 +1,75 @@
 # Contributing to iw4x-toolkit
 
-Thank you for your interest in contributing to iw4x-toolkit! This document provides guidelines and instructions for contributing.
-
 ## Development Setup
 
-### Prerequisites
+Prerequisites: Node.js 22.12+ and npm. [Bun](https://bun.sh) is only needed for `npm run build:binary`.
 
-- Node.js 18+ (LTS recommended)
-- npm 9+
-- TypeScript 5.7+
+```bash
+git clone https://github.com/YOUR_USERNAME/iw4x-toolkit.git
+cd iw4x-toolkit/mcp-server
+npm install
+npm run build   # dist/index.js (MCP server) and dist/bin.js (CLI)
+npm test
+```
 
-### Getting Started
-
-1. Fork and clone the repository:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/iw4x-toolkit.git
-   cd iw4x-toolkit
-   ```
-
-2. Install dependencies:
-   ```bash
-   cd mcp-server
-   npm install
-   ```
-
-3. Build the project:
-   ```bash
-   npm run build
-   ```
-
-4. Run tests:
-   ```bash
-   npm test
-   ```
+`dist/index.js` and `dist/bin.js` are committed so plugin installs work without `npm install`. Rebuild and commit them with every source change.
 
 ## Project Structure
 
 ```
 iw4x-toolkit/
-├── dist/                 # Compiled output — committed for marketplace installs
-├── mcp-server/           # MCP server implementation
-│   ├── src/
-│   │   ├── index.ts      # Entry point
-│   │   ├── utils.ts      # Shared utilities
-│   │   ├── iwd/          # IWD archive tools
-│   │   ├── gsc/          # GSC language tools
-│   │   └── knowledge/    # DVAR/GSC knowledge
-│   ├── src/**/*.test.ts  # Tests live alongside source files (e.g. tools.test.ts next to tools.ts)
-│   └── package.json
-├── knowledge/            # Knowledge base JSON files
-├── docs/                 # Documentation
-├── tasks/                # Task notes and lessons learned
-└── skills/               # Claude Code skills
+├── .claude-plugin/         # plugin.json (skills + MCP server) and marketplace.json
+├── knowledge/              # knowledge base JSON, compiled into the build
+├── skills/                 # Claude Code skills
+├── docs/                   # user docs; docs/plans/ holds design notes
+└── mcp-server/
+    ├── dist/               # committed bundles
+    └── src/
+        ├── command.ts      # Command contract + MCP adapter (registerCommands)
+        ├── commands.ts     # the one command list both adapters use
+        ├── mcp.ts          # builds the MCP server (no side effects)
+        ├── index.ts        # MCP entry: node dist/index.js
+        ├── cli.ts, bin.ts  # CLI adapter and its executable entry
+        ├── utils.ts        # IWD cache, backups, atomic writes, path safety
+        ├── iwd/            # IWD archive commands
+        ├── gsc/            # tokenizer, linter, formatter, outline, orphans, GSC commands
+        └── knowledge/      # embedded knowledge data + DVAR/HUD commands
 ```
+
+Tests live next to the code they cover (`tools.ts` → `tools.test.ts`).
+
+## Adding a Command
+
+Every tool is one `command({...})` definition. The MCP tool and the CLI command are both generated from it, so there is nothing else to register.
+
+1. Add the definition to the module's `*_COMMANDS` list (e.g. `READ_COMMANDS` in `src/iwd/read-tools.ts`):
+   - `name` (snake_case, used by both MCP and CLI), `title`, `description`
+   - `input`: zod shape describing the arguments
+   - `annotations`: `readOnlyHint` is required; set `destructiveHint: true` for anything that modifies files
+   - `run(args)`: return plain data; throw `CommandError` for expected failures (bad input, missing file)
+   - `render(data, args)`: the text agents and CLI users see
+2. For IWD writes, use `requireIwd`, `requireSafeEntry`, and `saveIwd` from `utils.ts`. They handle path safety, backup, atomic write, and cache invalidation.
+3. Add tests for the data and the rendered text. `src/cli.test.ts` already checks that MCP and CLI stay in sync.
+4. Update the command list in `README.md`.
 
 ## Code Style
 
-### TypeScript
-
-- Use strict mode (enabled in tsconfig.json)
-- Prefer `interface` over `type` for object shapes
-- Use explicit return types for public functions
-- Use ESM imports with `.js` extensions for local modules
-
-### Naming Conventions
-
-- **Files**: kebab-case (e.g., `read-tools.ts`)
-- **Functions**: camelCase (e.g., `openIwd`)
-- **Classes**: PascalCase (e.g., `GSCLinter`)
-- **Constants**: SCREAMING_SNAKE_CASE (e.g., `IWD_CACHE_MAX`)
-- **Types/Interfaces**: PascalCase (e.g., `McpResult`)
-
-### Error Handling
-
-Use the `Result<T>` type for operations that can fail:
-
-```typescript
-function openIwd(path: string): Result<AdmZip> {
-  if (!exists(path)) {
-    return err("File not found");
-  }
-  return ok(zip);
-}
-
-// Usage:
-const result = openIwd(path);
-if (!result.ok) return errResult(result.error);
-const { value: zip } = result;
-```
+- TypeScript strict mode; ESM imports with `.js` extensions for local modules.
+- Files kebab-case, functions camelCase, classes/types PascalCase, constants SCREAMING_SNAKE_CASE.
 
 ## Testing
 
-### Running Tests
-
 ```bash
-npm test                    # Run all tests
-npm test -- --reporter=verbose  # Verbose output
-npm test -- --filter="iwd"  # Run specific tests
+npm test                          # all tests
+npx vitest run src/cli.test.ts    # one file
+npx vitest run -t "iwd_grep"      # tests whose name matches
 ```
 
-### Writing Tests
+## Pull Requests
 
-- Use Vitest framework
-- Place tests next to the source file (e.g., `tools.ts` → `tools.test.ts`)
-- Use descriptive test names
-- Test both success and error paths
-
-Example:
-```typescript
-describe("myFunction", () => {
-  it("returns expected value for valid input", () => {
-    expect(myFunction("valid")).toBe("expected");
-  });
-
-  it("returns error for invalid input", () => {
-    expect(myFunction("invalid")).toBeNull();
-  });
-});
-```
-
-## Pull Request Process
-
-1. Create a feature branch from `main`:
-   ```bash
-   git checkout -b feature/my-feature
-   ```
-
-2. Make your changes, following code style guidelines
-
-3. Add/update tests for your changes
-
-4. Ensure all tests pass:
-   ```bash
-   npm test
-   ```
-
-5. Commit with clear messages:
-   ```bash
-   git commit -m "feat: add new tool for X"
-   ```
-
-6. Push and create a pull request
-
-### Commit Message Format
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation changes
-- `refactor:` Code refactoring
-- `test:` Adding/updating tests
-- `chore:` Maintenance tasks
-
-## Adding New Tools
-
-1. Create the tool in the appropriate module (e.g., `src/iwd/read-tools.ts`)
-2. Define Zod schema for input validation
-3. Add MCP annotations (`readOnlyHint`, `destructiveHint`, etc.)
-4. Write comprehensive tests
-5. Update documentation
-
-## Questions?
+1. Branch from `master` (`git checkout -b feat/my-change`).
+2. Make the change with tests; run `npm test` and `npm run build`.
+3. Commit with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
+4. Push and open a pull request.
 
 Open an issue for bugs, feature requests, or questions.

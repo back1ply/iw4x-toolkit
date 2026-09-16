@@ -67,11 +67,11 @@ const iwdList = command({
     "List entries in an IWD archive. " +
     "Defaults to compact name-only output — efficient for discovery. " +
     "Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') — the cheapest first call on any IWD. " +
-    "Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). " +
+    "Use pattern to filter by glob (e.g. '**/*.gsc', 'ui_mp/*.menu'; * stays within one folder, ** crosses folders). " +
     "Pass names_only=false only when you need file sizes.",
   input: {
     path: z.string().describe("Absolute or relative path to the IWD file"),
-    pattern: z.string().optional().describe("Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"),
+    pattern: z.string().optional().describe("Optional glob pattern to filter entries (e.g. '**/*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"),
     summary_only: z.boolean().optional().default(false).describe(
       "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). " +
       "Cheapest possible overview — use this first when exploring an unfamiliar IWD."),
@@ -278,14 +278,14 @@ const iwdGrep = command({
   description:
     "Search all text entries (or a filtered subset) inside an IWD for a pattern. " +
     "Returns matching file paths, line numbers, and line content — like ripgrep but inside an IWD. " +
-    "Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). " +
+    "Use entry_glob to limit scope (e.g. '**/*.gsc', 'ui_mp/*.menu'). " +
     "Set is_regex=true for full regex support; default is case-insensitive literal string search. " +
     "Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. " +
     "Use max_matches to control output size (default: 50).",
   input: {
     path: z.string().describe("Absolute or relative path to the IWD file"),
     pattern: z.string().describe("String or regex pattern to search for. Literal string by default; set is_regex=true for regex."),
-    entry_glob: z.string().optional().describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    entry_glob: z.string().optional().describe("Glob pattern to filter which entries to search (e.g. '**/*.gsc', 'maps/**/*.gsc')"),
     is_regex: z.boolean().optional().default(false).describe("Treat pattern as a regex (default: false — plain case-insensitive string search)"),
     max_matches: z.number().int().positive().max(1000).optional().default(GREP_MAX_MATCHES_DEFAULT).describe(
       `Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`),

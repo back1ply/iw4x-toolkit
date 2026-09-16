@@ -104,7 +104,7 @@ const iwdDiff = command({
   input: {
     path1: z.string().describe("Path to the first (base) IWD file"),
     path2: z.string().describe("Path to the second (modified) IWD file"),
-    entry_glob: z.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    entry_glob: z.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '**/*.gsc', 'maps/**/*.gsc')"),
     content_diff: z.boolean().optional().default(false).describe("If true, includes diffs for modified text entries"),
     diff_format: z.enum(["unified", "side-by-side"]).optional().default("unified").describe("Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison"),
   },

@@ -91,7 +91,7 @@ const iwdExtract = command({
   input: {
     path: z.string().describe("Absolute or relative path to the IWD file"),
     dest: z.string().describe("Destination directory path. Created if it does not exist."),
-    entry_glob: z.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    entry_glob: z.string().optional().describe("Optional glob to extract only matching entries (e.g. '**/*.gsc', 'maps/**/*.gsc')"),
     dry_run: z.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files"),
   },
   annotations: { readOnlyHint: false, destructiveHint: false },

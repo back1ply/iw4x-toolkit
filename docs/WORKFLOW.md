@@ -2,6 +2,10 @@
 
 > **For vibe coders using this toolkit with an LLM.**  
 > Paste this at the start of a new chat session to prime the LLM on the right tool sequence.
+>
+> Examples use MCP tool syntax. The CLI takes the same arguments as flags: `iwd_list path="mod.iwd" summary_only=true` is `iw4x-toolkit iwd_list --path mod.iwd --summary_only`.
+>
+> Globs: `*` stays within one folder, `**` crosses folders. Scripts live under `maps/`, so use `**/*.gsc`, not `*.gsc`.
 
 ---
 
@@ -11,10 +15,10 @@
 
 | Need | Default call | Add this for more detail |
 |------|--------------|--------------------------|
-| What files are in this IWD? | `iwd_list summary_only=true` | `iwd_list pattern="*.gsc"` |
-| See a list of .gsc scripts | `iwd_list pattern="*.gsc"` | `names_only=false` for sizes, `limit=N` for many files |
+| What files are in this IWD? | `iwd_list summary_only=true` | `iwd_list pattern="**/*.gsc"` |
+| See a list of .gsc scripts | `iwd_list pattern="**/*.gsc"` | `names_only=false` for sizes, `limit=N` for many files |
 | Read a file | `iwd_info` first, then `iwd_read limit=50` | remove `limit` for full file |
-| Find something | `iwd_grep pattern="X" entry_glob="*.gsc"` | increase `max_matches` if needed |
+| Find something | `iwd_grep pattern="X" entry_glob="**/*.gsc"` | increase `max_matches` if needed |
 | Edit something | `iwd_patch dry_run=true` first | remove `dry_run` to commit |
 | Compare two IWDs | `iwd_diff` | `content_diff=true` for line diffs |
 
@@ -22,7 +26,7 @@
 
 ## 6 Golden Paths
 
-### 🏗️ Path 1: Workspace Workflow (The "Dual Pathway" A - Extract & Sync)
+### Path 1: Workspace Workflow (Extract & Sync)
 
 > **Pro Tip**: This is the preferred way for large overhauls or when you want to use standard AI filesystem tools.
 
@@ -40,7 +44,7 @@
    → finally, inject the updated files back into the IWD archive without rebuilding it from scratch
 ```
 
-### � Path 2: Full Rebuild (The "Dual Pathway" A - Pack New Archive)
+### Path 2: Full Rebuild (Pack New Archive)
 
 > **Pro Tip**: Use this if you extracted a small mod, modified multiple files, and want to completely rebuild the `.iwd` from scratch instead of syncing.
 
@@ -55,12 +59,12 @@
    → packs the entire directory into a brand new archive, overwriting if it exists
 ```
 
-### �💉 Path 3: Surgical Fix (The "Dual Pathway" B - Find & Fix In-Place)
+### Path 3: Surgical Fix (Find & Fix In-Place)
 
 > **Pro Tip**: Use this for quick, targeted edits inside an IWD without the overhead of extraction.
 
 ```text
-1. iwd_grep  path="mod.iwd"  pattern="X"  entry_glob="*.gsc"  max_matches=5
+1. iwd_grep  path="mod.iwd"  pattern="X"  entry_glob="**/*.gsc"  max_matches=5
    → tells you which file and line number
 
 2. iwd_read  path="mod.iwd"  entry="<file>"  offset=<line-5>  limit=20
@@ -73,13 +77,13 @@
    → commit
 ```
 
-### 🗺️ Path 4: Explore ("what's in this IWD?")
+### Path 4: Explore ("what's in this IWD?")
 
 ```text
 1. iwd_list  path="mod.iwd"  summary_only=true
    → "127 entries: 45 .gsc, 12 .menu, 8 .csv, 62 binary"
 
-2. iwd_list  path="mod.iwd"  pattern="*.gsc"
+2. iwd_list  path="mod.iwd"  pattern="**/*.gsc"
    → compact name list of all scripts
 
 3. iwd_info  path="mod.iwd"  entry="<interesting file>"
@@ -89,7 +93,7 @@
    → first 50 lines
 ```
 
-### ➕ Path 5: Add a New File
+### Path 5: Add a New File
 
 ```text
 1. iwd_list  path="mod.iwd"  pattern="scripts/*"
@@ -102,7 +106,7 @@
    → commit
 ```
 
-### 📊 Path 6: Compare Two IWDs ("what changed?")
+### Path 6: Compare Two IWDs ("what changed?")
 
 ```text
 1. iwd_diff  path1="original.iwd"  path2="modded.iwd"
@@ -115,13 +119,13 @@
 
 ---
 
-## ⛔ Never Do These
+## Never Do These
 
 | Anti-pattern | Problem | Use instead |
 |---|---|---|
 | `iwd_list` with no filter on a big mod | Dumps 400+ entries with sizes | Add `summary_only=true` first |
 | `iwd_read` on an unknown file without `iwd_info` first | Could dump 200KB of text or binary base64 | Always `iwd_info` → then `iwd_read limit=N` |
-| `iwd_grep` with no `entry_glob` on a full mod | Scans all 400 files | Add `entry_glob="*.gsc"` |
+| `iwd_grep` with no `entry_glob` on a full mod | Scans all 400 files | Add `entry_glob="**/*.gsc"` |
 | `iwd_write` for a tiny spelling fix | Re-sends the full file content | Use `iwd_patch` instead |
 | `iwd_diff content_diff=true` upfront | Can be very verbose for many changed files | Start with summary, then drill into specific files |
 
@@ -129,9 +133,9 @@
 
 ## Backup & Safety
 
-- All write operations create a `.bak` file **automatically** on first modification per session.
+- Write operations create a timestamped backup (e.g. `mod.iwd.20260917_143045.bak`) **automatically** on the first modification per session.
 - Use `dry_run=true` on `iwd_write`, `iwd_patch`, `iwd_remove`, `iwd_rename`, `iwd_copy`, `iwd_extract` to preview before committing.
-- If things go wrong: restore from `mod.iwd.bak`.
+- If things go wrong: restore from the newest `mod.iwd.*.bak`.
 
 ---
 

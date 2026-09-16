@@ -36945,10 +36945,10 @@ function formatListBody(rows, namesOnly) {
 var iwdList = command({
   name: "iwd_list",
   title: "List Archive Entries",
-  description: "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). Pass names_only=false only when you need file sizes.",
+  description: "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '**/*.gsc', 'ui_mp/*.menu'; * stays within one folder, ** crosses folders). Pass names_only=false only when you need file sizes.",
   input: {
     path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-    pattern: external_exports.string().optional().describe("Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"),
+    pattern: external_exports.string().optional().describe("Optional glob pattern to filter entries (e.g. '**/*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"),
     summary_only: external_exports.boolean().optional().default(false).describe(
       "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
     ),
@@ -37117,11 +37117,11 @@ function grepEntries(zip, entries, searchRe, maxMatches) {
 var iwdGrep = command({
   name: "iwd_grep",
   title: "Search Inside Archive",
-  description: "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
+  description: "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '**/*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
   input: {
     path: external_exports.string().describe("Absolute or relative path to the IWD file"),
     pattern: external_exports.string().describe("String or regex pattern to search for. Literal string by default; set is_regex=true for regex."),
-    entry_glob: external_exports.string().optional().describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    entry_glob: external_exports.string().optional().describe("Glob pattern to filter which entries to search (e.g. '**/*.gsc', 'maps/**/*.gsc')"),
     is_regex: external_exports.boolean().optional().default(false).describe("Treat pattern as a regex (default: false \u2014 plain case-insensitive string search)"),
     max_matches: external_exports.number().int().positive().max(1e3).optional().default(GREP_MAX_MATCHES_DEFAULT).describe(
       `Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`
@@ -37355,7 +37355,7 @@ var iwdExtract = command({
   input: {
     path: external_exports.string().describe("Absolute or relative path to the IWD file"),
     dest: external_exports.string().describe("Destination directory path. Created if it does not exist."),
-    entry_glob: external_exports.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    entry_glob: external_exports.string().optional().describe("Optional glob to extract only matching entries (e.g. '**/*.gsc', 'maps/**/*.gsc')"),
     dry_run: external_exports.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files")
   },
   annotations: { readOnlyHint: false, destructiveHint: false },
@@ -37497,7 +37497,7 @@ var iwdDiff = command({
   input: {
     path1: external_exports.string().describe("Path to the first (base) IWD file"),
     path2: external_exports.string().describe("Path to the second (modified) IWD file"),
-    entry_glob: external_exports.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    entry_glob: external_exports.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '**/*.gsc', 'maps/**/*.gsc')"),
     content_diff: external_exports.boolean().optional().default(false).describe("If true, includes diffs for modified text entries"),
     diff_format: external_exports.enum(["unified", "side-by-side"]).optional().default("unified").describe("Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison")
   },
