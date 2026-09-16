@@ -15,6 +15,21 @@ You are writing GSC for **IW4 (Call of Duty: Modern Warfare 2, 2009)**. IW4 uses
 
 ---
 
+## Running the tools
+
+Use the `gsc_*` MCP tools when they are available. Otherwise run the same commands through the `iw4x-toolkit` CLI. Names and arguments are identical, e.g. `gsc_lookup query="setPoint"` becomes:
+
+```bash
+iw4x-toolkit gsc_lookup --query setPoint
+iw4x-toolkit gsc_lint --path maps/mp/gametypes/_mymod.gsc
+iw4x-toolkit gsc_anti_patterns --query push
+iw4x-toolkit gsc_template --list
+```
+
+A non-zero exit code means the command failed; `iw4x-toolkit <command> --help` lists its arguments.
+
+---
+
 ## Mandatory Workflow — Do This Every Time
 
 ### Before Writing (non-negotiable)

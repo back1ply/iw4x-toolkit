@@ -5,11 +5,18 @@ description: Search and reference MW2/IW4X DVARs by name, category, or FPS impac
 
 # DVAR Lookup
 
-You have access to a comprehensive MW2/IW4X DVAR knowledge base via the `iw4x://dvars` MCP resource. It lists every known DVAR with its type, default, flags, category, and FPS impact rating.
+The MW2/IW4X DVAR knowledge base lists every known DVAR with its type, default, flags, category, and FPS impact rating.
 
 ## How to search
 
-1. **Read the resource** using `ReadMcpResourceTool` with server `iw4x` and URI `iw4x://dvars`
+**By name or description** — use `dvar_search` (filters server-side, returns the top 20):
+
+- MCP tool: `dvar_search` with `query` and optional `category`
+- CLI: `iw4x-toolkit dvar_search --query fog --category renderer` (add `--json` for structured output)
+
+**By FPS impact, context, or anything else** — load the full list and filter it yourself:
+
+1. **Get the data**: read the `iw4x://dvars` MCP resource with `ReadMcpResourceTool`, or, without MCP, read `knowledge/dvars.json` from the plugin directory
 2. **Parse the JSON** — the `dvars` array contains all entries
 3. **Filter** based on the user's query:
    - **By name**: Match against `name` field (supports partial match, e.g. "fog" matches `r_fog`)
