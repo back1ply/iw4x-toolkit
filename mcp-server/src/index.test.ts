@@ -1067,6 +1067,17 @@ describe("MCP tool handlers", () => {
       expect(text).toContain("No matches for");
     });
 
+    it("says no matches (not no entries) when the glob matches but the pattern does not", async () => {
+      const result = await client.callTool({
+        name: "iwd_grep",
+        arguments: { path: iwdPath, pattern: "zzz_not_present", entry_glob: "**/*.gsc" },
+      });
+      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
+      expect(text).toContain("No matches for 'zzz_not_present'");
+      expect(text).toContain("[filter: **/*.gsc]");
+      expect(text).not.toContain("No text entries match glob");
+    });
+
     it("filters entries by glob and returns entry count in no-match message", async () => {
       const result = await client.callTool({
         name: "iwd_grep",

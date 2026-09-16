@@ -37138,15 +37138,16 @@ Tip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=fa
     }
     const globRe = entry_glob ? globToRegex(entry_glob) : null;
     const entries = zip.getEntries().filter((e) => isSearchableEntry(e, globRe));
-    return { archive: resolved, ...grepEntries(zip, entries, searchRe, max_matches) };
+    return { archive: resolved, searched: entries.length, ...grepEntries(zip, entries, searchRe, max_matches) };
   },
   render(d, { pattern, entry_glob, max_matches }) {
     const total = d.matches.length;
-    if (total === 0) {
-      return entry_glob ? `No text entries match glob '${entry_glob}' in ${d.archive}.
-Tip: use iwd_list to see all entries.` : `No matches for '${pattern}' in ${d.archive}`;
-    }
     const filterNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
+    if (entry_glob && d.searched === 0) {
+      return `No text entries match glob '${entry_glob}' in ${d.archive}.
+Tip: use iwd_list to see all entries.`;
+    }
+    if (total === 0) return `No matches for '${pattern}' in ${d.archive}${filterNote}`;
     const footer = d.truncated ? `
 
 ... truncated at ${max_matches} matches. Use entry_glob or a more specific pattern to narrow results.` : "";
@@ -37544,7 +37545,7 @@ var iwdRename = command({
     new_entry: external_exports.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
     dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the rename without modifying the archive")
   },
-  annotations: { readOnlyHint: false, destructiveHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: true },
   async run({ path: iwdPath, entry, new_entry, dry_run }) {
     const { resolved, zip } = requireIwd(iwdPath);
     const from = normalizeEntry(entry);
@@ -37588,7 +37589,7 @@ var iwdCopy = command({
     overwrite: external_exports.boolean().optional().default(false).describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
     dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the copy without modifying any file")
   },
-  annotations: { readOnlyHint: false, destructiveHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: true },
   async run(args) {
     const rSrc = resolveIwdPath(args.src_path);
     const rDst = resolveIwdPath(args.dst_path);
@@ -83806,7 +83807,7 @@ var GSCLinter = class {
     };
     const { tokens, errors: tokenErrors } = tokenize(source);
     for (const err2 of tokenErrors) {
-      errors.push({ type: "error", code: "TOK-001", message: err2.message, line: err2.line, column: err2.column });
+      errors.push({ type: "error", code: err2.code ?? "TOK-001", message: err2.message, line: err2.line, column: err2.column });
     }
     collectDefinitions(tokens, scope);
     for (const fn of outline(source).functions) {
@@ -84074,6 +84075,13 @@ var fileSet = /* @__PURE__ */ new Set();
 var archiveSet = /* @__PURE__ */ new Set();
 var fileToSymbols = /* @__PURE__ */ new Map();
 var indexedAt = null;
+function clearIndex() {
+  symbolCache.clear();
+  fileSet.clear();
+  archiveSet.clear();
+  fileToSymbols.clear();
+  indexedAt = null;
+}
 function hasSymbol(name) {
   return symbolCache.has(name.toLowerCase());
 }
@@ -84098,13 +84106,7 @@ function getStats() {
   };
 }
 function buildIndex(iwdPaths, clear = false) {
-  const prevCount = symbolCache.size;
-  if (clear) {
-    symbolCache.clear();
-    fileSet.clear();
-    archiveSet.clear();
-    fileToSymbols.clear();
-  }
+  if (clear) clearIndex();
   const perArchive = [];
   for (const iwdPath of iwdPaths) {
     const resolved = path6.resolve(iwdPath);
@@ -84154,8 +84156,7 @@ function buildIndex(iwdPaths, clear = false) {
   }
   return {
     stats: getStats(),
-    perArchive,
-    replaced: prevCount
+    perArchive
   };
 }
 function forgetArchive(archive) {
@@ -84364,20 +84365,6 @@ ${stats}`;
 ---
 ${stats}`;
 }
-async function lintInput(filePath, content) {
-  if (!filePath) return content ? { source: content } : { notice: "\u274C Either path or content must be provided" };
-  const resolved = path7.resolve(filePath);
-  if (!fs3.existsSync(resolved)) return { notice: `\u274C File not found: ${resolved}` };
-  const lower = resolved.toLowerCase();
-  if (!lower.endsWith(".gsc") && !lower.endsWith(".gsh")) {
-    return { notice: `\u26A0\uFE0F Warning: File doesn't appear to be a GSC file (.gsc or .gsh)` };
-  }
-  try {
-    return { source: fs3.readFileSync(resolved, "utf-8") };
-  } catch (e) {
-    return { notice: `\u274C Error reading file: ${e}` };
-  }
-}
 var gscLint = command({
   name: "gsc_lint",
   title: "Lint GSC Code",
@@ -84389,12 +84376,13 @@ var gscLint = command({
     check_patterns: external_exports.boolean().optional().default(true).describe("Check for bad patterns and anti-patterns")
   },
   annotations: { readOnlyHint: true, idempotentHint: true },
-  async run({ path: filePath, content, check_undefined, check_patterns }) {
-    const input2 = await lintInput(filePath, content);
-    if ("notice" in input2) return input2;
-    return lint(input2.source, { checkUndefined: check_undefined, checkPatterns: check_patterns });
+  run({ path: filePath, content, check_undefined, check_patterns }) {
+    if (filePath && fs3.existsSync(path7.resolve(filePath)) && !/\.gs[ch]$/i.test(filePath)) {
+      throw new CommandError(`\u26A0\uFE0F Warning: File doesn't appear to be a GSC file (.gsc or .gsh)`);
+    }
+    return lint(requireSource(filePath, content), { checkUndefined: check_undefined, checkPatterns: check_patterns });
   },
-  render: (d) => "notice" in d ? d.notice : formatLintResult(d)
+  render: formatLintResult
 });
 function matchesBuiltin(name, func, q, cat) {
   const nameMatch = name.toLowerCase().includes(q);
@@ -84677,37 +84665,22 @@ var iwdIndexSymbols = command({
       }
     }
     if (d.stats.symbols === 0) out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
-    if (clear || d.previousSymbols > 0) out += `
+    if (clear) out += `
 Replaced previous index (was ${d.previousSymbols} symbols).`;
+    else if (d.previousSymbols > 0) out += `
+Added to existing index (was ${d.previousSymbols} symbols).`;
     return out;
   }
 });
 function orphanInput(content, filePath, iwd) {
   if (content) return { source: content };
-  if (!filePath) return { notice: "\u274C Either content or path must be provided" };
-  if (iwd) {
-    let zip;
-    try {
-      zip = requireIwd(iwd).zip;
-    } catch (e) {
-      return { notice: `\u274C ${e.message}` };
-    }
-    const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
-    const entry = zip.getEntry(normalized);
-    if (!entry) return { notice: `\u274C Entry not found in archive: ${normalized}` };
-    try {
-      return { source: entry.getData().toString("utf-8") };
-    } catch (e) {
-      return { notice: `\u274C Failed to read entry: ${e}` };
-    }
-  }
-  const resolved = path7.resolve(filePath);
-  if (!fs3.existsSync(resolved)) return { notice: `\u274C File not found: ${resolved}` };
-  try {
-    return { source: fs3.readFileSync(resolved, "utf-8"), hintDir: path7.dirname(resolved) };
-  } catch (e) {
-    return { notice: `\u274C Failed to read file: ${e}` };
-  }
+  if (!filePath) throw new CommandError("\u274C Either content or path must be provided");
+  if (!iwd) return { source: requireSource(filePath, void 0), hintDir: path7.dirname(path7.resolve(filePath)) };
+  const { zip } = requireIwd(iwd);
+  const normalized = normalizeEntry(filePath);
+  const entry = zip.getEntry(normalized);
+  if (!entry) throw new CommandError(`\u274C Entry not found in archive: ${normalized}`);
+  return { source: entry.getData().toString("utf-8") };
 }
 var gscFindOrphans = command({
   name: "gsc_find_orphans",
@@ -84719,23 +84692,21 @@ var gscFindOrphans = command({
     iwd: external_exports.string().optional().describe("Path to an IWD archive. If provided, reads the file specified by path from inside this archive.")
   },
   annotations: { readOnlyHint: true, idempotentHint: true },
-  async run({ content, path: filePath, iwd }) {
+  run({ content, path: filePath, iwd }) {
     const input2 = orphanInput(content, filePath, iwd);
-    if ("notice" in input2) return input2;
     return findOrphans(input2.source, input2.hintDir);
   },
-  render: (d, { path: filePath }) => "notice" in d ? d.notice : formatOrphanReport(d, displayName(filePath))
+  render: (d, { path: filePath }) => formatOrphanReport(d, displayName(filePath))
 });
+var DVAR_FUNCTIONS = /* @__PURE__ */ new Set(["getdvar", "getdvarint", "getdvarfloat", "getdvarvector", "setdvar", "setdvarifuninitialized"]);
 function extractDvarAccesses(source) {
-  const DVAR_CALL_RE = /\b(getDvar|getDvarInt|getDvarFloat|getDvarVector|setDvar|setDvarifuninitialized)\s*\(\s*"([^"]+)"/gi;
-  const lines = source.split("\n");
+  const { tokens } = tokenize(source);
   const accesses = [];
-  for (let i = 0; i < lines.length; i++) {
-    let match;
-    DVAR_CALL_RE.lastIndex = 0;
-    while ((match = DVAR_CALL_RE.exec(lines[i])) !== null) {
-      accesses.push({ fn: match[1], name: match[2], line: i + 1 });
-    }
+  for (let i = 0; i + 2 < tokens.length; i++) {
+    const [fn, paren, arg] = [tokens[i], tokens[i + 1], tokens[i + 2]];
+    if (!DVAR_FUNCTIONS.has(fn.value.toLowerCase())) continue;
+    if (paren.type !== "LEFT_PAREN" /* LEFT_PAREN */ || arg.type !== "STRING" /* STRING */) continue;
+    accesses.push({ fn: fn.value, name: arg.value, line: fn.line });
   }
   return accesses;
 }

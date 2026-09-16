@@ -83,6 +83,13 @@ describe("CLI ↔ MCP parity", () => {
     }
   });
 
+  it("marks every tool that modifies files as destructive", async () => {
+    const { tools } = await client.listTools();
+    const hints = Object.fromEntries(tools.map((t) => [t.name, t.annotations?.destructiveHint]));
+    expect(hints.iwd_rename).toBe(true);
+    expect(hints.iwd_copy).toBe(true);
+  });
+
   it("--json prints the command's data", async () => {
     const { code, stdout } = await cli("iwd_list", "--path", iwdPath, "--pattern", "**/*.iwi", "--json");
     expect(code).toBe(0);

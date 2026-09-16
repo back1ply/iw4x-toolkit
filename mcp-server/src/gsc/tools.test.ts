@@ -113,6 +113,7 @@ describe("GSC Tools", () => {
           path: path.join(tmpDir, "nonexistent.gsc")
         }
       });
+      expect(result.isError).toBe(true);
       const text = getResultText(result as any);
       expect(text).toContain("File not found");
     });
@@ -175,6 +176,7 @@ describe("GSC Tools", () => {
         name: "gsc_lint",
         arguments: {}
       });
+      expect(result.isError).toBe(true);
       const text = getResultText(result as any);
       expect(text).toContain("Either path or content must be provided");
     });
@@ -189,6 +191,7 @@ describe("GSC Tools", () => {
           path: txtPath
         }
       });
+      expect(result.isError).toBe(true);
       const text = getResultText(result as any);
       expect(text).toContain("doesn't appear to be a GSC file");
     });
@@ -746,6 +749,12 @@ describe("GSC Tools", () => {
       expect(text).toMatch(/orphan|not.*found|unresolved/i);
     });
 
+    it("returns an error when neither content nor path is provided", async () => {
+      const result = await client.callTool({ name: "gsc_find_orphans", arguments: {} });
+      expect(result.isError).toBe(true);
+      expect(getResultText(result as any)).toContain("Either content or path must be provided");
+    });
+
     it("does not flag locally defined functions as orphans", async () => {
       const result = await client.callTool({
         name: "gsc_find_orphans",
@@ -768,6 +777,22 @@ describe("GSC Tools", () => {
       expect(text).toContain("0 symbols");
     });
 
+    it("says it added to the index, not replaced it, when clear=false", async () => {
+      const { buildIndex, clearIndex } = await import("./symbols.js");
+      clearIndex();
+      const iwd = path.join(tmpDir, "sym.iwd");
+      const zip = new AdmZip();
+      zip.addFile("maps/mp/_s.gsc", Buffer.from("someFn()\n{\n    wait 1;\n}"));
+      zip.writeZip(iwd);
+      buildIndex([iwd]);
+
+      const result = await client.callTool({ name: "iwd_index_symbols", arguments: { paths: [] } });
+      const text = getResultText(result as any);
+      expect(text).toContain("Added to existing index (was 1 symbols)");
+      expect(text).not.toMatch(/replaced/i);
+      clearIndex();
+    });
+
     it("clears and reports replaced count when clear=true", async () => {
       await client.callTool({
         name: "iwd_index_symbols",
@@ -788,6 +813,17 @@ describe("GSC Tools", () => {
   // ===========================================================================
 
   describe("dvar_integrity_check", () => {
+    it("ignores DVAR calls inside comments", async () => {
+      const result = await client.callTool({
+        name: "dvar_integrity_check",
+        arguments: { content: '// getDvar("commented_out")\n/* setDvar("in_block", 1); */\nx = getDvar("cg_fov");' },
+      });
+      const text = getResultText(result as any);
+      expect(text).toContain("Scanned 1 DVAR access(es)");
+      expect(text).not.toContain("commented_out");
+      expect(text).not.toContain("in_block");
+    });
+
     it("reports unknown DVAR names as potential typos", async () => {
       const result = await client.callTool({
         name: "dvar_integrity_check",
@@ -912,6 +948,25 @@ init()
 // ===========================================================================
 
 describe("symbols registry", () => {
+  it("clearing the index also clears indexedAt", async () => {
+    const { buildIndex, getStats, clearIndex } = await import("./symbols.js");
+    clearIndex();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iw4x-sym-clear-"));
+    const iwd = path.join(dir, "a.iwd");
+    const zip = new AdmZip();
+    zip.addFile("a.gsc", Buffer.from("aFn()\n{\n    wait 1;\n}"));
+    zip.writeZip(iwd);
+    try {
+      buildIndex([iwd]);
+      expect(getStats().indexedAt).not.toBeNull();
+      buildIndex([], true);
+      expect(getStats().indexedAt).toBeNull();
+    } finally {
+      clearIndex();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("starts empty", async () => {
     const { getStats, clearIndex } = await import("./symbols.js");
     clearIndex();

@@ -292,7 +292,7 @@ const iwdGrep = command({
   },
   annotations: { readOnlyHint: true },
   rateLimit: "iwd_grep",
-  run({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }): GrepResult & { archive: string } {
+  run({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }): GrepResult & { archive: string; searched: number } {
     const { resolved, zip } = requireIwd(iwdPath);
     const searchRe = buildSearchRegex(pattern, is_regex);
     if (!searchRe) {
@@ -300,16 +300,15 @@ const iwdGrep = command({
     }
     const globRe = entry_glob ? globToRegex(entry_glob) : null;
     const entries = zip.getEntries().filter((e) => isSearchableEntry(e, globRe));
-    return { archive: resolved, ...grepEntries(zip, entries, searchRe, max_matches) };
+    return { archive: resolved, searched: entries.length, ...grepEntries(zip, entries, searchRe, max_matches) };
   },
   render(d, { pattern, entry_glob, max_matches }) {
     const total = d.matches.length;
-    if (total === 0) {
-      return entry_glob
-        ? `No text entries match glob '${entry_glob}' in ${d.archive}.\nTip: use iwd_list to see all entries.`
-        : `No matches for '${pattern}' in ${d.archive}`;
-    }
     const filterNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
+    if (entry_glob && d.searched === 0) {
+      return `No text entries match glob '${entry_glob}' in ${d.archive}.\nTip: use iwd_list to see all entries.`;
+    }
+    if (total === 0) return `No matches for '${pattern}' in ${d.archive}${filterNote}`;
     const footer = d.truncated
       ? `\n\n... truncated at ${max_matches} matches. Use entry_glob or a more specific pattern to narrow results.`
       : "";

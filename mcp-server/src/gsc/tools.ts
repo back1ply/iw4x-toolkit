@@ -9,12 +9,12 @@ import * as path from "node:path";
 import { lint, fix, type LintResult, type LintError, getKnownDvars } from "./linter.js";
 import { outline, formatOutline, type OutlineResult } from "./outline.js";
 import {
-  buildDiffSnippet, ensureBackup,
+  buildDiffSnippet, ensureBackup, normalizeEntry,
   CommandError, requireIwd, requireSafeEntry, saveIwd,
 } from "../utils.js";
 import { format } from "./formatter.js";
 import { buildIndex, getStats, type BuildIndexResult } from "./symbols.js";
-import { tokenize } from "./tokenizer.js";
+import { tokenize, TokenType } from "./tokenizer.js";
 import { findOrphans, formatOrphanReport, type OrphanAnalysis } from "./orphans.js";
 import { command, type AnyCommand } from "../command.js";
 import { ANTI_PATTERNS, DVARS, GSC_BUILTINS, TEMPLATES, type AntiPattern, type GscBuiltin, type GscTemplate } from "../knowledge/data.js";
@@ -73,24 +73,6 @@ function formatLintResult(result: LintResult): string {
     `\n---\n${stats}`;
 }
 
-/** gsc_lint reports input problems as plain (non-error) notices. */
-type LintData = { notice: string } | LintResult;
-
-async function lintInput(filePath: string | undefined, content: string | undefined): Promise<{ source: string } | { notice: string }> {
-  if (!filePath) return content ? { source: content } : { notice: "❌ Either path or content must be provided" };
-  const resolved = path.resolve(filePath);
-  if (!fs.existsSync(resolved)) return { notice: `❌ File not found: ${resolved}` };
-  const lower = resolved.toLowerCase();
-  if (!lower.endsWith(".gsc") && !lower.endsWith(".gsh")) {
-    return { notice: `⚠️ Warning: File doesn't appear to be a GSC file (.gsc or .gsh)` };
-  }
-  try {
-    return { source: fs.readFileSync(resolved, "utf-8") };
-  } catch (e) {
-    return { notice: `❌ Error reading file: ${e}` };
-  }
-}
-
 const gscLint = command({
   name: "gsc_lint",
   title: "Lint GSC Code",
@@ -106,12 +88,13 @@ const gscLint = command({
     check_patterns: z.boolean().optional().default(true).describe("Check for bad patterns and anti-patterns"),
   },
   annotations: { readOnlyHint: true, idempotentHint: true },
-  async run({ path: filePath, content, check_undefined, check_patterns }): Promise<LintData> {
-    const input = await lintInput(filePath, content);
-    if ("notice" in input) return input;
-    return lint(input.source, { checkUndefined: check_undefined, checkPatterns: check_patterns });
+  run({ path: filePath, content, check_undefined, check_patterns }): Promise<LintResult> {
+    if (filePath && fs.existsSync(path.resolve(filePath)) && !/\.gs[ch]$/i.test(filePath)) {
+      throw new CommandError(`⚠️ Warning: File doesn't appear to be a GSC file (.gsc or .gsh)`);
+    }
+    return lint(requireSource(filePath, content), { checkUndefined: check_undefined, checkPatterns: check_patterns });
   },
-  render: (d) => ("notice" in d ? d.notice : formatLintResult(d)),
+  render: formatLintResult,
 });
 
 // ---------------------------------------------------------------------------
@@ -431,7 +414,8 @@ const iwdIndexSymbols = command({
       }
     }
     if (d.stats.symbols === 0) out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
-    if (clear || d.previousSymbols > 0) out += `\nReplaced previous index (was ${d.previousSymbols} symbols).`;
+    if (clear) out += `\nReplaced previous index (was ${d.previousSymbols} symbols).`;
+    else if (d.previousSymbols > 0) out += `\nAdded to existing index (was ${d.previousSymbols} symbols).`;
     return out;
   },
 });
@@ -440,35 +424,19 @@ const iwdIndexSymbols = command({
 // gsc_find_orphans
 // ---------------------------------------------------------------------------
 
-/** Load orphan-scan source (inline, IWD entry, or disk). Input problems are plain notices, not errors. */
+/** Load orphan-scan source (inline, IWD entry, or disk); throws `CommandError` on bad input. */
 function orphanInput(
   content: string | undefined, filePath: string | undefined, iwd: string | undefined,
-): { source: string; hintDir?: string } | { notice: string } {
+): { source: string; hintDir?: string } {
   if (content) return { source: content };
-  if (!filePath) return { notice: "❌ Either content or path must be provided" };
-  if (iwd) {
-    let zip;
-    try {
-      zip = requireIwd(iwd).zip;
-    } catch (e) {
-      return { notice: `❌ ${(e as Error).message}` };
-    }
-    const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
-    const entry = zip.getEntry(normalized);
-    if (!entry) return { notice: `❌ Entry not found in archive: ${normalized}` };
-    try {
-      return { source: entry.getData().toString("utf-8") };
-    } catch (e) {
-      return { notice: `❌ Failed to read entry: ${e}` };
-    }
-  }
-  const resolved = path.resolve(filePath);
-  if (!fs.existsSync(resolved)) return { notice: `❌ File not found: ${resolved}` };
-  try {
-    return { source: fs.readFileSync(resolved, "utf-8"), hintDir: path.dirname(resolved) };
-  } catch (e) {
-    return { notice: `❌ Failed to read file: ${e}` };
-  }
+  if (!filePath) throw new CommandError("❌ Either content or path must be provided");
+  if (!iwd) return { source: requireSource(filePath, undefined), hintDir: path.dirname(path.resolve(filePath)) };
+
+  const { zip } = requireIwd(iwd);
+  const normalized = normalizeEntry(filePath);
+  const entry = zip.getEntry(normalized);
+  if (!entry) throw new CommandError(`❌ Entry not found in archive: ${normalized}`);
+  return { source: entry.getData().toString("utf-8") };
 }
 
 const gscFindOrphans = command({
@@ -485,12 +453,11 @@ const gscFindOrphans = command({
     iwd: z.string().optional().describe("Path to an IWD archive. If provided, reads the file specified by path from inside this archive."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true },
-  async run({ content, path: filePath, iwd }): Promise<{ notice: string } | OrphanAnalysis> {
+  run({ content, path: filePath, iwd }): Promise<OrphanAnalysis> {
     const input = orphanInput(content, filePath, iwd);
-    if ("notice" in input) return input;
     return findOrphans(input.source, input.hintDir);
   },
-  render: (d, { path: filePath }) => ("notice" in d ? d.notice : formatOrphanReport(d, displayName(filePath))),
+  render: (d, { path: filePath }) => formatOrphanReport(d, displayName(filePath)),
 });
 
 // ---------------------------------------------------------------------------
@@ -503,20 +470,21 @@ interface DvarAccess {
   line: number;
 }
 
+const DVAR_FUNCTIONS = new Set(["getdvar", "getdvarint", "getdvarfloat", "getdvarvector", "setdvar", "setdvarifuninitialized"]);
+
 /**
- * Extract DVAR string-literal accesses via regex. Matches getDvar/getDvarInt/
- * getDvarFloat/getDvarVector/setDvar/setDvarifuninitialized("name", ...).
+ * DVAR accesses with a string-literal name: getDvar/getDvarInt/getDvarFloat/
+ * getDvarVector/setDvar/setDvarifuninitialized("name", ...). Token-based, so calls
+ * inside comments are ignored.
  */
 function extractDvarAccesses(source: string): DvarAccess[] {
-  const DVAR_CALL_RE = /\b(getDvar|getDvarInt|getDvarFloat|getDvarVector|setDvar|setDvarifuninitialized)\s*\(\s*"([^"]+)"/gi;
-  const lines = source.split("\n");
+  const { tokens } = tokenize(source);
   const accesses: DvarAccess[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    let match: RegExpExecArray | null;
-    DVAR_CALL_RE.lastIndex = 0;
-    while ((match = DVAR_CALL_RE.exec(lines[i])) !== null) {
-      accesses.push({ fn: match[1], name: match[2], line: i + 1 });
-    }
+  for (let i = 0; i + 2 < tokens.length; i++) {
+    const [fn, paren, arg] = [tokens[i], tokens[i + 1], tokens[i + 2]];
+    if (!DVAR_FUNCTIONS.has(fn.value.toLowerCase())) continue;
+    if (paren.type !== TokenType.LEFT_PAREN || arg.type !== TokenType.STRING) continue;
+    accesses.push({ fn: fn.value, name: arg.value, line: fn.line });
   }
   return accesses;
 }

@@ -222,6 +222,11 @@ function test()
       expect(fun001.map(e => e.message)).toEqual([]);
     });
 
+    it("keeps the tokenizer's specific error codes", async () => {
+      const codes = (await lint("init() { } }")).errors.map(e => e.code);
+      expect(codes).toContain("TOK-004");
+    });
+
     it("does not leak a file's definitions into the shared builtins set", async () => {
       await lint("function leakedHelper() { }");
       expect((await getKnownBuiltins()).has("leakedHelper")).toBe(false);

@@ -164,7 +164,7 @@ const iwdRename = command({
     new_entry: z.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
     dry_run: z.boolean().optional().default(false).describe("If true, validates the rename without modifying the archive"),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: true },
   async run({ path: iwdPath, entry, new_entry, dry_run }): Promise<RenameData> {
     const { resolved, zip } = requireIwd(iwdPath);
     const from = normalizeEntry(entry);
@@ -222,7 +222,7 @@ const iwdCopy = command({
     overwrite: z.boolean().optional().default(false).describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
     dry_run: z.boolean().optional().default(false).describe("If true, validates the copy without modifying any file"),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: true },
   async run(args): Promise<CopyData> {
     const rSrc = resolveIwdPath(args.src_path);
     const rDst = resolveIwdPath(args.dst_path);

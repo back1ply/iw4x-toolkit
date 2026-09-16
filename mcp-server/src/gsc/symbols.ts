@@ -41,7 +41,6 @@ export interface ArchiveStat {
 export interface BuildIndexResult {
   stats: IndexStats;
   perArchive: ArchiveStat[];
-  replaced: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,14 +77,6 @@ export function clearIndex(): void {
  */
 export function hasSymbol(name: string): boolean {
   return symbolCache.has(name.toLowerCase());
-}
-
-/**
- * Returns all SymbolEntry records for a function name (case-insensitive).
- * Returns empty array if not found.
- */
-export function lookupSymbol(name: string): SymbolEntry[] {
-  return symbolCache.get(name.toLowerCase()) ?? [];
 }
 
 /**
@@ -130,13 +121,7 @@ export function buildIndex(
   iwdPaths: string[],
   clear = false
 ): BuildIndexResult {
-  const prevCount = symbolCache.size;
-  if (clear) {
-    symbolCache.clear();
-    fileSet.clear();
-    archiveSet.clear();
-    fileToSymbols.clear();
-  }
+  if (clear) clearIndex();
 
   const perArchive: ArchiveStat[] = [];
 
@@ -203,7 +188,6 @@ export function buildIndex(
   return {
     stats: getStats(),
     perArchive,
-    replaced: prevCount,
   };
 }
 

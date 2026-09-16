@@ -64,7 +64,7 @@ export class GSCLinter {
 
     const { tokens, errors: tokenErrors } = tokenize(source);
     for (const err of tokenErrors) {
-      errors.push({ type: "error", code: "TOK-001", message: err.message, line: err.line, column: err.column });
+      errors.push({ type: "error", code: err.code ?? "TOK-001", message: err.message, line: err.line, column: err.column });
     }
 
     collectDefinitions(tokens, scope);
