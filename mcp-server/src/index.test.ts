@@ -1161,6 +1161,17 @@ describe("MCP tool handlers", () => {
       expect(zip.readAsText(renamed!)).toBe(TEXT_CONTENT);
     });
 
+    it("rejects path traversal in new_entry", async () => {
+      const result = await client.callTool({
+        name: "iwd_rename",
+        arguments: { path: iwdPath, entry: TEXT_ENTRY, new_entry: "../../evil.gsc" },
+      });
+      expect(result.isError).toBe(true);
+      const zip = new AdmZip(iwdPath);
+      expect(zip.getEntry(TEXT_ENTRY)).not.toBeNull();
+      expect(zip.getEntries().some((e) => e.entryName.includes(".."))).toBe(false);
+    });
+
     it("dry_run returns rename info without modifying", async () => {
       const newName = "maps/mp/gametypes/_dry-renamed.gsc";
       const result = await client.callTool({
@@ -1233,6 +1244,21 @@ describe("MCP tool handlers", () => {
       const copy = zip.getEntry(dstEntry);
       expect(copy).not.toBeNull();
       expect(zip.readAsText(copy!)).toBe(TEXT_CONTENT);
+    });
+
+    it("rejects path traversal in dst_entry", async () => {
+      const result = await client.callTool({
+        name: "iwd_copy",
+        arguments: {
+          src_path: iwdPath,
+          src_entry: TEXT_ENTRY,
+          dst_path: iwdPath,
+          dst_entry: "../../evil.gsc",
+        },
+      });
+      expect(result.isError).toBe(true);
+      const zip = new AdmZip(iwdPath);
+      expect(zip.getEntries().some((e) => e.entryName.includes(".."))).toBe(false);
     });
 
     it("copies an entry to a different archive", async () => {

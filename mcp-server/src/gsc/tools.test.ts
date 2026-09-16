@@ -9,6 +9,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import AdmZip from "adm-zip";
 import { server } from "../index.js";
 
 // Helper to extract text from tool result
@@ -488,6 +489,22 @@ describe("GSC Tools", () => {
       expect(text).toContain("```gsc");
     });
 
+    it("write_back backs up the file before writing the fix", async () => {
+      const original = "init()\n{\n    wait 1;\n// missing closing brace";
+      const gscPath = path.join(tmpDir, "broken.gsc");
+      fs.writeFileSync(gscPath, original);
+      const result = await client.callTool({
+        name: "gsc_fix",
+        arguments: { path: gscPath, write_back: true },
+      });
+      expect(result.isError).toBeFalsy();
+      expect(fs.readFileSync(gscPath, "utf-8")).not.toBe(original);
+      const bak = fs.readdirSync(tmpDir).find((f) => f.startsWith("broken.gsc.") && f.endsWith(".bak"));
+      expect(bak).toBeDefined();
+      expect(fs.readFileSync(path.join(tmpDir, bak!), "utf-8")).toBe(original);
+      expect(fs.existsSync(gscPath + ".tmp")).toBe(false);
+    });
+
     it("fixes unterminated string", async () => {
       const result = await client.callTool({
         name: "gsc_fix",
@@ -847,6 +864,46 @@ init()
       expect(result.isError).toBeFalsy();
       const text = getResultText(result as any);
       expect(text).toContain("sv_maxclients");
+    });
+  });
+
+  // ===========================================================================
+  // gsc_format Tests
+  // ===========================================================================
+
+  describe("gsc_format", () => {
+    const ENTRY = "maps/mp/_test.gsc";
+
+    function makeIwd(content: string): string {
+      const iwd = path.join(tmpDir, "fmt.iwd");
+      const zip = new AdmZip();
+      zip.addFile(ENTRY, Buffer.from(content, "utf-8"));
+      zip.writeZip(iwd);
+      return iwd;
+    }
+
+    it("write_back keeps strings and #include lines and makes a backup", async () => {
+      const iwd = makeIwd('#include maps\\mp\\_utility;\ninit(){ iprintln("hi there"); }');
+      const result = await client.callTool({
+        name: "gsc_format",
+        arguments: { iwd_path: iwd, entry: ENTRY, write_back: true },
+      });
+      expect(result.isError).toBeFalsy();
+      const written = new AdmZip(iwd).readAsText(ENTRY);
+      expect(written).toContain("#include maps\\mp\\_utility;");
+      expect(written).toContain('iprintln("hi there");');
+      expect(fs.readdirSync(tmpDir).some((f) => f.endsWith(".bak"))).toBe(true);
+    });
+
+    it("write_back refuses to write when the tokenizer reports errors", async () => {
+      const broken = 'init(){ iprintln("unterminated); }';
+      const iwd = makeIwd(broken);
+      const result = await client.callTool({
+        name: "gsc_format",
+        arguments: { iwd_path: iwd, entry: ENTRY, write_back: true },
+      });
+      expect(result.isError).toBe(true);
+      expect(new AdmZip(iwd).readAsText(ENTRY)).toBe(broken);
     });
   });
 });

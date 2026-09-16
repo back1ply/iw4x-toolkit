@@ -12,6 +12,7 @@ import {
   openIwd,
   invalidateIwdCache,
   normalizeEntry,
+  isSafeEntryPath,
   isBinaryEntry,
   ensureBackup,
   atomicWrite,
@@ -143,6 +144,9 @@ interface RenameArgs { path: string; entry: string; new_entry: string; dry_run: 
 function validateRename(zip: AdmZip, normalized: string, normalizedNew: string): ToolResult | null {
   if (!normalized) return errResult("Error: entry path cannot be empty.");
   if (!normalizedNew) return errResult("Error: new_entry path cannot be empty.");
+  if (!isSafeEntryPath(normalizedNew)) {
+    return errResult("Error: new_entry path is invalid or contains path traversal sequences (not allowed).");
+  }
   if (normalized === normalizedNew) {
     return errResult(
       `Error: Source and destination are the same path: ${normalized}\n` +
@@ -209,6 +213,9 @@ function normalizeCopyEntries(srcEntry: string, dstEntry: string): { normSrc: st
   const normDst = normalizeEntry(dstEntry);
   if (!normSrc) return { error: errResult("Error: src_entry path cannot be empty.") };
   if (!normDst) return { error: errResult("Error: dst_entry path cannot be empty.") };
+  if (!isSafeEntryPath(normDst)) {
+    return { error: errResult("Error: dst_entry path is invalid or contains path traversal sequences (not allowed).") };
+  }
   return { normSrc, normDst };
 }
 

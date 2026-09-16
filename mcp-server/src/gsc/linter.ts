@@ -56,7 +56,7 @@ export class GSCLinter {
     const opts = options ?? {};
     const errors: LintError[] = [];
     const scope: DefinitionScope = {
-      functions: await getKnownBuiltins(),
+      functions: new Set(await getKnownBuiltins()), // copy: definitions below must not leak into the shared cache
       definedFunctions: new Map(),
       variables: new Set(["self", "level", "game", "player"]),
     };

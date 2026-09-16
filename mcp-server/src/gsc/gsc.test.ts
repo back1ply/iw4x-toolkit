@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import { tokenize, GSCTokenizer, TokenType } from "./tokenizer.js";
 import { lint, GSCLinter } from "./linter.js";
 import { format } from "./formatter.js";
+import { getKnownBuiltins } from "./builtins.js";
 
 describe("GSCTokenizer", () => {
   describe("Basic Tokenization", () => {
@@ -210,6 +211,11 @@ function test()
       // Should not warn about myCustomFunction being called
       const undefinedFuncErrors = result.errors.filter(e => e.code === "FUN-001");
       expect(undefinedFuncErrors.filter(e => e.message.includes("myCustomFunction"))).toHaveLength(0);
+    });
+
+    it("does not leak a file's definitions into the shared builtins set", async () => {
+      await lint("function leakedHelper() { }");
+      expect((await getKnownBuiltins()).has("leakedHelper")).toBe(false);
     });
   });
 
@@ -605,5 +611,28 @@ describe("GSCFormatter", () => {
     const { tokens: t2 } = tokenize(once);
     const twice = format(t2);
     expect(twice).toBe(once);
+  });
+
+  it("keeps string quotes and #include lines intact", () => {
+    const src = '#include maps\\mp\\_utility;\ninit(){ iprintln("hi \\"there\\""); }';
+    expect(format(tokenize(src).tokens)).toBe(
+      '#include maps\\mp\\_utility;\ninit() {\n    iprintln("hi \\"there\\"");\n}',
+    );
+  });
+
+  it("keeps a for header on one line", () => {
+    const out = format(tokenize("f(){ for(i=0;i<3;i++){ wait 1; } }").tokens);
+    expect(out).toContain("for (i = 0; i < 3; i++) {");
+  });
+
+  it("keeps /# dev block #/ markers intact", () => {
+    const out = format(tokenize('init(){\n/#\nprintln("dev");\n#/\nx = 1;\n}').tokens);
+    expect(out).toBe('init() {\n    /#\n    println("dev");\n    #/\n    x = 1;\n}');
+  });
+
+  it("is idempotent with strings, directives and for loops", () => {
+    const src = '#include maps\\mp\\_utility;\nf(){ for(i=0;i<3;i++){ iprintln("a;b"); } }';
+    const once = format(tokenize(src).tokens);
+    expect(format(tokenize(once).tokens)).toBe(once);
   });
 });

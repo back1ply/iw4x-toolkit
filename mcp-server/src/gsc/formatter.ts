@@ -96,6 +96,7 @@ function isCloserBeforeWord(prev: Token, cur: Token): boolean {
 /** Cases where two adjacent tokens SHOULD be separated by a space. */
 function forcesSpace(prev: Token, cur: Token, prevPrev: Token | null): boolean {
   if (prev.type === TokenType.COMMA) return true;                  // after ,
+  if (prev.type === TokenType.SEMICOLON) return true;              // after ; inside for (...)
   if (isControlKeywordParen(prev, cur)) return true;              // if (
   if (BINARY_OP_TYPES.has(cur.type)) return true;                 // before binary op
   if (BINARY_OP_TYPES.has(prev.type)) return !isUnarySign(prev, prevPrev); // after binary op (unless unary +/-)
@@ -144,6 +145,7 @@ class GscFormatter {
   private indent = 0;
   private prev: Token | null = null;
   private prevPrev: Token | null = null;
+  private parenDepth = 0;
 
   constructor(private readonly indentSize: number) {}
 
@@ -169,7 +171,10 @@ class GscFormatter {
       case TokenType.NEWLINE: this.flush(); this.prevPrev = null; this.prev = null; return;
       case TokenType.LEFT_BRACE: this.openBrace(tok); return;
       case TokenType.RIGHT_BRACE: this.closeBrace(tok); return;
-      case TokenType.SEMICOLON: this.current.push(";"); this.flush(); this.advance(tok); return;
+      case TokenType.SEMICOLON:
+        if (this.parenDepth > 0) { this.word(tok); return; } // for (a; b; c) stays on one line
+        this.current.push(";"); this.flush(); this.advance(tok); return;
+      case TokenType.HASH: this.directive(tok); return;
       case TokenType.COMMENT: this.lineComment(tok); return;
       case TokenType.BLOCK_COMMENT: this.blockComment(tok); return;
       default: this.word(tok);
@@ -209,13 +214,31 @@ class GscFormatter {
     this.advance(tok);
   }
 
+  // `#include ...;` — the tokenizer keeps the whole line as one token; emit it verbatim on its own line.
+  // A `/` right before it is a dev-block opener (`/#`), tokenized as SLASH + HASH, so glue them back.
+  private directive(tok: Token): void {
+    const devBlockOpen = this.prev?.type === TokenType.SLASH && this.current[this.current.length - 1] === "/";
+    if (devBlockOpen) {
+      this.current.pop();
+      if (this.current[this.current.length - 1] === " ") this.current.pop();
+    }
+    if (this.current.length > 0) this.flush();
+    this.current.push(devBlockOpen ? "/" + tok.raw : tok.raw);
+    this.flush();
+    this.prevPrev = null;
+    this.prev = null;
+  }
+
   private wantsSpaceBefore(tok: Token): boolean {
     return this.prev !== null && this.current.length > 0 && needsSpaceBefore(this.prev, tok, this.prevPrev);
   }
 
   private word(tok: Token): void {
+    if (tok.type === TokenType.LEFT_PAREN) this.parenDepth++;
+    if (tok.type === TokenType.RIGHT_PAREN) this.parenDepth = Math.max(0, this.parenDepth - 1);
     if (this.wantsSpaceBefore(tok)) this.current.push(" ");
-    this.current.push(tok.value);
+    // raw keeps string quotes and escapes; value is the decoded text.
+    this.current.push(tok.type === TokenType.STRING ? tok.raw : tok.value);
     this.advance(tok);
   }
 }

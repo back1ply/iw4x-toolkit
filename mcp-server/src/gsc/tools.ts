@@ -12,7 +12,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { lint, fix, LintResult, LintError, LintOptions, getKnownBuiltins, getKnownDvars } from "./linter.js";
 import { outline, formatOutline, IncludeDef } from "./outline.js";
-import { getKnowledgeDir, openIwd, errResult, okResult, buildDiffSnippet } from "../utils.js";
+import {
+  getKnowledgeDir, openIwd, errResult, okResult, buildDiffSnippet,
+  resolveIwdPath, normalizeEntry, isSafeEntryPath, ensureBackup, atomicWrite, invalidateIwdCache,
+} from "../utils.js";
 import { format } from "./formatter.js";
 import { buildIndex, getStats, resolveInclude, hasSymbol } from "./symbols.js";
 import { tokenize, TokenType } from "./tokenizer.js";
@@ -343,11 +346,14 @@ async function handleGscFix(
     output += `\n**Fixed code:**\n\`\`\`gsc\n${result.fixedCode}\n\`\`\``;
 
     if (write_back && filePath) {
+      const target = path.resolve(filePath);
       try {
-        fs.writeFileSync(path.resolve(filePath), result.fixedCode, "utf-8");
+        await ensureBackup(target);
+        fs.writeFileSync(target + ".tmp", result.fixedCode, "utf-8");
+        fs.renameSync(target + ".tmp", target);
         output += `\n\n✍️  Written back to: ${filePath}`;
       } catch (e) {
-        output += `\n\n❌ Write failed: ${e}`;
+        return errResult(`${output}\n\n❌ Write failed: ${e}`);
       }
     }
   }
@@ -774,15 +780,17 @@ interface FormatWriteTarget {
 }
 
 /** Write formatted code back to the IWD entry (or preview a diff when dry_run). */
-function writeFormattedToIwd({ iwd_path, entry, source, formatted, dry_run }: FormatWriteTarget): ToolResult {
+async function writeFormattedToIwd({ iwd_path, entry, source, formatted, dry_run }: FormatWriteTarget): Promise<ToolResult> {
   const iwdResult = openIwd(iwd_path);
   if (!iwdResult.ok) return errResult(iwdResult.error);
   const { snippet } = buildDiffSnippet(source, formatted);
   if (dry_run) {
     return okResult(`[dry_run] Would write formatted ${entry}:\n\n${snippet}`);
   }
+  await ensureBackup(iwd_path);
   iwdResult.value.updateFile(entry, Buffer.from(formatted, "utf-8"));
-  iwdResult.value.writeZip(iwd_path);
+  await atomicWrite(iwdResult.value, iwd_path);
+  invalidateIwdCache(iwd_path);
   return okResult(`Formatted and wrote ${entry}:\n\n${snippet}`);
 }
 
@@ -801,15 +809,24 @@ async function handleGscFormat(
   if (!code && !hasIwdTarget) {
     return errResult("Provide either 'code', or both 'iwd_path' and 'entry'.");
   }
+  const resolvedIwd = iwd_path ? resolveIwdPath(iwd_path) : undefined;
+  const normalizedEntry = entry ? normalizeEntry(entry) : undefined;
+  if (normalizedEntry !== undefined && !isSafeEntryPath(normalizedEntry)) {
+    return errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).");
+  }
 
-  const loaded = loadFormatSource(code, iwd_path, entry);
+  const loaded = loadFormatSource(code, resolvedIwd, normalizedEntry);
   if ("error" in loaded) return loaded.error;
 
   const { tokens, errors: tokErrors } = tokenize(loaded.source);
   const formatted = format(tokens);
 
   if (write_back && hasIwdTarget) {
-    return writeFormattedToIwd({ iwd_path: iwd_path!, entry: entry!, source: loaded.source, formatted, dry_run: dry_run ?? false });
+    // A token stream with errors (e.g. an unterminated string) can't be formatted faithfully.
+    if (tokErrors.length > 0) {
+      return errResult(`Not writing ${normalizedEntry}: tokenizer reported errors.` + formatTokenizerWarnings(tokErrors));
+    }
+    return writeFormattedToIwd({ iwd_path: resolvedIwd!, entry: normalizedEntry!, source: loaded.source, formatted, dry_run: dry_run ?? false });
   }
 
   return okResult("```gsc\n" + formatted + "\n```" + formatTokenizerWarnings(tokErrors));
@@ -826,7 +843,7 @@ interface ToolConfig<A extends z.ZodRawShape> {
   title: string;
   description: string;
   inputSchema: A;
-  annotations?: { readOnlyHint?: boolean; idempotentHint?: boolean };
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };
 }
 
 /** Defer a single registerTool call, capturing its schema/handler types. */
@@ -895,6 +912,7 @@ const GSC_TOOLS: ((server: McpServer) => void)[] = [
       content: z.string().optional().describe("GSC source code to fix directly. Either this or path must be provided."),
       write_back: z.boolean().optional().default(false).describe("If true and path is provided, write the fixed code back to the file."),
     },
+    annotations: { readOnlyHint: false, destructiveHint: true },
   }, handleGscFix),
 
   gscTool("gsc_outline", {
@@ -988,7 +1006,7 @@ const GSC_TOOLS: ((server: McpServer) => void)[] = [
       write_back: z.boolean().optional().describe("Write formatted result back to IWD entry (default: false)"),
       dry_run: z.boolean().optional().describe("Preview diff without writing when write_back=true (default: false)"),
     },
-    annotations: { readOnlyHint: false, idempotentHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
   }, handleGscFormat),
 ];
 

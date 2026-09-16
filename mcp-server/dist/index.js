@@ -24573,6 +24573,9 @@ async function handleIwdDiff({ path1, path2: path22, entry_glob, content_diff, d
 function validateRename(zip, normalized, normalizedNew) {
   if (!normalized) return errResult("Error: entry path cannot be empty.");
   if (!normalizedNew) return errResult("Error: new_entry path cannot be empty.");
+  if (!isSafeEntryPath(normalizedNew)) {
+    return errResult("Error: new_entry path is invalid or contains path traversal sequences (not allowed).");
+  }
   if (normalized === normalizedNew) {
     return errResult(
       `Error: Source and destination are the same path: ${normalized}
@@ -24619,6 +24622,9 @@ function normalizeCopyEntries(srcEntry, dstEntry) {
   const normDst = normalizeEntry(dstEntry);
   if (!normSrc) return { error: errResult("Error: src_entry path cannot be empty.") };
   if (!normDst) return { error: errResult("Error: dst_entry path cannot be empty.") };
+  if (!isSafeEntryPath(normDst)) {
+    return { error: errResult("Error: dst_entry path is invalid or contains path traversal sequences (not allowed).") };
+  }
   return { normSrc, normDst };
 }
 function planCopy(args) {
@@ -25198,7 +25204,8 @@ var GSCTokenizer = class {
       value: "",
       line: this.line,
       column: this.column,
-      length: 0
+      length: 0,
+      raw: ""
     });
     return { tokens: this.tokens, errors: this.errors };
   }
@@ -25225,15 +25232,14 @@ var GSCTokenizer = class {
     return this.source[this.current + 1];
   }
   addToken(type, value) {
-    if (value === void 0) {
-      value = this.source.substring(this.start, this.current);
-    }
+    const raw = this.source.substring(this.start, this.current);
     this.tokens.push({
       type,
-      value,
+      value: value ?? raw,
       line: this.line,
       column: this.column - (this.current - this.start),
-      length: this.current - this.start
+      length: this.current - this.start,
+      raw
     });
   }
   scanToken() {
@@ -25308,13 +25314,7 @@ var GSCTokenizer = class {
   }
   /** Push a token spanning start..current with an explicit value. */
   pushSpan(type, value) {
-    this.tokens.push({
-      type,
-      value,
-      line: this.line,
-      column: this.column - (this.current - this.start),
-      length: this.current - this.start
-    });
+    this.addToken(type, value);
   }
   /** Handle punctuation (brackets + simple single-char tokens). Returns false if `c` isn't punctuation. */
   scanPunctuation(c) {
@@ -26428,7 +26428,8 @@ var GSCLinter = class {
     const opts = options ?? {};
     const errors = [];
     const scope = {
-      functions: await getKnownBuiltins(),
+      functions: new Set(await getKnownBuiltins()),
+      // copy: definitions below must not leak into the shared cache
       definedFunctions: /* @__PURE__ */ new Map(),
       variables: /* @__PURE__ */ new Set(["self", "level", "game", "player"])
     };
@@ -26544,6 +26545,7 @@ function isCloserBeforeWord(prev, cur) {
 }
 function forcesSpace(prev, cur, prevPrev) {
   if (prev.type === "COMMA" /* COMMA */) return true;
+  if (prev.type === "SEMICOLON" /* SEMICOLON */) return true;
   if (isControlKeywordParen(prev, cur)) return true;
   if (BINARY_OP_TYPES.has(cur.type)) return true;
   if (BINARY_OP_TYPES.has(prev.type)) return !isUnarySign(prev, prevPrev);
@@ -26581,6 +26583,7 @@ var GscFormatter = class {
   indent = 0;
   prev = null;
   prevPrev = null;
+  parenDepth = 0;
   format(toks) {
     for (const tok of toks) this.handle(tok);
     if (this.current.length > 0) this.flush();
@@ -26609,9 +26612,16 @@ var GscFormatter = class {
         this.closeBrace(tok);
         return;
       case "SEMICOLON" /* SEMICOLON */:
+        if (this.parenDepth > 0) {
+          this.word(tok);
+          return;
+        }
         this.current.push(";");
         this.flush();
         this.advance(tok);
+        return;
+      case "HASH" /* HASH */:
+        this.directive(tok);
         return;
       case "COMMENT" /* COMMENT */:
         this.lineComment(tok);
@@ -26652,12 +26662,28 @@ var GscFormatter = class {
     this.flush();
     this.advance(tok);
   }
+  // `#include ...;` — the tokenizer keeps the whole line as one token; emit it verbatim on its own line.
+  // A `/` right before it is a dev-block opener (`/#`), tokenized as SLASH + HASH, so glue them back.
+  directive(tok) {
+    const devBlockOpen = this.prev?.type === "SLASH" /* SLASH */ && this.current[this.current.length - 1] === "/";
+    if (devBlockOpen) {
+      this.current.pop();
+      if (this.current[this.current.length - 1] === " ") this.current.pop();
+    }
+    if (this.current.length > 0) this.flush();
+    this.current.push(devBlockOpen ? "/" + tok.raw : tok.raw);
+    this.flush();
+    this.prevPrev = null;
+    this.prev = null;
+  }
   wantsSpaceBefore(tok) {
     return this.prev !== null && this.current.length > 0 && needsSpaceBefore(this.prev, tok, this.prevPrev);
   }
   word(tok) {
+    if (tok.type === "LEFT_PAREN" /* LEFT_PAREN */) this.parenDepth++;
+    if (tok.type === "RIGHT_PAREN" /* RIGHT_PAREN */) this.parenDepth = Math.max(0, this.parenDepth - 1);
     if (this.wantsSpaceBefore(tok)) this.current.push(" ");
-    this.current.push(tok.value);
+    this.current.push(tok.type === "STRING" /* STRING */ ? tok.raw : tok.value);
     this.advance(tok);
   }
 };
@@ -27013,15 +27039,18 @@ async function handleGscFix({ path: filePath, content, write_back }) {
 ${result.fixedCode}
 \`\`\``;
     if (write_back && filePath) {
+      const target = path7.resolve(filePath);
       try {
-        fs4.writeFileSync(path7.resolve(filePath), result.fixedCode, "utf-8");
+        await ensureBackup(target);
+        fs4.writeFileSync(target + ".tmp", result.fixedCode, "utf-8");
+        fs4.renameSync(target + ".tmp", target);
         output += `
 
 \u270D\uFE0F  Written back to: ${filePath}`;
       } catch (e) {
-        output += `
+        return errResult(`${output}
 
-\u274C Write failed: ${e}`;
+\u274C Write failed: ${e}`);
       }
     }
   }
@@ -27356,7 +27385,7 @@ function loadFormatSource(code, iwd_path, entry) {
   if (!fileEntry) return { error: errResult(`Entry not found: ${entry}`) };
   return { source: fileEntry.getData().toString("utf-8") };
 }
-function writeFormattedToIwd({ iwd_path, entry, source, formatted, dry_run }) {
+async function writeFormattedToIwd({ iwd_path, entry, source, formatted, dry_run }) {
   const iwdResult = openIwd(iwd_path);
   if (!iwdResult.ok) return errResult(iwdResult.error);
   const { snippet } = buildDiffSnippet(source, formatted);
@@ -27365,8 +27394,10 @@ function writeFormattedToIwd({ iwd_path, entry, source, formatted, dry_run }) {
 
 ${snippet}`);
   }
+  await ensureBackup(iwd_path);
   iwdResult.value.updateFile(entry, Buffer.from(formatted, "utf-8"));
-  iwdResult.value.writeZip(iwd_path);
+  await atomicWrite(iwdResult.value, iwd_path);
+  invalidateIwdCache(iwd_path);
   return okResult(`Formatted and wrote ${entry}:
 
 ${snippet}`);
@@ -27383,12 +27414,20 @@ async function handleGscFormat({ code, iwd_path, entry, write_back, dry_run }) {
   if (!code && !hasIwdTarget) {
     return errResult("Provide either 'code', or both 'iwd_path' and 'entry'.");
   }
-  const loaded = loadFormatSource(code, iwd_path, entry);
+  const resolvedIwd = iwd_path ? resolveIwdPath(iwd_path) : void 0;
+  const normalizedEntry = entry ? normalizeEntry(entry) : void 0;
+  if (normalizedEntry !== void 0 && !isSafeEntryPath(normalizedEntry)) {
+    return errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).");
+  }
+  const loaded = loadFormatSource(code, resolvedIwd, normalizedEntry);
   if ("error" in loaded) return loaded.error;
   const { tokens, errors: tokErrors } = tokenize(loaded.source);
   const formatted = format(tokens);
   if (write_back && hasIwdTarget) {
-    return writeFormattedToIwd({ iwd_path, entry, source: loaded.source, formatted, dry_run: dry_run ?? false });
+    if (tokErrors.length > 0) {
+      return errResult(`Not writing ${normalizedEntry}: tokenizer reported errors.` + formatTokenizerWarnings(tokErrors));
+    }
+    return writeFormattedToIwd({ iwd_path: resolvedIwd, entry: normalizedEntry, source: loaded.source, formatted, dry_run: dry_run ?? false });
   }
   return okResult("```gsc\n" + formatted + "\n```" + formatTokenizerWarnings(tokErrors));
 }
@@ -27436,7 +27475,8 @@ var GSC_TOOLS = [
       path: external_exports.string().optional().describe("Path to .gsc file to fix. Either this or content must be provided."),
       content: external_exports.string().optional().describe("GSC source code to fix directly. Either this or path must be provided."),
       write_back: external_exports.boolean().optional().default(false).describe("If true and path is provided, write the fixed code back to the file.")
-    }
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true }
   }, handleGscFix),
   gscTool("gsc_outline", {
     title: "GSC File Outline",
@@ -27495,7 +27535,7 @@ var GSC_TOOLS = [
       write_back: external_exports.boolean().optional().describe("Write formatted result back to IWD entry (default: false)"),
       dry_run: external_exports.boolean().optional().describe("Preview diff without writing when write_back=true (default: false)")
     },
-    annotations: { readOnlyHint: false, idempotentHint: true }
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true }
   }, handleGscFormat)
 ];
 function registerGscTools(server2) {

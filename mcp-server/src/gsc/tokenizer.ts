@@ -95,6 +95,8 @@ export interface Token {
   line: number;
   column: number;
   length: number;
+  /** Exact source text of the token (quotes/escapes for strings, whole line for `#` directives). */
+  raw: string;
 }
 
 export interface TokenizeResult {
@@ -234,6 +236,7 @@ export class GSCTokenizer {
       line: this.line,
       column: this.column,
       length: 0,
+      raw: "",
     });
 
     // Note: unmatched closing brackets are reported during scanning. Unmatched
@@ -269,15 +272,14 @@ export class GSCTokenizer {
   }
 
   private addToken(type: TokenType, value?: string): void {
-    if (value === undefined) {
-      value = this.source.substring(this.start, this.current);
-    }
+    const raw = this.source.substring(this.start, this.current);
     this.tokens.push({
       type,
-      value,
+      value: value ?? raw,
       line: this.line,
       column: this.column - (this.current - this.start),
       length: this.current - this.start,
+      raw,
     });
   }
 
@@ -333,13 +335,7 @@ export class GSCTokenizer {
 
   /** Push a token spanning start..current with an explicit value. */
   private pushSpan(type: TokenType, value: string): void {
-    this.tokens.push({
-      type,
-      value,
-      line: this.line,
-      column: this.column - (this.current - this.start),
-      length: this.current - this.start,
-    });
+    this.addToken(type, value);
   }
 
   /** Handle punctuation (brackets + simple single-char tokens). Returns false if `c` isn't punctuation. */
