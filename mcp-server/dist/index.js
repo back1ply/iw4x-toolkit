@@ -9467,6 +9467,7 @@ var require_adm_zip = __commonJS({
 var utils_exports = {};
 __export(utils_exports, {
   BINARY_EXTENSIONS: () => BINARY_EXTENSIONS,
+  CommandError: () => CommandError,
   GREP_MAX_MATCHES_DEFAULT: () => GREP_MAX_MATCHES_DEFAULT,
   MAX_LINE_LENGTH_WARNING: () => MAX_LINE_LENGTH_WARNING,
   MINIFIED_FILE_CHARS_PER_LINE: () => MINIFIED_FILE_CHARS_PER_LINE,
@@ -9495,6 +9496,8 @@ __export(utils_exports, {
   openIwd: () => openIwd,
   openIwdAsync: () => openIwdAsync,
   rateLimitMap: () => rateLimitMap,
+  requireEntry: () => requireEntry,
+  requireIwd: () => requireIwd,
   resolveIwdPath: () => resolveIwdPath,
   unwrapResult: () => unwrapResult
 });
@@ -9821,12 +9824,26 @@ function unwrapResult(result) {
   return errResult(result.error);
 }
 function entryNotFoundErr(normalized) {
-  return errResult(
-    `Error: Entry not found: ${normalized}
-Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`
-  );
+  return errResult(entryNotFoundMessage(normalized));
 }
-var import_adm_zip, BINARY_EXTENSIONS, GREP_MAX_MATCHES_DEFAULT, MINIFIED_FILE_CHARS_PER_LINE, MAX_LINE_LENGTH_WARNING, regexCache, REGEX_CACHE_MAX, rateLimitMap, RATE_LIMIT_CLEANUP_THRESHOLD, RATE_LIMIT_MAX_SIZE, RATE_LIMITS, backedUp, atomicWriteDirs, iwdCache, IWD_CACHE_MAX, DIFF_COL_WIDTH, DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP, DIFF_BOX_BOTTOM;
+function entryNotFoundMessage(normalized) {
+  return `Error: Entry not found: ${normalized}
+Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`;
+}
+function requireIwd(iwdPath) {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) throw new CommandError(opened.error);
+  return { resolved, zip: opened.value };
+}
+function requireEntry(zip, entry) {
+  const normalized = normalizeEntry(entry);
+  if (!normalized) throw new CommandError("Error: entry path cannot be empty.");
+  const zipEntry = zip.getEntry(normalized);
+  if (!zipEntry) throw new CommandError(entryNotFoundMessage(normalized));
+  return { normalized, zipEntry };
+}
+var import_adm_zip, BINARY_EXTENSIONS, GREP_MAX_MATCHES_DEFAULT, MINIFIED_FILE_CHARS_PER_LINE, MAX_LINE_LENGTH_WARNING, regexCache, REGEX_CACHE_MAX, rateLimitMap, RATE_LIMIT_CLEANUP_THRESHOLD, RATE_LIMIT_MAX_SIZE, RATE_LIMITS, backedUp, atomicWriteDirs, iwdCache, IWD_CACHE_MAX, DIFF_COL_WIDTH, DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP, DIFF_BOX_BOTTOM, CommandError;
 var init_utils = __esm({
   "src/utils.ts"() {
     "use strict";
@@ -9882,6 +9899,8 @@ var init_utils = __esm({
     DIFF_BOX_HEADER = "\u2502 Original (A)                          \u2502 Modified (B)                      \u2502";
     DIFF_BOX_SEP = "\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524";
     DIFF_BOX_BOTTOM = "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518";
+    CommandError = class extends Error {
+    };
   }
 });
 
@@ -23934,6 +23953,39 @@ var StdioServerTransport = class {
 // src/iwd/read-tools.ts
 init_utils();
 import * as path2 from "node:path";
+
+// src/command.ts
+init_utils();
+function command(def) {
+  return def;
+}
+async function runForMcp(cmd, args) {
+  if (cmd.rateLimit) {
+    const check2 = checkRateLimit(cmd.rateLimit);
+    if (!check2.allowed) {
+      return errResult(`Rate limit exceeded for ${cmd.rateLimit}. Try again in ${check2.resetIn} seconds.`);
+    }
+  }
+  try {
+    const out = cmd.render(await cmd.run(args), args);
+    return { content: (Array.isArray(out) ? out : [out]).map((text) => ({ type: "text", text })) };
+  } catch (e) {
+    if (e instanceof CommandError) return errResult(e.message);
+    throw e;
+  }
+}
+function registerCommands(server2, commands) {
+  for (const cmd of commands) {
+    server2.registerTool(
+      cmd.name,
+      { title: cmd.title, description: cmd.description, inputSchema: cmd.input, annotations: cmd.annotations },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((args) => runForMcp(cmd, args))
+    );
+  }
+}
+
+// src/iwd/read-tools.ts
 function listEntryRows(zip) {
   return zip.getEntries().filter((e) => !e.isDirectory).map((e) => ({ name: e.entryName, size: e.header.size, compressedSize: e.header.compressedSize }));
 }
@@ -23950,110 +24002,143 @@ ${total} entries: ${parts.join(", ")}`;
 function formatListBody(rows, namesOnly) {
   return namesOnly ? rows.map((r) => r.name).join("\n") : rows.map((r) => `${r.name}  (${r.size} \u2192 ${r.compressedSize} bytes)`).join("\n");
 }
-async function handleIwdList({ path: iwdPath, pattern, summary_only, names_only, limit }) {
-  const resolved = resolveIwdPath(iwdPath);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return errResult(opened.error);
-  let rows = listEntryRows(opened.value);
-  const total = rows.length;
-  if (summary_only) return okResult(summarizeByType(rows, resolved, total));
-  if (pattern) {
-    const regex = globToRegex(pattern);
-    rows = rows.filter((r) => regex.test(r.name));
-  }
-  if (rows.length === 0) {
-    return okResult(pattern ? `No entries match pattern '${pattern}' in ${resolved} (${total} total entries).
-Tip: use iwd_list without a pattern to see all entries.` : `No entries found in ${resolved}.`);
-  }
-  const matchedCount = rows.length;
-  const truncated = limit !== void 0 && matchedCount > limit;
-  if (truncated) rows = rows.slice(0, limit);
-  const header = `${resolved}${pattern ? ` [filter: ${pattern}]` : ""}
-${matchedCount} of ${total} entries${truncated ? ` (showing first ${limit})` : ""}:`;
-  const footer = truncated ? `
+var iwdList = command({
+  name: "iwd_list",
+  title: "List Archive Entries",
+  description: "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). Pass names_only=false only when you need file sizes.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    pattern: external_exports.string().optional().describe("Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"),
+    summary_only: external_exports.boolean().optional().default(false).describe(
+      "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
+    ),
+    names_only: external_exports.boolean().optional().default(true).describe("If true (default), returns entry names only. Pass false to include file sizes."),
+    limit: external_exports.number().int().positive().max(1e4).optional().describe("Max number of entries to return. Omit to return all.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ path: iwdPath, pattern, summary_only, limit }) {
+    const { resolved, zip } = requireIwd(iwdPath);
+    const all = listEntryRows(zip);
+    if (summary_only) return { archive: resolved, total: all.length, matched: all.length, truncated: false, entries: [], all };
+    const regex = pattern ? globToRegex(pattern) : null;
+    const matchedRows = regex ? all.filter((r) => regex.test(r.name)) : all;
+    const truncated = limit !== void 0 && matchedRows.length > limit;
+    return {
+      archive: resolved,
+      total: all.length,
+      matched: matchedRows.length,
+      truncated,
+      entries: truncated ? matchedRows.slice(0, limit) : matchedRows
+    };
+  },
+  render(d, { pattern, summary_only, names_only, limit }) {
+    if (summary_only) return summarizeByType(d.all ?? [], d.archive, d.total);
+    if (d.matched === 0) {
+      return pattern ? `No entries match pattern '${pattern}' in ${d.archive} (${d.total} total entries).
+Tip: use iwd_list without a pattern to see all entries.` : `No entries found in ${d.archive}.`;
+    }
+    const header = `${d.archive}${pattern ? ` [filter: ${pattern}]` : ""}
+${d.matched} of ${d.total} entries${d.truncated ? ` (showing first ${limit})` : ""}:`;
+    const footer = d.truncated ? `
 ... truncated. Use pattern or increase limit to see more.` : "";
-  return okResult(`${header}
+    return `${header}
 
-${formatListBody(rows, names_only)}${footer}`);
-}
-function readBinaryEntry(zip, zipEntry, normalized) {
-  const buf = zip.readFile(zipEntry);
-  if (!buf) {
-    return errResult(`Error: Failed to read binary entry: ${normalized}
-Tip: the file may be corrupt.`);
+${formatListBody(d.entries, names_only)}${footer}`;
   }
-  return {
-    content: [
-      { type: "text", text: `[binary: ${normalized}, ${buf.length} bytes, base64-encoded below]` },
-      { type: "text", text: buf.toString("base64") }
-    ]
-  };
-}
-function offsetBeyondEndError(start, totalLines, text) {
+});
+function offsetBeyondEndMessage(start, totalLines, text) {
   const isMinified = text.length / totalLines > MINIFIED_FILE_CHARS_PER_LINE;
   const minifiedNote = isMinified ? `
 Note: This file averages over ${MINIFIED_FILE_CHARS_PER_LINE} chars per line and is likely minified. Use iwd_grep to search for specific terms if needed.` : "";
-  return errResult(
-    `Error: offset ${start} is beyond end of file (${totalLines} lines).
-Tip: use offset values between 0 and ${totalLines - 1}.${minifiedNote}`
-  );
+  return `Error: offset ${start} is beyond end of file (${totalLines} lines).
+Tip: use offset values between 0 and ${totalLines - 1}.${minifiedNote}`;
 }
 function readTextSlice(text, normalized, offset, limit) {
   const lines = text.split(/\r?\n/);
   const totalLines = lines.length;
   if (offset === void 0 && limit === void 0) {
-    return okResult(`[${normalized}: ${totalLines} lines]
-${text}`);
+    return { entry: normalized, binary: false, text, totalLines, startLine: 1, endLine: totalLines, sliced: false };
   }
   const start = offset ?? 0;
-  if (start >= totalLines && totalLines > 0) {
-    return offsetBeyondEndError(start, totalLines, text);
-  }
+  if (start >= totalLines && totalLines > 0) throw new CommandError(offsetBeyondEndMessage(start, totalLines, text));
   const end = limit !== void 0 ? start + limit : totalLines;
-  const header = `[${normalized}: lines ${start + 1}-${Math.min(end, totalLines)} of ${totalLines}]`;
-  return okResult(`${header}
-${lines.slice(start, end).join("\n")}`);
+  return {
+    entry: normalized,
+    binary: false,
+    text: lines.slice(start, end).join("\n"),
+    totalLines,
+    startLine: start + 1,
+    endLine: Math.min(end, totalLines),
+    sliced: true
+  };
 }
-async function handleIwdRead({ path: iwdPath, entry, limit, offset }) {
-  const resolved = resolveIwdPath(iwdPath);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return errResult(opened.error);
-  const normalized = normalizeEntry(entry);
-  if (!normalized) return errResult("Error: entry path cannot be empty.");
-  const zipEntry = opened.value.getEntry(normalized);
-  if (!zipEntry) return entryNotFoundErr(normalized);
-  if (isBinaryEntry(normalized)) return readBinaryEntry(opened.value, zipEntry, normalized);
-  return readTextSlice(opened.value.readAsText(zipEntry), normalized, offset, limit);
-}
+var iwdRead = command({
+  name: "iwd_read",
+  title: "Read Archive Entry",
+  description: "Read a file from inside an IWD archive. Returns UTF-8 text for text files (.gsc, .menu, .cfg, .csv, etc.) and base64 for binary files (.iwi, .d3dbsp, etc.). Use limit and offset to read sections of large files without flooding context. Use iwd_info first to check file size and type before reading large files.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    entry: external_exports.string().describe("Path of the entry inside the IWD (e.g. maps/mp/gametypes/_globallogic.gsc). Use iwd_list to find the exact path."),
+    limit: external_exports.number().int().positive().max(1e5).optional().describe("Max lines to return (for text files). Omit to read the whole file."),
+    offset: external_exports.number().int().nonnegative().optional().describe("0-indexed line to start reading from (default: 0). Use with limit to page through large files.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ path: iwdPath, entry, limit, offset }) {
+    const { zip } = requireIwd(iwdPath);
+    const { normalized, zipEntry } = requireEntry(zip, entry);
+    if (isBinaryEntry(normalized)) {
+      const buf = zip.readFile(zipEntry);
+      if (!buf) throw new CommandError(`Error: Failed to read binary entry: ${normalized}
+Tip: the file may be corrupt.`);
+      return { entry: normalized, binary: true, bytes: buf.length, base64: buf.toString("base64") };
+    }
+    return readTextSlice(zip.readAsText(zipEntry), normalized, offset, limit);
+  },
+  render(d) {
+    if (d.binary) return [`[binary: ${d.entry}, ${d.bytes} bytes, base64-encoded below]`, d.base64];
+    const header = d.sliced ? `[${d.entry}: lines ${d.startLine}-${d.endLine} of ${d.totalLines}]` : `[${d.entry}: ${d.totalLines} lines]`;
+    return `${header}
+${d.text}`;
+  }
+});
 function readAdviceFor(binary, size) {
   if (binary) return `Note: Binary file \u2014 iwd_read will return base64 (${size} bytes).`;
   if (size > 5e4) return `Note: Large text file (${size} bytes). Use iwd_read with limit/offset to avoid flooding context.`;
   return `Ready to read with iwd_read.`;
 }
-async function handleIwdInfo({ path: iwdPath, entry, summary_only }) {
-  const resolved = resolveIwdPath(iwdPath);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return errResult(opened.error);
-  const normalized = normalizeEntry(entry);
-  if (!normalized) return errResult("Error: entry path cannot be empty.");
-  const zipEntry = opened.value.getEntry(normalized);
-  if (!zipEntry) return entryNotFoundErr(normalized);
-  const binary = isBinaryEntry(normalized);
-  const size = zipEntry.header.size;
-  if (summary_only) {
-    return okResult(`Entry: ${normalized} | Type: ${binary ? "Binary" : "Text"} | Size: ${size} bytes`);
+var iwdInfo = command({
+  name: "iwd_info",
+  title: "Get Entry Metadata",
+  description: "Get metadata for a single entry in an IWD archive without reading its content. Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    entry: external_exports.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths."),
+    summary_only: external_exports.boolean().optional().default(false).describe("If true, returns a compact single-line type-and-size string.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ path: iwdPath, entry }) {
+    const { zip } = requireIwd(iwdPath);
+    const { normalized, zipEntry } = requireEntry(zip, entry);
+    return {
+      entry: normalized,
+      binary: isBinaryEntry(normalized),
+      size: zipEntry.header.size,
+      compressedSize: zipEntry.header.compressedSize,
+      crc: zipEntry.header.crc.toString(16).toUpperCase(),
+      modified: zipEntry.header.time.toISOString()
+    };
+  },
+  render(d, { summary_only }) {
+    const type = d.binary ? "Binary" : "Text";
+    if (summary_only) return `Entry: ${d.entry} | Type: ${type} | Size: ${d.size} bytes`;
+    return `Entry:     ${d.entry}
+Size:      ${d.size} bytes (compressed: ${d.compressedSize})
+CRC:       ${d.crc}
+Type:      ${type}
+Modified:  ${d.modified}
+${readAdviceFor(d.binary, d.size)}`;
   }
-  const crc = zipEntry.header.crc.toString(16).toUpperCase();
-  const time3 = zipEntry.header.time.toISOString();
-  return okResult(
-    `Entry:     ${normalized}
-Size:      ${size} bytes (compressed: ${zipEntry.header.compressedSize})
-CRC:       ${crc}
-Type:      ${binary ? "Binary" : "Text"}
-Modified:  ${time3}
-${readAdviceFor(binary, size)}`
-  );
-}
+});
 function buildSearchRegex(pattern, isRegex) {
   if (!isRegex) {
     return getCachedRegex(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
@@ -24077,104 +24162,63 @@ function clampMatchLine(line, matchIdx) {
   return (start > 0 ? "... " : "") + line.slice(start, end) + (end < line.length ? " ..." : "");
 }
 function grepEntries(zip, entries, searchRe, maxMatches) {
-  const lines = [];
+  const matches = [];
   for (const e of entries) {
     const fileLines = zip.readAsText(e).split(/\r?\n/);
     for (let i = 0; i < fileLines.length; i++) {
       const match = searchRe.exec(fileLines[i] ?? "");
       if (!match) continue;
-      if (lines.length >= maxMatches) return { lines, total: lines.length, truncated: true };
-      lines.push(`${e.entryName}:${i + 1}: ${clampMatchLine(fileLines[i] ?? "", match.index)}`);
+      if (matches.length >= maxMatches) return { matches, truncated: true };
+      matches.push({ entry: e.entryName, line: i + 1, text: clampMatchLine(fileLines[i] ?? "", match.index) });
     }
   }
-  return { lines, total: lines.length, truncated: false };
+  return { matches, truncated: false };
 }
-async function handleIwdGrep({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }) {
-  const rateCheck = checkRateLimit("iwd_grep");
-  if (!rateCheck.allowed) {
-    return errResult(`Rate limit exceeded for iwd_grep. Try again in ${rateCheck.resetIn} seconds.`);
-  }
-  const resolved = resolveIwdPath(iwdPath);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return errResult(opened.error);
-  const searchRe = buildSearchRegex(pattern, is_regex);
-  if (!searchRe) {
-    return errResult(`Error: Invalid regex pattern: ${pattern}
+var iwdGrep = command({
+  name: "iwd_grep",
+  title: "Search Inside Archive",
+  description: "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    pattern: external_exports.string().describe("String or regex pattern to search for. Literal string by default; set is_regex=true for regex."),
+    entry_glob: external_exports.string().optional().describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    is_regex: external_exports.boolean().optional().default(false).describe("Treat pattern as a regex (default: false \u2014 plain case-insensitive string search)"),
+    max_matches: external_exports.number().int().positive().max(1e3).optional().default(GREP_MAX_MATCHES_DEFAULT).describe(
+      `Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`
+    )
+  },
+  annotations: { readOnlyHint: true },
+  rateLimit: "iwd_grep",
+  run({ path: iwdPath, pattern, entry_glob, is_regex, max_matches }) {
+    const { resolved, zip } = requireIwd(iwdPath);
+    const searchRe = buildSearchRegex(pattern, is_regex);
+    if (!searchRe) {
+      throw new CommandError(`Error: Invalid regex pattern: ${pattern}
 Tip: check for unbalanced parentheses or invalid quantifiers. Or set is_regex=false for a literal search.`);
-  }
-  const globRe = entry_glob ? globToRegex(entry_glob) : null;
-  const entries = opened.value.getEntries().filter((e) => isSearchableEntry(e, globRe));
-  const { lines, total, truncated } = grepEntries(opened.value, entries, searchRe, max_matches);
-  if (total === 0) {
-    return okResult(entry_glob ? `No text entries match glob '${entry_glob}' in ${resolved}.
-Tip: use iwd_list to see all entries.` : `No matches for '${pattern}' in ${resolved}`);
-  }
-  const filterNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
-  const footer = truncated ? `
+    }
+    const globRe = entry_glob ? globToRegex(entry_glob) : null;
+    const entries = zip.getEntries().filter((e) => isSearchableEntry(e, globRe));
+    return { archive: resolved, ...grepEntries(zip, entries, searchRe, max_matches) };
+  },
+  render(d, { pattern, entry_glob, max_matches }) {
+    const total = d.matches.length;
+    if (total === 0) {
+      return entry_glob ? `No text entries match glob '${entry_glob}' in ${d.archive}.
+Tip: use iwd_list to see all entries.` : `No matches for '${pattern}' in ${d.archive}`;
+    }
+    const filterNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
+    const footer = d.truncated ? `
 
 ... truncated at ${max_matches} matches. Use entry_glob or a more specific pattern to narrow results.` : "";
-  return okResult(`Found ${total}${truncated ? "+" : ""} match(es) in ${resolved}${filterNote}:
+    const lines = d.matches.map((m) => `${m.entry}:${m.line}: ${m.text}`);
+    return `Found ${total}${d.truncated ? "+" : ""} match(es) in ${d.archive}${filterNote}:
 
-${lines.join("\n")}${footer}`);
-}
-function readTool(name, config2, handler) {
-  return (server2) => {
-    server2.registerTool(name, config2, handler);
-  };
-}
-var READ_TOOLS = [
-  readTool("iwd_list", {
-    title: "List Archive Entries",
-    description: "List entries in an IWD archive. Defaults to compact name-only output \u2014 efficient for discovery. Use summary_only=true for a one-line type breakdown (e.g. '45 .gsc, 12 .menu, 8 binary') \u2014 the cheapest first call on any IWD. Use pattern to filter by glob (e.g. '*.gsc', 'ui_mp/*.menu'). Pass names_only=false only when you need file sizes.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      pattern: external_exports.string().optional().describe("Optional glob pattern to filter entries (e.g. '*.gsc', 'maps/**/*.gsc', 'ui_mp/*.menu')"),
-      summary_only: external_exports.boolean().optional().default(false).describe(
-        "If true, returns a single-line breakdown of entry counts by type (e.g. '45 .gsc, 12 .menu, 8 binary'). Cheapest possible overview \u2014 use this first when exploring an unfamiliar IWD."
-      ),
-      names_only: external_exports.boolean().optional().default(true).describe("If true (default), returns entry names only. Pass false to include file sizes."),
-      limit: external_exports.number().int().positive().max(1e4).optional().describe("Max number of entries to return. Omit to return all.")
-    },
-    annotations: { readOnlyHint: true, idempotentHint: true }
-  }, handleIwdList),
-  readTool("iwd_read", {
-    title: "Read Archive Entry",
-    description: "Read a file from inside an IWD archive. Returns UTF-8 text for text files (.gsc, .menu, .cfg, .csv, etc.) and base64 for binary files (.iwi, .d3dbsp, etc.). Use limit and offset to read sections of large files without flooding context. Use iwd_info first to check file size and type before reading large files.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      entry: external_exports.string().describe("Path of the entry inside the IWD (e.g. maps/mp/gametypes/_globallogic.gsc). Use iwd_list to find the exact path."),
-      limit: external_exports.number().int().positive().max(1e5).optional().describe("Max lines to return (for text files). Omit to read the whole file."),
-      offset: external_exports.number().int().nonnegative().optional().describe("0-indexed line to start reading from (default: 0). Use with limit to page through large files.")
-    },
-    annotations: { readOnlyHint: true, idempotentHint: true }
-  }, handleIwdRead),
-  readTool("iwd_info", {
-    title: "Get Entry Metadata",
-    description: "Get metadata for a single entry in an IWD archive without reading its content. Use this before iwd_read to check file size and type, avoiding accidental large or binary reads.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      entry: external_exports.string().describe("Path of the entry inside the IWD. Use iwd_list to find exact paths."),
-      summary_only: external_exports.boolean().optional().default(false).describe("If true, returns a compact single-line type-and-size string.")
-    },
-    annotations: { readOnlyHint: true, idempotentHint: true }
-  }, handleIwdInfo),
-  readTool("iwd_grep", {
-    title: "Search Inside Archive",
-    description: "Search all text entries (or a filtered subset) inside an IWD for a pattern. Returns matching file paths, line numbers, and line content \u2014 like ripgrep but inside an IWD. Use entry_glob to limit scope (e.g. '*.gsc', 'ui_mp/*.menu'). Set is_regex=true for full regex support; default is case-insensitive literal string search. Binary entries (.iwi, .d3dbsp, etc.) are automatically skipped. Use max_matches to control output size (default: 50).",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      pattern: external_exports.string().describe("String or regex pattern to search for. Literal string by default; set is_regex=true for regex."),
-      entry_glob: external_exports.string().optional().describe("Glob pattern to filter which entries to search (e.g. '*.gsc', 'maps/**/*.gsc')"),
-      is_regex: external_exports.boolean().optional().default(false).describe("Treat pattern as a regex (default: false \u2014 plain case-insensitive string search)"),
-      max_matches: external_exports.number().int().positive().max(1e3).optional().default(GREP_MAX_MATCHES_DEFAULT).describe(
-        `Max total matches to return before truncating (default: ${GREP_MAX_MATCHES_DEFAULT}). Increase if needed.`
-      )
-    },
-    annotations: { readOnlyHint: true }
-  }, handleIwdGrep)
-];
+${lines.join("\n")}${footer}`;
+  }
+});
+var READ_COMMANDS = [iwdList, iwdRead, iwdInfo, iwdGrep];
 function registerReadTools(server2) {
-  for (const register of READ_TOOLS) register(server2);
+  registerCommands(server2, READ_COMMANDS);
 }
 
 // src/iwd/write-tools.ts

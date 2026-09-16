@@ -681,8 +681,36 @@ export function unwrapResult<T>(result: Result<T>): T | McpResult {
  * an IWD entry by path. Points the user to `iwd_list` for discovery.
  */
 export function entryNotFoundErr(normalized: string): McpResult {
-  return errResult(
-    `Error: Entry not found: ${normalized}\n` +
-      `Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`,
-  );
+  return errResult(entryNotFoundMessage(normalized));
 }
+
+function entryNotFoundMessage(normalized: string): string {
+  return `Error: Entry not found: ${normalized}\n` +
+    `Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`;
+}
+
+// ---------------------------------------------------------------------------
+// Command helpers (throwing variants for Command.run)
+// ---------------------------------------------------------------------------
+
+/** Expected failure inside a command: the message is shown to the caller as-is. */
+export class CommandError extends Error {}
+
+/** Resolve and open an IWD, throwing `CommandError` when it can't be opened. */
+export function requireIwd(iwdPath: string): { resolved: string; zip: AdmZip } {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) throw new CommandError(opened.error);
+  return { resolved, zip: opened.value };
+}
+
+/** Normalize an entry path and look it up, throwing `CommandError` when empty or missing. */
+export function requireEntry(zip: AdmZip, entry: string): { normalized: string; zipEntry: IZipEntry } {
+  const normalized = normalizeEntry(entry);
+  if (!normalized) throw new CommandError("Error: entry path cannot be empty.");
+  const zipEntry = zip.getEntry(normalized);
+  if (!zipEntry) throw new CommandError(entryNotFoundMessage(normalized));
+  return { normalized, zipEntry };
+}
+
+type IZipEntry = NonNullable<ReturnType<AdmZip["getEntry"]>>;
