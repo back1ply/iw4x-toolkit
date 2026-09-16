@@ -1,0 +1,44 @@
+{
+  "$id": "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/gsc-menu-hud.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "games": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "description",
+        "games"
+      ],
+      "additionalProperties": false
+    },
+    "sections": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {},
+      "description": "positioning, properties, layering reference sections"
+    }
+  },
+  "required": [
+    "version",
+    "meta",
+    "sections"
+  ],
+  "additionalProperties": false,
+  "description": "HUD element reference for script menus in CoD4/CoD4X and MW2/IW4X"
+}

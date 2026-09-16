@@ -1,0 +1,108 @@
+{
+  "$id": "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/dvars.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "game": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "total": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "dvars": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "bool",
+              "float",
+              "int",
+              "string"
+            ]
+          },
+          "default": {
+            "type": "string"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "e.g. CHEAT: needs sv_cheats 1"
+          },
+          "category": {
+            "type": "string"
+          },
+          "subcategory": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string",
+            "enum": [
+              "client",
+              "network",
+              "server",
+              "shared",
+              "unknown"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "fps_impact": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low",
+                  "none"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when not rated"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default",
+          "flags",
+          "category",
+          "subcategory",
+          "context",
+          "description",
+          "fps_impact"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "game",
+    "source",
+    "total",
+    "dvars"
+  ],
+  "additionalProperties": false,
+  "description": "MW2 / IW4X console variables (DVARs)"
+}

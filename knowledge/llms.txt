@@ -1,0 +1,25 @@
+# iw4x-toolkit knowledge base
+
+> Reference data for modding Call of Duty: Modern Warfare 2 (2009) on the IW4X client: DVARs, GSC built-in functions, GSC anti-patterns, code templates, and a HUD menu reference. JSON files, each with a JSON Schema.
+
+URLs track the master branch. To pin a version, replace `@master` with a release tag. Source and issues: https://github.com/back1ply/iw4x-toolkit
+
+## Data
+
+- [dvars.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/dvars.json): 1,978 DVARs: name, type, default, flags, category, context, description, FPS impact
+- [gsc-builtins.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/gsc-builtins.json): 1,127 GSC built-in functions: signature, return type, category, description
+- [gsc-anti-patterns.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/gsc-anti-patterns.json): 48 common mistakes with the correct IW4 GSC equivalent
+- [templates.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/templates.json): 13 GSC code templates with {{placeholder}} variables
+- [gsc-menu-hud.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/gsc-menu-hud.json): HUD element reference for script menus (positioning, properties, layering)
+
+## Schemas
+
+- [schemas/dvars.schema.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/dvars.schema.json): JSON Schema for dvars.json
+- [schemas/gsc-builtins.schema.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/gsc-builtins.schema.json): JSON Schema for gsc-builtins.json
+- [schemas/gsc-anti-patterns.schema.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/gsc-anti-patterns.schema.json): JSON Schema for gsc-anti-patterns.json
+- [schemas/templates.schema.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/templates.schema.json): JSON Schema for templates.json
+- [schemas/gsc-menu-hud.schema.json](https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/gsc-menu-hud.schema.json): JSON Schema for gsc-menu-hud.json
+
+## Optional
+
+- [iw4x-toolkit](https://github.com/back1ply/iw4x-toolkit): MCP server and CLI that search this data (dvar_search, gsc_lookup, gsc_anti_patterns, gsc_template, gsc_menu_hud)

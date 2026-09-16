@@ -1,0 +1,40 @@
+{
+  "$id": "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/templates.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "propertyNames": {
+    "type": "string"
+  },
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "GSC source; {{name}} placeholders are replaced by variables"
+      },
+      "description": {
+        "type": "string"
+      },
+      "category": {
+        "type": "string"
+      },
+      "variables": {
+        "description": "Placeholder name -> meaning",
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "code",
+      "description",
+      "category"
+    ],
+    "additionalProperties": false
+  },
+  "description": "GSC code templates keyed by name"
+}

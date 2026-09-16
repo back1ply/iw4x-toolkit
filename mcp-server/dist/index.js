@@ -84422,7 +84422,10 @@ function formatBuiltinEntry(func) {
   s += "\n";
   if (func.description) s += `  ${func.description}
 `;
-  if (func.parameters) s += `  Params: ${func.parameters.map((p) => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}
+  if (func.calledOn) s += `  Called on: ${func.calledOn}
+`;
+  const params = func.parameters?.map((p) => ({ name: p.name, type: p.type, optional: p.optional })) ?? func.params?.map((p) => ({ name: p.name, type: p.types.join("|"), optional: p.optional }));
+  if (params?.length) s += `  Params: ${params.map((p) => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}
 `;
   if (func.returnType) s += `  Returns: ${func.returnType}
 `;

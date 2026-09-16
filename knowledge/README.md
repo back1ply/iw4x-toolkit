@@ -1,35 +1,32 @@
 # Knowledge Base
 
-This directory contains structured data used by the `iw4x-toolkit` MCP server to provide intelligent suggestions and validation.
+Reference data for MW2 / IW4X modding, used by the iw4x-toolkit commands and published for use by anything else.
 
-## Files
+| File | Contents | Used by |
+|---|---|---|
+| `dvars.json` | Console variables: type, default, flags, category, context, description, FPS impact | `dvar_search`, `dvar_integrity_check`, `iw4x://dvars` |
+| `gsc-builtins.json` | GSC built-in functions: parameters, return type, category, description | `gsc_lookup`, `gsc_lint`, `gsc_find_orphans`, `iw4x://gsc-builtins` |
+| `gsc-anti-patterns.json` | Common mistakes with the correct IW4 GSC equivalent | `gsc_anti_patterns` |
+| `templates.json` | GSC code templates with `{{placeholder}}` variables | `gsc_template` |
+| `gsc-menu-hud.json` | HUD element reference for script menus | `gsc_menu_hud` |
 
-### `dvars.json`
-A comprehensive list of MW2 DVARs (Console Variables).
-- **Source**: `bloodbourne/M2-dvars-list` + Engine Analysis
-- **Usage**: Used by the `dvar_search` tool to find variables, types, and defaults.
+Current counts and download links are in [`llms.txt`](llms.txt). Each file has a JSON Schema in [`schemas/`](schemas/).
 
-### `gsc-builtins.json`
-A definitions file for GSC (Game Script) built-in functions.
-- **Status**: Available — v1.1.0, 80 functions compiled from X-Labs, CoD4x, and Zeroy wikis.
-- **Source**: Manual compilation from X-Labs, CoD4x, and Zeroy wikis.
-- **Schema**:
-  ```json
-  {
-    "name": "function_name",
-    "returnType": "void|int|float|string|entity|array|bool",
-    "parameters": [
-      { "name": "arg1", "type": "type", "optional": false }
-    ],
-    "engines": ["cod4", "iw4", "cod4x", "iw4x"],
-    "description": "Short description of behavior.",
-    "category": "category_name"
-  }
-  ```
-- **Goal**: Source of truth for the GSC Linter (`gsc_lint`) and the `gsc_lookup` tool.
+## Using the data elsewhere
 
-## Contributing
-To add new functions:
-1.  Verify the function exists in the target engine (CoD4x or IW4x).
-2.  Add it to `gsc-builtins.json` following the schema.
-3.  Ensure the `engines` array reasonably reflects where it is available.
+Every file is served by jsDelivr from the public repository:
+
+```
+https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/<file>
+```
+
+Replace `@master` with a release tag (e.g. `@v2.0.0`) for content that will not change under you.
+
+## Editing
+
+1. Edit the JSON. Shapes are defined in `mcp-server/src/knowledge/schemas.ts`.
+   - `gsc-builtins.json` has two entry formats. Hand-curated entries use `parameters` and `engines`. Entries imported from [Muhlex/gsc-doc](https://github.com/Muhlex/gsc-doc) use `params`, `calledOn`, `scopes`, and `example`.
+2. From `mcp-server/`, run:
+   - `npm run knowledge` to regenerate `llms.txt` and `schemas/`
+   - `npm run build` to embed the data in the toolkit
+   - `npm test`, which validates every file against its schema and fails if the generated files are stale

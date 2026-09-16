@@ -115,7 +115,11 @@ function formatBuiltinEntry(func: GscBuiltin): string {
   if (func.category) s += ` [${func.category}]`;
   s += "\n";
   if (func.description) s += `  ${func.description}\n`;
-  if (func.parameters) s += `  Params: ${func.parameters.map(p => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}\n`;
+  if (func.calledOn) s += `  Called on: ${func.calledOn}\n`;
+  // Hand-curated entries use `parameters`; entries imported from gsc-doc use `params` with a list of types.
+  const params = func.parameters?.map((p) => ({ name: p.name, type: p.type, optional: p.optional }))
+    ?? func.params?.map((p) => ({ name: p.name, type: p.types.join("|"), optional: p.optional }));
+  if (params?.length) s += `  Params: ${params.map((p) => `${p.name}: ${p.type}${p.optional ? "?" : ""}`).join(", ")}\n`;
   if (func.returnType) s += `  Returns: ${func.returnType}\n`;
   s += "\n";
   return s;

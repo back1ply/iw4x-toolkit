@@ -1,0 +1,138 @@
+{
+  "$id": "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/gsc-builtins.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "totalFunctions": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "description",
+        "totalFunctions"
+      ],
+      "additionalProperties": false
+    },
+    "functions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "returnType": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "optional": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "type"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "engines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "optional": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "types",
+                "optional",
+                "description"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "calledOn": {
+            "description": "Entity the function is called on (e.g. player); null for global functions",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scopes": {
+            "description": "e.g. iw4|mp, iw4|sp, iw4|sp-mp",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "example": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "category",
+          "description",
+          "returnType"
+        ],
+        "additionalProperties": false,
+        "description": "Hand-curated entries use parameters/engines; entries from Muhlex/gsc-doc use params/calledOn/scopes/example"
+      }
+    }
+  },
+  "required": [
+    "version",
+    "meta",
+    "functions"
+  ],
+  "additionalProperties": false,
+  "description": "IW4 / IW4X GSC built-in functions"
+}

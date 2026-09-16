@@ -1,0 +1,51 @@
+{
+  "$id": "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/gsc-anti-patterns.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "wrong": {
+            "type": "string"
+          },
+          "right": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "title",
+          "wrong",
+          "right",
+          "explanation"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "patterns"
+  ],
+  "additionalProperties": false,
+  "description": "Mistakes from JS/BO3/modern languages with the correct IW4 GSC equivalent"
+}

@@ -8,7 +8,7 @@ IW4X/MW2 modding toolkit: IWD archive tools, GSC linting and formatting, a DVAR 
 
 **GSC tooling** — `gsc_lint` catches undefined variables and functions, unreachable code, brace mismatches, and case-insensitive name collisions. `gsc_format` normalises indentation, brace style, and operator spacing. `iwd_index_symbols` indexes function definitions across archives so `gsc_find_orphans` can report calls nothing resolves.
 
-**DVAR knowledge base** — 1,978 MW2 DVARs with types, defaults, categories, and FPS impact ratings. `dvar_search` filters server-side to avoid flooding context; `dvar_integrity_check` flags unknown DVAR names in GSC.
+**DVAR knowledge base** — 1,978 MW2 DVARs with types, defaults, categories, and FPS impact ratings. `dvar_search` filters server-side to avoid flooding context; `dvar_integrity_check` flags unknown DVAR names in GSC. The knowledge base is also published as plain JSON with JSON Schemas and an [`llms.txt`](knowledge/llms.txt) index; see [knowledge/README.md](knowledge/README.md).
 
 ### Commands
 
