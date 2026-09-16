@@ -9498,7 +9498,9 @@ __export(utils_exports, {
   rateLimitMap: () => rateLimitMap,
   requireEntry: () => requireEntry,
   requireIwd: () => requireIwd,
+  requireSafeEntry: () => requireSafeEntry,
   resolveIwdPath: () => resolveIwdPath,
+  saveIwd: () => saveIwd,
   unwrapResult: () => unwrapResult
 });
 import * as fs from "node:fs";
@@ -9842,6 +9844,20 @@ function requireEntry(zip, entry) {
   const zipEntry = zip.getEntry(normalized);
   if (!zipEntry) throw new CommandError(entryNotFoundMessage(normalized));
   return { normalized, zipEntry };
+}
+function requireSafeEntry(entry, label = "entry") {
+  const normalized = normalizeEntry(entry);
+  if (!normalized) throw new CommandError(`Error: ${label} path cannot be empty.`);
+  if (!isSafeEntryPath(normalized)) {
+    throw new CommandError(`Error: ${label} path is invalid or contains path traversal sequences (not allowed).`);
+  }
+  return normalized;
+}
+async function saveIwd(zip, resolved, edit) {
+  await ensureBackup(resolved);
+  edit(zip);
+  await atomicWrite(zip, resolved);
+  invalidateIwdCache(resolved);
 }
 var import_adm_zip, BINARY_EXTENSIONS, GREP_MAX_MATCHES_DEFAULT, MINIFIED_FILE_CHARS_PER_LINE, MAX_LINE_LENGTH_WARNING, regexCache, REGEX_CACHE_MAX, rateLimitMap, RATE_LIMIT_CLEANUP_THRESHOLD, RATE_LIMIT_MAX_SIZE, RATE_LIMITS, backedUp, atomicWriteDirs, iwdCache, IWD_CACHE_MAX, DIFF_COL_WIDTH, DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP, DIFF_BOX_BOTTOM, CommandError;
 var init_utils = __esm({
@@ -24223,47 +24239,51 @@ function registerReadTools(server2) {
 
 // src/iwd/write-tools.ts
 init_utils();
-function resolveWriteTarget(iwdPath, entry) {
-  const resolved = resolveIwdPath(iwdPath);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return { error: errResult(opened.error) };
-  const normalized = normalizeEntry(entry);
-  if (!normalized) return { error: errResult("Error: entry path cannot be empty.") };
-  if (!isSafeEntryPath(normalized)) {
-    return { error: errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).") };
-  }
-  return { zip: opened.value, resolved, normalized };
-}
-function writeDiffSection(zip, existing, normalized, content) {
-  if (isBinaryEntry(normalized)) return "";
-  const { snippet, changedLine } = buildDiffSnippet(zip.readAsText(existing), content);
-  return snippet ? `
+var entryNotFoundTip = "Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).";
+var iwdWrite = command({
+  name: "iwd_write",
+  title: "Write Archive Entry (Surgical Fix Only)",
+  description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Write or replace an entire single file inside an IWD archive. For targeted edits to a small part of a large file, prefer iwd_patch instead (avoids re-sending full content). Creates a .bak backup on first modification per session. Content must be UTF-8 text. When replacing an existing text entry, returns a \xB13-line diff for verification. Set dry_run=true to validate the operation without committing it.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    entry: external_exports.string().describe("Entry path inside the IWD. New entries are created automatically."),
+    content: external_exports.string().describe("Full UTF-8 text content to write"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the write without actually modifying the archive (safe to use first)")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  async run({ path: iwdPath, entry, content, dry_run }) {
+    const { resolved, zip } = requireIwd(iwdPath);
+    const normalized = requireSafeEntry(entry);
+    const existing = zip.getEntry(normalized);
+    const data = {
+      archive: resolved,
+      entry: normalized,
+      added: !existing,
+      lines: content.split("\n").length,
+      chars: content.length,
+      dryRun: dry_run
+    };
+    if (dry_run) return data;
+    if (existing && !isBinaryEntry(normalized)) {
+      data.diff = buildDiffSnippet(zip.readAsText(existing), content);
+    }
+    const buf = Buffer.from(content, "utf-8");
+    await saveIwd(zip, resolved, (z) => existing ? z.updateFile(normalized, buf) : z.addFile(normalized, buf));
+    return data;
+  },
+  render(d) {
+    const action = d.added ? "Added" : "Updated";
+    if (d.dryRun) {
+      return `[dry_run] Would ${action.toLowerCase()} ${d.entry} in ${d.archive}
+Content: ${d.lines} lines, ${d.chars} chars`;
+    }
+    const diffSection = d.diff?.snippet ? `
 
---- Diff (first change at line ${changedLine + 1}) ---
-${snippet}` : "";
-}
-async function handleIwdWrite({ path: iwdPath, entry, content, dry_run }) {
-  const target = resolveWriteTarget(iwdPath, entry);
-  if ("error" in target) return target.error;
-  const { zip, resolved, normalized } = target;
-  const existing = zip.getEntry(normalized);
-  const lineCount = content.split("\n").length;
-  const action = existing ? "Updated" : "Added";
-  if (dry_run) {
-    return okResult(
-      `[dry_run] Would ${action.toLowerCase()} ${normalized} in ${resolved}
-Content: ${lineCount} lines, ${content.length} chars`
-    );
+--- Diff (first change at line ${d.diff.changedLine + 1}) ---
+${d.diff.snippet}` : "";
+    return `${action} ${d.entry} in ${d.archive} (${d.lines} lines, ${d.chars} chars)${diffSection}`;
   }
-  const diffSection = existing ? writeDiffSection(zip, existing, normalized, content) : "";
-  await ensureBackup(resolved);
-  const buf = Buffer.from(content, "utf-8");
-  if (existing) zip.updateFile(normalized, buf);
-  else zip.addFile(normalized, buf);
-  await atomicWrite(zip, resolved);
-  invalidateIwdCache(resolved);
-  return okResult(`${action} ${normalized} in ${resolved} (${lineCount} lines, ${content.length} chars)${diffSection}`);
-}
+});
 function applyReplacement(original, oldStr, newStr, count) {
   const occurrences = original.split(oldStr).length - 1;
   if (count === -1) {
@@ -24281,127 +24301,106 @@ function patchSummary(replaced, occurrences) {
   const remaining = occurrences - replaced;
   return remaining === 0 ? `Replaced ${replaced}/${occurrences} occurrence(s)` : `Replaced ${replaced} of ${occurrences} occurrence(s) (${remaining} remaining \u2014 use count=-1 to replace all)`;
 }
-function loadPatchTarget(zip, normalized, oldStr) {
-  const zipEntry = zip.getEntry(normalized);
-  if (!zipEntry) {
-    return { error: errResult(`Error: Entry not found in archive: ${normalized}
-Tip: use iwd_list to check the exact entry path.`) };
-  }
-  if (isBinaryEntry(normalized)) {
-    return { error: errResult(`Error: Cannot patch binary entry: ${normalized}
-Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`) };
-  }
-  const text = zip.readAsText(zipEntry);
-  if (!text.includes(oldStr)) {
-    return { error: errResult(`Error: Search string not found in ${normalized}
-The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`) };
-  }
-  return { text };
-}
-async function handleIwdPatch({ path: iwdPath, entry, old: oldStr, new: newStr, count, dry_run }) {
-  const target = resolveWriteTarget(iwdPath, entry);
-  if ("error" in target) return target.error;
-  const { zip, resolved, normalized } = target;
-  const loaded = loadPatchTarget(zip, normalized, oldStr);
-  if ("error" in loaded) return loaded.error;
-  if (count === 0) return errResult("Error: count must be at least 1 or -1 for all occurrences.");
-  const original = loaded.text;
-  const hintLine = original.slice(0, original.indexOf(oldStr)).split(/\r?\n/).length - 1;
-  const { patched, replaced, occurrences } = applyReplacement(original, oldStr, newStr, count);
-  const { snippet, changedLine } = buildDiffSnippet(original, patched, 3, hintLine);
-  const summary = patchSummary(replaced, occurrences);
-  const diffBlock = `--- Context around change (line ${changedLine + 1}) ---
-${snippet}`;
-  if (dry_run) {
-    return okResult(`[dry_run] ${normalized}: ${summary} (no changes written)
+var iwdPatch = command({
+  name: "iwd_patch",
+  title: "Patch Archive Entry (Surgical Fix Only)",
+  description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Perform a surgical string replacement inside a single text entry in an IWD archive. Returns a \xB13-line diff snippet around the change so you can verify the edit without re-reading the file. Only replaces the first occurrence by default \u2014 use count=-1 to replace all. Set dry_run=true to preview what would change without modifying the archive.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    entry: external_exports.string().describe("Path of the entry inside the IWD (forward or backslashes accepted)"),
+    old: external_exports.string().min(1).describe("Exact string to find and replace (must appear in the file, case-sensitive)"),
+    new: external_exports.string().describe("Replacement string"),
+    count: external_exports.number().int().min(-1).optional().default(1).describe("Number of occurrences to replace. 1 = first only (default), -1 = all occurrences"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, returns the diff preview without modifying the archive")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  async run({ path: iwdPath, entry, old: oldStr, new: newStr, count, dry_run }) {
+    const { resolved, zip } = requireIwd(iwdPath);
+    const normalized = requireSafeEntry(entry);
+    const zipEntry = zip.getEntry(normalized);
+    if (!zipEntry) {
+      throw new CommandError(`Error: Entry not found in archive: ${normalized}
+Tip: use iwd_list to check the exact entry path.`);
+    }
+    if (isBinaryEntry(normalized)) {
+      throw new CommandError(`Error: Cannot patch binary entry: ${normalized}
+Only text files (.gsc, .menu, .cfg, .csv, etc.) can be patched.`);
+    }
+    const original = zip.readAsText(zipEntry);
+    if (!original.includes(oldStr)) {
+      throw new CommandError(`Error: Search string not found in ${normalized}
+The 'old' string must match exactly (case-sensitive, including whitespace and line endings).`);
+    }
+    if (count === 0) throw new CommandError("Error: count must be at least 1 or -1 for all occurrences.");
+    const hintLine = original.slice(0, original.indexOf(oldStr)).split(/\r?\n/).length - 1;
+    const { patched, replaced, occurrences } = applyReplacement(original, oldStr, newStr, count);
+    const { snippet, changedLine } = buildDiffSnippet(original, patched, 3, hintLine);
+    if (!dry_run) await saveIwd(zip, resolved, (z) => z.updateFile(normalized, Buffer.from(patched, "utf-8")));
+    return { entry: normalized, replaced, occurrences, dryRun: dry_run, snippet, changedLine };
+  },
+  render(d) {
+    const summary = patchSummary(d.replaced, d.occurrences);
+    const diffBlock = `--- Context around change (line ${d.changedLine + 1}) ---
+${d.snippet}`;
+    return d.dryRun ? `[dry_run] ${d.entry}: ${summary} (no changes written)
 
-${diffBlock}`);
-  }
-  await ensureBackup(resolved);
-  zip.updateFile(normalized, Buffer.from(patched, "utf-8"));
-  await atomicWrite(zip, resolved);
-  invalidateIwdCache(resolved);
-  return okResult(`Patched: ${normalized}
+${diffBlock}` : `Patched: ${d.entry}
 ${summary}
 
-${diffBlock}`);
-}
-async function handleIwdRemove({ path: iwdPath, entry, dry_run }) {
-  const target = resolveWriteTarget(iwdPath, entry);
-  if ("error" in target) return target.error;
-  const { zip, resolved, normalized } = target;
-  const existing = zip.getEntry(normalized);
-  if (!existing) return entryNotFoundErr(normalized);
-  const size = existing.header.size;
-  const crc = existing.header.crc.toString(16).toUpperCase();
-  if (dry_run) {
-    return okResult(`[dry_run] Would remove ${normalized} from ${resolved}
-Entry: ${size} bytes, CRC: ${crc}`);
+${diffBlock}`;
   }
-  await ensureBackup(resolved);
-  zip.deleteFile(normalized);
-  await atomicWrite(zip, resolved);
-  invalidateIwdCache(resolved);
-  return okResult(`Removed ${normalized} from ${resolved}
-Entry was: ${size} bytes, CRC: ${crc}`);
-}
-function writeTool(name, config2, handler) {
-  return (server2) => {
-    server2.registerTool(name, config2, handler);
-  };
-}
-var WRITE_TOOLS = [
-  writeTool("iwd_write", {
-    title: "Write Archive Entry (Surgical Fix Only)",
-    description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Write or replace an entire single file inside an IWD archive. For targeted edits to a small part of a large file, prefer iwd_patch instead (avoids re-sending full content). Creates a .bak backup on first modification per session. Content must be UTF-8 text. When replacing an existing text entry, returns a \xB13-line diff for verification. Set dry_run=true to validate the operation without committing it.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      entry: external_exports.string().describe("Entry path inside the IWD. New entries are created automatically."),
-      content: external_exports.string().describe("Full UTF-8 text content to write"),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the write without actually modifying the archive (safe to use first)")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true }
-  }, handleIwdWrite),
-  writeTool("iwd_patch", {
-    title: "Patch Archive Entry (Surgical Fix Only)",
-    description: "WARNING: For editing multiple files or doing large overhauls, use iwd_extract + workspace tools + iwd_sync instead. Perform a surgical string replacement inside a single text entry in an IWD archive. Returns a \xB13-line diff snippet around the change so you can verify the edit without re-reading the file. Only replaces the first occurrence by default \u2014 use count=-1 to replace all. Set dry_run=true to preview what would change without modifying the archive.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      entry: external_exports.string().describe("Path of the entry inside the IWD (forward or backslashes accepted)"),
-      old: external_exports.string().min(1).describe("Exact string to find and replace (must appear in the file, case-sensitive)"),
-      new: external_exports.string().describe("Replacement string"),
-      count: external_exports.number().int().min(-1).optional().default(1).describe("Number of occurrences to replace. 1 = first only (default), -1 = all occurrences"),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, returns the diff preview without modifying the archive")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true }
-  }, handleIwdPatch),
-  writeTool("iwd_remove", {
-    title: "Remove Archive Entry",
-    description: "Remove an entry from an IWD archive. Creates a .bak backup on first modification per session. Set dry_run=true to validate without actually removing the entry.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      entry: external_exports.string().describe("Path of the entry to remove. Use iwd_list to find the exact path."),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the operation without modifying the archive")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true }
-  }, handleIwdRemove)
-];
+});
+var iwdRemove = command({
+  name: "iwd_remove",
+  title: "Remove Archive Entry",
+  description: "Remove an entry from an IWD archive. Creates a .bak backup on first modification per session. Set dry_run=true to validate without actually removing the entry.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    entry: external_exports.string().describe("Path of the entry to remove. Use iwd_list to find the exact path."),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the operation without modifying the archive")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  async run({ path: iwdPath, entry, dry_run }) {
+    const { resolved, zip } = requireIwd(iwdPath);
+    const normalized = requireSafeEntry(entry);
+    const existing = zip.getEntry(normalized);
+    if (!existing) throw new CommandError(`Error: Entry not found: ${normalized}
+${entryNotFoundTip}`);
+    const data = {
+      archive: resolved,
+      entry: normalized,
+      dryRun: dry_run,
+      size: existing.header.size,
+      crc: existing.header.crc.toString(16).toUpperCase()
+    };
+    if (!dry_run) await saveIwd(zip, resolved, (z) => z.deleteFile(normalized));
+    return data;
+  },
+  render(d) {
+    return d.dryRun ? `[dry_run] Would remove ${d.entry} from ${d.archive}
+Entry: ${d.size} bytes, CRC: ${d.crc}` : `Removed ${d.entry} from ${d.archive}
+Entry was: ${d.size} bytes, CRC: ${d.crc}`;
+  }
+});
+var WRITE_COMMANDS = [iwdWrite, iwdPatch, iwdRemove];
 function registerWriteTools(server2) {
-  for (const register of WRITE_TOOLS) register(server2);
+  registerCommands(server2, WRITE_COMMANDS);
 }
 
 // src/iwd/archive-tools.ts
 init_utils();
 import * as path3 from "node:path";
-async function validateSourceDir(resolvedSrc) {
+async function requireSourceDir(sourceDir) {
+  const resolved = path3.resolve(sourceDir);
   const fs5 = await import("node:fs/promises");
+  let isDir;
   try {
-    const stat = await fs5.stat(resolvedSrc);
-    if (!stat.isDirectory()) return errResult(`Error: source_dir is not a directory: ${resolvedSrc}`);
+    isDir = (await fs5.stat(resolved)).isDirectory();
   } catch {
-    return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
+    throw new CommandError(`Error: source_dir does not exist: ${resolved}`);
   }
-  return null;
+  if (!isDir) throw new CommandError(`Error: source_dir is not a directory: ${resolved}`);
+  return resolved;
 }
 function isExtractableEntry(e, globRe) {
   if (e.isDirectory) return false;
@@ -24432,121 +24431,113 @@ async function extractEntries(zip, entries, resolvedDest) {
   }
   return { extracted, skipped };
 }
-function formatExtractResult(extracted, skipped, resolvedDest) {
-  let msg = `Extracted ${extracted.length} file(s) to ${resolvedDest}`;
-  if (extracted.length > 0) msg += `:
+var iwdExtract = command({
+  name: "iwd_extract",
+  title: "Extract Archive Entries",
+  description: "Extract entries from an IWD archive to a directory on disk. Once extracted, standard shell tools (rg, fd, bat) work natively. Use entry_glob to extract only a subset of files. Returns the destination path and list of extracted files.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    dest: external_exports.string().describe("Destination directory path. Created if it does not exist."),
+    entry_glob: external_exports.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false },
+  async run({ path: iwdPath, dest, entry_glob, dry_run }) {
+    const resolvedDest = path3.resolve(dest);
+    const { resolved, zip } = requireIwd(iwdPath);
+    const globRe = entry_glob ? globToRegex(entry_glob) : null;
+    const entries = zip.getEntries().filter((e) => isExtractableEntry(e, globRe));
+    const data = {
+      archive: resolved,
+      dest: resolvedDest,
+      dryRun: dry_run,
+      selected: entries.map((e) => e.entryName),
+      extracted: [],
+      skipped: []
+    };
+    if (entries.length === 0 || dry_run) return data;
+    return { ...data, ...await extractEntries(zip, entries, resolvedDest) };
+  },
+  render(d, { entry_glob }) {
+    if (d.selected.length === 0) {
+      return entry_glob ? `No entries match glob '${entry_glob}' in ${d.archive}.
+Tip: use iwd_list to see all entries.` : `No entries found in ${d.archive}.`;
+    }
+    if (d.dryRun) {
+      return `[dry_run] Would extract ${d.selected.length} file(s) to ${d.dest}:
 
-` + extracted.join("\n");
-  if (skipped.length > 0) msg += `
+` + d.selected.join("\n");
+    }
+    let msg = `Extracted ${d.extracted.length} file(s) to ${d.dest}`;
+    if (d.extracted.length > 0) msg += `:
 
-\u26A0\uFE0F Skipped ${skipped.length} unsafe entry path(s): ${skipped.join(", ")}`;
-  return msg;
-}
-async function handleIwdExtract({ path: iwdPath, dest, entry_glob, dry_run }) {
-  const resolved = resolveIwdPath(iwdPath);
-  const resolvedDest = path3.resolve(dest);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return errResult(opened.error);
-  const globRe = entry_glob ? globToRegex(entry_glob) : null;
-  const entries = opened.value.getEntries().filter((e) => isExtractableEntry(e, globRe));
-  if (entries.length === 0) {
-    return okResult(entry_glob ? `No entries match glob '${entry_glob}' in ${resolved}.
-Tip: use iwd_list to see all entries.` : `No entries found in ${resolved}.`);
-  }
-  if (dry_run) {
-    return okResult(
-      `[dry_run] Would extract ${entries.length} file(s) to ${resolvedDest}:
+` + d.extracted.join("\n");
+    if (d.skipped.length > 0) msg += `
 
-` + entries.map((e) => e.entryName).join("\n")
-    );
+\u26A0\uFE0F Skipped ${d.skipped.length} unsafe entry path(s): ${d.skipped.join(", ")}`;
+    return msg;
   }
-  const { extracted, skipped } = await extractEntries(opened.value, entries, resolvedDest);
-  return okResult(formatExtractResult(extracted, skipped, resolvedDest));
-}
-async function handleIwdPack({ source_dir, dest_path, dry_run }) {
-  const rateCheck = checkRateLimit("iwd_pack");
-  if (!rateCheck.allowed) {
-    return errResult(`Rate limit exceeded for iwd_pack. Try again in ${rateCheck.resetIn} seconds.`);
+});
+var iwdPack = command({
+  name: "iwd_pack",
+  title: "Pack Workspace to Archive (Full Rebuild)",
+  description: "Zips the entire contents of a workspace directory into a BRAND NEW IWD archive. WARNING: If the destination file already exists, it is completely overwritten and replaced. If you want to inject a few changed files into an existing archive without deleting everything else, use iwd_sync instead.",
+  input: {
+    source_dir: external_exports.string().describe("The folder containing loose files to pack"),
+    dest_path: external_exports.string().describe("The .iwd file to create/overwrite"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without writing the archive")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  rateLimit: "iwd_pack",
+  async run({ source_dir, dest_path, dry_run }) {
+    const source = await requireSourceDir(source_dir);
+    const archive = resolveIwdPath(dest_path);
+    if (dry_run) return { source, archive, dryRun: true };
+    const { existsSync: existsSync4 } = await import("node:fs");
+    if (existsSync4(archive)) await ensureBackup(archive);
+    const { default: AdmZipCtor } = await Promise.resolve().then(() => __toESM(require_adm_zip(), 1));
+    const zip = new AdmZipCtor();
+    zip.addLocalFolder(source, "");
+    await atomicWrite(zip, archive);
+    invalidateIwdCache(archive);
+    return { source, archive, dryRun: false };
+  },
+  render(d) {
+    return d.dryRun ? `[dry_run] Would pack directory ${d.source} into new archive ${d.archive}` : `Packed ${d.source}
+    \u2192 ${d.archive}`;
   }
-  const resolvedSrc = path3.resolve(source_dir);
-  const srcError = await validateSourceDir(resolvedSrc);
-  if (srcError) return srcError;
-  const resolvedDst = resolveIwdPath(dest_path);
-  if (dry_run) {
-    return okResult(`[dry_run] Would pack directory ${resolvedSrc} into new archive ${resolvedDst}`);
+});
+var iwdSync = command({
+  name: "iwd_sync",
+  title: "Sync Workspace to Existing Archive (Partial Update)",
+  description: "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. Crucially, it leaves all other files in the archive untouched. Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
+  input: {
+    source_dir: external_exports.string().describe("Folder with modified loose files"),
+    dest_path: external_exports.string().describe("The existing .iwd file to update"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without modifying the archive")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  async run({ source_dir, dest_path, dry_run }) {
+    const source = await requireSourceDir(source_dir);
+    const { resolved, zip } = requireIwd(dest_path);
+    if (!dry_run) await saveIwd(zip, resolved, (z) => z.addLocalFolder(source, ""));
+    return { source, archive: resolved, dryRun: dry_run };
+  },
+  render(d) {
+    return d.dryRun ? `[dry_run] Would sync files from ${d.source} into existing archive ${d.archive}` : `Synced files from ${d.source}
+    \u2192 ${d.archive}`;
   }
-  const { existsSync: existsSync4 } = await import("node:fs");
-  if (existsSync4(resolvedDst)) await ensureBackup(resolvedDst);
-  const { default: AdmZipCtor } = await Promise.resolve().then(() => __toESM(require_adm_zip(), 1));
-  const zip = new AdmZipCtor();
-  zip.addLocalFolder(resolvedSrc, "");
-  await atomicWrite(zip, resolvedDst);
-  invalidateIwdCache(resolvedDst);
-  return okResult(`Packed ${resolvedSrc}
-    \u2192 ${resolvedDst}`);
-}
-async function handleIwdSync({ source_dir, dest_path, dry_run }) {
-  const resolvedSrc = path3.resolve(source_dir);
-  const srcError = await validateSourceDir(resolvedSrc);
-  if (srcError) return srcError;
-  const resolvedDst = resolveIwdPath(dest_path);
-  const opened = openIwd(resolvedDst);
-  if (!opened.ok) return errResult(opened.error);
-  if (dry_run) {
-    return okResult(`[dry_run] Would sync files from ${resolvedSrc} into existing archive ${resolvedDst}`);
-  }
-  await ensureBackup(resolvedDst);
-  opened.value.addLocalFolder(resolvedSrc, "");
-  await atomicWrite(opened.value, resolvedDst);
-  invalidateIwdCache(resolvedDst);
-  return okResult(`Synced files from ${resolvedSrc}
-    \u2192 ${resolvedDst}`);
-}
-function archiveTool(name, config2, handler) {
-  return (server2) => {
-    server2.registerTool(name, config2, handler);
-  };
-}
-var ARCHIVE_TOOLS = [
-  archiveTool("iwd_extract", {
-    title: "Extract Archive Entries",
-    description: "Extract entries from an IWD archive to a directory on disk. Once extracted, standard shell tools (rg, fd, bat) work natively. Use entry_glob to extract only a subset of files. Returns the destination path and list of extracted files.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      dest: external_exports.string().describe("Destination directory path. Created if it does not exist."),
-      entry_glob: external_exports.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false }
-  }, handleIwdExtract),
-  archiveTool("iwd_pack", {
-    title: "Pack Workspace to Archive (Full Rebuild)",
-    description: "Zips the entire contents of a workspace directory into a BRAND NEW IWD archive. WARNING: If the destination file already exists, it is completely overwritten and replaced. If you want to inject a few changed files into an existing archive without deleting everything else, use iwd_sync instead.",
-    inputSchema: {
-      source_dir: external_exports.string().describe("The folder containing loose files to pack"),
-      dest_path: external_exports.string().describe("The .iwd file to create/overwrite"),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without writing the archive")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true }
-  }, handleIwdPack),
-  archiveTool("iwd_sync", {
-    title: "Sync Workspace to Existing Archive (Partial Update)",
-    description: "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. Crucially, it leaves all other files in the archive untouched. Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
-    inputSchema: {
-      source_dir: external_exports.string().describe("Folder with modified loose files"),
-      dest_path: external_exports.string().describe("The existing .iwd file to update"),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without modifying the archive")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true }
-  }, handleIwdSync)
-];
+});
+var ARCHIVE_COMMANDS = [iwdExtract, iwdPack, iwdSync];
 function registerArchiveTools(server2) {
-  for (const register of ARCHIVE_TOOLS) register(server2);
+  registerCommands(server2, ARCHIVE_COMMANDS);
 }
 
 // src/iwd/diff-tools.ts
 init_utils();
 import * as path4 from "node:path";
+var entryNotFound = (normalized) => `Error: Entry not found: ${normalized}
+Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`;
 function buildEntryCrcMap(zip, globRe) {
   const map = /* @__PURE__ */ new Map();
   for (const e of zip.getEntries()) {
@@ -24564,292 +24555,228 @@ function computeArchiveDiff(map1, map2) {
   const modified = common.filter((n) => map1.get(n) !== map2.get(n));
   return { added, removed, modified, identical: common.length - modified.length };
 }
+function diffEntry(zip1, zip2, name, diffFormat) {
+  const e1 = zip1.getEntry(name);
+  const e2 = zip2.getEntry(name);
+  if (!e1 || !e2) return null;
+  if (isBinaryEntry(name)) return { entry: name, binary: true, sizeA: e1.header.size, sizeB: e2.header.size };
+  const t1 = zip1.readAsText(e1);
+  const t2 = zip2.readAsText(e2);
+  if (diffFormat === "side-by-side") {
+    return { entry: name, binary: false, format: "side-by-side", view: buildSideBySideDiff(t1, t2) };
+  }
+  return { entry: name, binary: false, format: "unified", ...buildDiffSnippet(t1, t2) };
+}
 function appendEntryList(lines, items, heading, prefix) {
   if (items.length === 0) return;
   lines.push(``, heading);
   items.forEach((n) => lines.push(`  ${prefix} ${n}`));
 }
-function renderDiffSummary({ r1, r2, sizeA, sizeB, diff, entry_glob }) {
-  const globNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
-  const lines = [
-    `Comparing${globNote}:`,
-    `  A: ${r1} (${sizeA} files)`,
-    `  B: ${r2} (${sizeB} files)`,
-    ``,
-    `Summary: ${diff.added.length} added, ${diff.removed.length} removed, ${diff.modified.length} modified, ${diff.identical} identical`
-  ];
-  appendEntryList(lines, diff.added, `Added (in B, not in A):`, "+");
-  appendEntryList(lines, diff.removed, `Removed (in A, not in B):`, "-");
-  appendEntryList(lines, diff.modified, `Modified (CRC differs):`, "~");
-  return lines;
+function renderEntryDiff(d) {
+  if (d.binary) return [``, `[binary] ${d.entry}: ${d.sizeA} \u2192 ${d.sizeB} bytes`];
+  if (d.format === "side-by-side") return [``, `[diff] ${d.entry}:`, d.view];
+  return [``, `[diff] ${d.entry} (first change at line ${d.changedLine + 1}):`, d.snippet];
 }
-function renderEntryDiff(zip1, zip2, name, diffFormat) {
-  const e1 = zip1.getEntry(name);
-  const e2 = zip2.getEntry(name);
-  if (!e1 || !e2) return [];
-  if (isBinaryEntry(name)) {
-    return [``, `[binary] ${name}: ${e1.header.size} \u2192 ${e2.header.size} bytes`];
+var iwdDiff = command({
+  name: "iwd_diff",
+  title: "Diff Two Archives",
+  description: "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include diffs for modified text entries. Use diff_format='side-by-side' for a visual two-column view.",
+  input: {
+    path1: external_exports.string().describe("Path to the first (base) IWD file"),
+    path2: external_exports.string().describe("Path to the second (modified) IWD file"),
+    entry_glob: external_exports.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    content_diff: external_exports.boolean().optional().default(false).describe("If true, includes diffs for modified text entries"),
+    diff_format: external_exports.enum(["unified", "side-by-side"]).optional().default("unified").describe("Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison")
+  },
+  annotations: { readOnlyHint: true },
+  run({ path1, path2: path22, entry_glob, content_diff, diff_format }) {
+    const a = requireIwd(path1);
+    const b = requireIwd(path22);
+    const globRe = entry_glob ? globToRegex(entry_glob) : null;
+    const map1 = buildEntryCrcMap(a.zip, globRe);
+    const map2 = buildEntryCrcMap(b.zip, globRe);
+    const diff = computeArchiveDiff(map1, map2);
+    const data = { archiveA: a.resolved, archiveB: b.resolved, filesA: map1.size, filesB: map2.size, ...diff };
+    if (diff.modified.length > 0 && content_diff) {
+      data.contentDiffs = diff.modified.map((name) => diffEntry(a.zip, b.zip, name, diff_format)).filter((d) => d !== null);
+    }
+    return data;
+  },
+  render(d, { entry_glob, diff_format }) {
+    const globNote = entry_glob ? ` [filter: ${entry_glob}]` : "";
+    const lines = [
+      `Comparing${globNote}:`,
+      `  A: ${d.archiveA} (${d.filesA} files)`,
+      `  B: ${d.archiveB} (${d.filesB} files)`,
+      ``,
+      `Summary: ${d.added.length} added, ${d.removed.length} removed, ${d.modified.length} modified, ${d.identical} identical`
+    ];
+    appendEntryList(lines, d.added, `Added (in B, not in A):`, "+");
+    appendEntryList(lines, d.removed, `Removed (in A, not in B):`, "-");
+    appendEntryList(lines, d.modified, `Modified (CRC differs):`, "~");
+    if (d.contentDiffs) {
+      const formatNote = diff_format === "side-by-side" ? " (side-by-side view)" : "";
+      lines.push(``, `--- Content diffs for modified text entries${formatNote} ---`);
+      for (const entryDiff of d.contentDiffs) lines.push(...renderEntryDiff(entryDiff));
+    }
+    return lines.join("\n");
   }
-  const t1 = zip1.readAsText(e1);
-  const t2 = zip2.readAsText(e2);
-  if (diffFormat === "side-by-side") {
-    return [``, `[diff] ${name}:`, buildSideBySideDiff(t1, t2)];
-  }
-  const { snippet, changedLine } = buildDiffSnippet(t1, t2);
-  return [``, `[diff] ${name} (first change at line ${changedLine + 1}):`, snippet];
-}
-function renderContentDiffs(zip1, zip2, modified, diffFormat) {
-  const formatNote = diffFormat === "side-by-side" ? " (side-by-side view)" : "";
-  const out = [``, `--- Content diffs for modified text entries${formatNote} ---`];
-  for (const name of modified) out.push(...renderEntryDiff(zip1, zip2, name, diffFormat));
-  return out;
-}
-async function handleIwdDiff({ path1, path2: path22, entry_glob, content_diff, diff_format }) {
-  const r1 = resolveIwdPath(path1);
-  const r2 = resolveIwdPath(path22);
-  const o1 = openIwd(r1);
-  if (!o1.ok) return errResult(o1.error);
-  const o2 = openIwd(r2);
-  if (!o2.ok) return errResult(o2.error);
-  const globRe = entry_glob ? globToRegex(entry_glob) : null;
-  const map1 = buildEntryCrcMap(o1.value, globRe);
-  const map2 = buildEntryCrcMap(o2.value, globRe);
-  const diff = computeArchiveDiff(map1, map2);
-  const lines = renderDiffSummary({ r1, r2, sizeA: map1.size, sizeB: map2.size, diff, entry_glob });
-  if (diff.modified.length > 0 && content_diff) {
-    lines.push(...renderContentDiffs(o1.value, o2.value, diff.modified, diff_format));
-  }
-  return okResult(lines.join("\n"));
-}
-function validateRename(zip, normalized, normalizedNew) {
-  if (!normalized) return errResult("Error: entry path cannot be empty.");
-  if (!normalizedNew) return errResult("Error: new_entry path cannot be empty.");
-  if (!isSafeEntryPath(normalizedNew)) {
-    return errResult("Error: new_entry path is invalid or contains path traversal sequences (not allowed).");
-  }
-  if (normalized === normalizedNew) {
-    return errResult(
-      `Error: Source and destination are the same path: ${normalized}
-Tip: choose a different new_entry path.`
-    );
-  }
-  if (!zip.getEntry(normalized)) return entryNotFoundErr(normalized);
-  if (zip.getEntry(normalizedNew)) {
-    return errResult(
-      `Error: An entry already exists at the new path: ${normalizedNew}
+});
+var iwdRename = command({
+  name: "iwd_rename",
+  title: "Rename Archive Entry",
+  description: "Rename or move an entry within an IWD archive in a single operation. Equivalent to iwd_read + iwd_write + iwd_remove, but faster and atomic. Set dry_run=true to validate without modifying the archive.",
+  input: {
+    path: external_exports.string().describe("Absolute or relative path to the IWD file"),
+    entry: external_exports.string().describe("Current path of the entry inside the IWD. Use iwd_list to find exact path."),
+    new_entry: external_exports.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the rename without modifying the archive")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false },
+  async run({ path: iwdPath, entry, new_entry, dry_run }) {
+    const { resolved, zip } = requireIwd(iwdPath);
+    const from = normalizeEntry(entry);
+    if (!from) throw new CommandError("Error: entry path cannot be empty.");
+    const to = requireSafeEntry(new_entry, "new_entry");
+    if (from === to) {
+      throw new CommandError(`Error: Source and destination are the same path: ${from}
+Tip: choose a different new_entry path.`);
+    }
+    const source = zip.getEntry(from);
+    if (!source) throw new CommandError(entryNotFound(from));
+    if (zip.getEntry(to)) {
+      throw new CommandError(
+        `Error: An entry already exists at the new path: ${to}
 Tip: remove it first with iwd_remove, or choose a different new_entry path.`
-    );
-  }
-  return null;
-}
-async function executeRename(zip, resolved, normalized, normalizedNew) {
-  await ensureBackup(resolved);
-  const buf = zip.readFile(zip.getEntry(normalized));
-  if (!buf) {
-    return errResult(`Error: Failed to read entry content: ${normalized}
+      );
+    }
+    if (dry_run) return { archive: resolved, from, to, dryRun: true };
+    await saveIwd(zip, resolved, (z) => {
+      const buf = z.readFile(source);
+      if (!buf) throw new CommandError(`Error: Failed to read entry content: ${from}
 Tip: the file may be corrupt.`);
+      z.deleteFile(from);
+      z.addFile(to, buf);
+    });
+    return { archive: resolved, from, to, dryRun: false };
+  },
+  render(d) {
+    return d.dryRun ? `[dry_run] Would rename ${d.from} \u2192 ${d.to} in ${d.archive}` : `Renamed ${d.from} \u2192 ${d.to} in ${d.archive}`;
   }
-  zip.deleteFile(normalized);
-  zip.addFile(normalizedNew, buf);
-  await atomicWrite(zip, resolved);
-  invalidateIwdCache(resolved);
-  return okResult(`Renamed ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
-}
-async function handleIwdRename({ path: iwdPath, entry, new_entry, dry_run }) {
-  const resolved = resolveIwdPath(iwdPath);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return errResult(opened.error);
-  const normalized = normalizeEntry(entry);
-  const normalizedNew = normalizeEntry(new_entry);
-  const invalid = validateRename(opened.value, normalized, normalizedNew);
-  if (invalid) return invalid;
-  if (dry_run) {
-    return okResult(`[dry_run] Would rename ${normalized} \u2192 ${normalizedNew} in ${resolved}`);
-  }
-  return executeRename(opened.value, resolved, normalized, normalizedNew);
-}
-function normalizeCopyEntries(srcEntry, dstEntry) {
-  const normSrc = normalizeEntry(srcEntry);
-  const normDst = normalizeEntry(dstEntry);
-  if (!normSrc) return { error: errResult("Error: src_entry path cannot be empty.") };
-  if (!normDst) return { error: errResult("Error: dst_entry path cannot be empty.") };
-  if (!isSafeEntryPath(normDst)) {
-    return { error: errResult("Error: dst_entry path is invalid or contains path traversal sequences (not allowed).") };
-  }
-  return { normSrc, normDst };
-}
-function planCopy(args) {
-  const rSrc = resolveIwdPath(args.src_path);
-  const rDst = resolveIwdPath(args.dst_path);
-  const oSrc = openIwd(rSrc);
-  if (!oSrc.ok) return { error: errResult(oSrc.error) };
-  const entries = normalizeCopyEntries(args.src_entry, args.dst_entry);
-  if ("error" in entries) return entries;
-  const { normSrc, normDst } = entries;
-  if (!oSrc.value.getEntry(normSrc)) return { error: entryNotFoundErr(normSrc) };
-  const oDst = path4.resolve(rSrc) === path4.resolve(rDst) ? oSrc : openIwd(rDst);
-  if (!oDst.ok) return { error: errResult(oDst.error) };
-  const existingDst = oDst.value.getEntry(normDst) !== null;
-  if (existingDst && !args.overwrite) {
-    return {
-      error: errResult(
-        `Error: Destination entry already exists: ${normDst} in ${rDst}
-Tip: set overwrite=true to replace it.`
-      )
+});
+var iwdCopy = command({
+  name: "iwd_copy",
+  title: "Copy Archive Entry",
+  description: "Copy an entry from one IWD archive to another (or within the same archive). Useful for duplicating entries or moving files between mod packages. Set dry_run=true to validate without modifying anything.",
+  input: {
+    src_path: external_exports.string().describe("Path to the source IWD file"),
+    src_entry: external_exports.string().describe("Entry path inside the source IWD. Use iwd_list to find exact path."),
+    dst_path: external_exports.string().describe("Path to the destination IWD file (can be the same as src_path)"),
+    dst_entry: external_exports.string().describe("Entry path to write in the destination IWD"),
+    overwrite: external_exports.boolean().optional().default(false).describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the copy without modifying any file")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false },
+  async run(args) {
+    const rSrc = resolveIwdPath(args.src_path);
+    const rDst = resolveIwdPath(args.dst_path);
+    const { zip: srcZip } = requireIwd(rSrc);
+    const srcEntry = normalizeEntry(args.src_entry);
+    if (!srcEntry) throw new CommandError("Error: src_entry path cannot be empty.");
+    const dstEntry = requireSafeEntry(args.dst_entry, "dst_entry");
+    const source = srcZip.getEntry(srcEntry);
+    if (!source) throw new CommandError(entryNotFound(srcEntry));
+    let dstZip = srcZip;
+    if (path4.resolve(rSrc) !== path4.resolve(rDst)) {
+      const opened = openIwd(rDst);
+      if (!opened.ok) throw new CommandError(opened.error);
+      dstZip = opened.value;
+    }
+    const existingDst = dstZip.getEntry(dstEntry) !== null;
+    if (existingDst && !args.overwrite) {
+      throw new CommandError(`Error: Destination entry already exists: ${dstEntry} in ${rDst}
+Tip: set overwrite=true to replace it.`);
+    }
+    const data = {
+      srcArchive: rSrc,
+      srcEntry,
+      dstArchive: rDst,
+      dstEntry,
+      bytes: source.header.size,
+      overwrote: existingDst,
+      dryRun: args.dry_run
     };
-  }
-  return { srcZip: oSrc.value, dstZip: oDst.value, normSrc, normDst, rSrc, rDst, existingDst };
-}
-async function executeCopy(plan) {
-  const srcZipEntry = plan.srcZip.getEntry(plan.normSrc);
-  const buf = plan.srcZip.readFile(srcZipEntry);
-  if (!buf) {
-    return errResult(`Error: Failed to read source entry: ${plan.normSrc}
+    if (args.dry_run) return data;
+    const buf = srcZip.readFile(source);
+    if (!buf) throw new CommandError(`Error: Failed to read source entry: ${srcEntry}
 Tip: the file may be corrupt.`);
+    await saveIwd(dstZip, rDst, (z) => existingDst ? z.updateFile(dstEntry, buf) : z.addFile(dstEntry, buf));
+    return data;
+  },
+  render(d, { overwrite }) {
+    if (d.dryRun) {
+      const note = d.overwrote && overwrite ? ` [will overwrite existing]` : "";
+      return `[dry_run] Would copy ${d.srcEntry} (${d.srcArchive}) \u2192 ${d.dstEntry} (${d.dstArchive})${note}`;
+    }
+    return `Copied ${d.srcEntry} (${d.srcArchive})
+    \u2192 ${d.dstEntry} (${d.dstArchive})
+${d.bytes} bytes${d.overwrote ? " [overwrote existing]" : ""}`;
   }
-  await ensureBackup(plan.rDst);
-  if (plan.existingDst) plan.dstZip.updateFile(plan.normDst, buf);
-  else plan.dstZip.addFile(plan.normDst, buf);
-  await atomicWrite(plan.dstZip, plan.rDst);
-  invalidateIwdCache(plan.rDst);
-  return okResult(
-    `Copied ${plan.normSrc} (${plan.rSrc})
-    \u2192 ${plan.normDst} (${plan.rDst})
-${srcZipEntry.header.size} bytes${plan.existingDst ? " [overwrote existing]" : ""}`
-  );
-}
-async function handleIwdCopy(args) {
-  const plan = planCopy(args);
-  if ("error" in plan) return plan.error;
-  if (args.dry_run) {
-    const note = plan.existingDst && args.overwrite ? ` [will overwrite existing]` : "";
-    return okResult(`[dry_run] Would copy ${plan.normSrc} (${plan.rSrc}) \u2192 ${plan.normDst} (${plan.rDst})${note}`);
-  }
-  return executeCopy(plan);
-}
-function diffTool(name, config2, handler) {
-  return (server2) => {
-    server2.registerTool(name, config2, handler);
-  };
-}
-var DIFF_TOOLS = [
-  diffTool("iwd_diff", {
-    title: "Diff Two Archives",
-    description: "Compare two IWD files and report added, removed, modified (CRC mismatch), and identical entries. Use entry_glob to limit comparison to a specific subset of files. Set content_diff=true to include diffs for modified text entries. Use diff_format='side-by-side' for a visual two-column view.",
-    inputSchema: {
-      path1: external_exports.string().describe("Path to the first (base) IWD file"),
-      path2: external_exports.string().describe("Path to the second (modified) IWD file"),
-      entry_glob: external_exports.string().optional().describe("Optional glob to limit comparison to matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
-      content_diff: external_exports.boolean().optional().default(false).describe("If true, includes diffs for modified text entries"),
-      diff_format: external_exports.enum(["unified", "side-by-side"]).optional().default("unified").describe("Format for content diffs: 'unified' (default) or 'side-by-side' for visual comparison")
-    },
-    annotations: { readOnlyHint: true }
-  }, handleIwdDiff),
-  diffTool("iwd_rename", {
-    title: "Rename Archive Entry",
-    description: "Rename or move an entry within an IWD archive in a single operation. Equivalent to iwd_read + iwd_write + iwd_remove, but faster and atomic. Set dry_run=true to validate without modifying the archive.",
-    inputSchema: {
-      path: external_exports.string().describe("Absolute or relative path to the IWD file"),
-      entry: external_exports.string().describe("Current path of the entry inside the IWD. Use iwd_list to find exact path."),
-      new_entry: external_exports.string().describe("New path for the entry inside the IWD (e.g. 'scripts/renamed.gsc')"),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the rename without modifying the archive")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false }
-  }, handleIwdRename),
-  diffTool("iwd_copy", {
-    title: "Copy Archive Entry",
-    description: "Copy an entry from one IWD archive to another (or within the same archive). Useful for duplicating entries or moving files between mod packages. Set dry_run=true to validate without modifying anything.",
-    inputSchema: {
-      src_path: external_exports.string().describe("Path to the source IWD file"),
-      src_entry: external_exports.string().describe("Entry path inside the source IWD. Use iwd_list to find exact path."),
-      dst_path: external_exports.string().describe("Path to the destination IWD file (can be the same as src_path)"),
-      dst_entry: external_exports.string().describe("Entry path to write in the destination IWD"),
-      overwrite: external_exports.boolean().optional().default(false).describe("If true, overwrites an existing entry at dst_entry. Defaults to false (errors if destination entry exists)."),
-      dry_run: external_exports.boolean().optional().default(false).describe("If true, validates the copy without modifying any file")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false }
-  }, handleIwdCopy)
-];
+});
+var DIFF_COMMANDS = [iwdDiff, iwdRename, iwdCopy];
 function registerDiffTools(server2) {
-  for (const register of DIFF_TOOLS) register(server2);
+  registerCommands(server2, DIFF_COMMANDS);
 }
 
 // src/iwd/sync-tools.ts
 init_utils();
 import * as path5 from "node:path";
-async function copyToDestination(sourceDir, destDir, dryRun, label) {
-  const resolvedSrc = path5.resolve(sourceDir);
-  const resolvedDst = path5.resolve(destDir);
+async function copyToDestination(sourceDir, destDir, dryRun) {
+  const source = await requireSourceDir(sourceDir);
+  const dest = path5.resolve(destDir);
+  if (dryRun) return { source, dest, dryRun };
   const fs5 = await import("node:fs/promises");
   try {
-    const stat = await fs5.stat(resolvedSrc);
-    if (!stat.isDirectory()) {
-      return errResult(
-        `Error: source_dir is not a directory: ${resolvedSrc}`
-      );
-    }
-  } catch {
-    return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
-  }
-  if (dryRun) {
-    const dstLabel = label ? `${label} ${resolvedDst}` : resolvedDst;
-    return okResult(
-      `[dry_run] Would copy files from ${resolvedSrc} to ${dstLabel}`
-    );
-  }
-  try {
-    await fs5.cp(resolvedSrc, resolvedDst, { recursive: true, force: true });
-    return okResult(
-      `Synced loose files from ${resolvedSrc}
-    \u2192 ${resolvedDst}`
-    );
+    await fs5.cp(source, dest, { recursive: true, force: true });
   } catch (e) {
-    return errResult(
-      `Error syncing files: ${e instanceof Error ? e.message : String(e)}`
-    );
+    throw new CommandError(`Error syncing files: ${e instanceof Error ? e.message : String(e)}`);
   }
+  return { source, dest, dryRun };
 }
+function renderCopy(d, label) {
+  if (d.dryRun) return `[dry_run] Would copy files from ${d.source} to ${label ? `${label} ${d.dest}` : d.dest}`;
+  return `Synced loose files from ${d.source}
+    \u2192 ${d.dest}`;
+}
+var modsSync = command({
+  name: "mods_sync",
+  title: "Sync to Mod Directory",
+  description: "Copies modified loose files from your workspace directly into a specific mods/<modname> folder. The engine prioritizes loose files over packed .iwd files, enabling rapid live testing.",
+  input: {
+    source_dir: external_exports.string().describe("Folder with modified files"),
+    mod_dir: external_exports.string().describe("The target mods/<modname> folder in the MW2 game directory"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without copying")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false },
+  run: ({ source_dir, mod_dir, dry_run }) => copyToDestination(source_dir, mod_dir, dry_run),
+  render: (d) => renderCopy(d)
+});
+var userrawSync = command({
+  name: "userraw_sync",
+  title: "Sync to Userraw Directory",
+  description: "Copies modified loose files from your workspace into the MW2 userraw installation folder. Files placed here are loaded globally by the engine, overriding everything else.",
+  input: {
+    source_dir: external_exports.string().describe("Folder with modified files"),
+    userraw_dir: external_exports.string().describe("The absolute path to the MW2 userraw folder"),
+    dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without copying")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false },
+  run: ({ source_dir, userraw_dir, dry_run }) => copyToDestination(source_dir, userraw_dir, dry_run),
+  render: (d) => renderCopy(d, "global userraw directory")
+});
+var SYNC_COMMANDS = [modsSync, userrawSync];
 function registerSyncTools(server2) {
-  server2.registerTool(
-    "mods_sync",
-    {
-      title: "Sync to Mod Directory",
-      description: "Copies modified loose files from your workspace directly into a specific mods/<modname> folder. The engine prioritizes loose files over packed .iwd files, enabling rapid live testing.",
-      inputSchema: {
-        source_dir: external_exports.string().describe("Folder with modified files"),
-        mod_dir: external_exports.string().describe(
-          "The target mods/<modname> folder in the MW2 game directory"
-        ),
-        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without copying")
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false
-      }
-    },
-    async ({ source_dir, mod_dir, dry_run }) => {
-      return copyToDestination(source_dir, mod_dir, dry_run);
-    }
-  );
-  server2.registerTool(
-    "userraw_sync",
-    {
-      title: "Sync to Userraw Directory",
-      description: "Copies modified loose files from your workspace into the MW2 userraw installation folder. Files placed here are loaded globally by the engine, overriding everything else.",
-      inputSchema: {
-        source_dir: external_exports.string().describe("Folder with modified files"),
-        userraw_dir: external_exports.string().describe("The absolute path to the MW2 userraw folder"),
-        dry_run: external_exports.boolean().optional().default(false).describe("If true, validates without copying")
-      },
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false
-      }
-    },
-    async ({ source_dir, userraw_dir, dry_run }) => {
-      return copyToDestination(source_dir, userraw_dir, dry_run, "global userraw directory");
-    }
-  );
+  registerCommands(server2, SYNC_COMMANDS);
 }
 
 // src/iwd/tools.ts
@@ -24919,23 +24846,35 @@ function formatDvarLine(d) {
   ${d.description}` : "";
   return `- ${d.name} [${d.type}, default: ${d.default}] (${d.category}/${d.subcategory ?? ""})${desc}`;
 }
-async function handleDvarSearch({ query, category }) {
-  const result = getParsedDvars();
-  if ("error" in result) return errResult(result.error);
-  if (!Array.isArray(result.dvars)) return errResult("Invalid dvars.json structure: missing 'dvars' array.");
-  const cat = category?.toLowerCase();
-  const matches = result.dvars.filter((d) => matchesDvar(d, query.toLowerCase(), cat));
-  if (matches.length === 0) {
-    return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
+var dvarSearch = command({
+  name: "dvar_search",
+  title: "Search DVAR Knowledge Base",
+  description: "Search the MW2 DVAR knowledge base without loading the full file. Filters by name or description. Returns top 20 results to save context.",
+  input: {
+    query: external_exports.string().describe("Search term (e.g. 'fov', 'shadow', 'network')"),
+    category: external_exports.string().optional().describe("Optional category filter (e.g. 'graphic', 'sound', 'network')")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ query, category }) {
+    const result = getParsedDvars();
+    if ("error" in result) throw new CommandError(result.error);
+    if (!Array.isArray(result.dvars)) throw new CommandError("Invalid dvars.json structure: missing 'dvars' array.");
+    const cat = category?.toLowerCase();
+    const matches = result.dvars.filter((d) => matchesDvar(d, query.toLowerCase(), cat));
+    return { total: matches.length, dvars: matches.slice(0, 20) };
+  },
+  render(d, { query, category }) {
+    const cat = category?.toLowerCase();
+    if (d.total === 0) return `No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`;
+    const output = d.dvars.map(formatDvarLine).join("\n");
+    const footer = d.total > 20 ? `
+
+... and ${d.total - 20} more. Refine your search.` : "";
+    return `Found ${d.total} DVARs matching '${query}':
+
+${output}${footer}`;
   }
-  const output = matches.slice(0, 20).map(formatDvarLine).join("\n");
-  const footer = matches.length > 20 ? `
-
-... and ${matches.length - 20} more. Refine your search.` : "";
-  return okResult(`Found ${matches.length} DVARs matching '${query}':
-
-${output}${footer}`);
-}
+});
 var MENU_HUD_PATHS = {
   positioning: ["positioning"],
   properties: ["properties"],
@@ -24974,33 +24913,44 @@ function resolvePath(sections, keys) {
   }
   return current;
 }
-function searchMenuTopic(sections, term, topic) {
+function searchMenuTopic(sections, term) {
   const results = {};
   for (const [sectionName, section] of Object.entries(sections)) {
     const found = findInSection(section, term);
     if (found !== null) results[sectionName] = found;
   }
-  if (Object.keys(results).length > 0) return okResult(JSON.stringify(results, null, 2));
-  return okResult(
-    `No match found for topic '${topic}'.
-Valid topics: ${MENU_HUD_VALID_TOPICS}.
-Or use any property name (e.g. 'fontscale', 'glowAlpha').`
-  );
+  return Object.keys(results).length > 0 ? results : null;
 }
-async function handleMenuHud({ topic }) {
-  const loaded = loadMenuHudSections();
-  if ("error" in loaded) return errResult(loaded.error);
-  const { sections } = loaded;
-  const t = topic.toLowerCase().trim();
-  if (t === "all") return okResult(JSON.stringify(sections, null, 2));
-  const keys = MENU_HUD_PATHS[t];
-  if (keys) {
+var menuHud = command({
+  name: "gsc_menu_hud",
+  title: "GSC Menu HUD Reference",
+  description: "Reference for building HUD-element script menus in CoD4/CoD4X and MW2/IW4X GSC. Covers the positioning system (setPoint), all HUD element properties, background/layering patterns, and CoD4 vs IW4X input differences. Call this before writing any HUD menu code. Topics: positioning, properties, layering, setPoint, fonts, sort, color, all.",
+  input: {
+    topic: external_exports.string().describe(
+      "Topic to look up. One of: 'positioning', 'properties', 'layering', 'setPoint', 'fonts', 'sort', 'color', 'all', or any property name."
+    )
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ topic }) {
+    const loaded = loadMenuHudSections();
+    if ("error" in loaded) throw new CommandError(loaded.error);
+    const { sections } = loaded;
+    const t = topic.toLowerCase().trim();
+    if (t === "all") return { reference: sections };
+    const keys = MENU_HUD_PATHS[t];
+    if (!keys) return { reference: searchMenuTopic(sections, t) };
     const val = resolvePath(sections, keys);
-    if (val === void 0) return errResult(`gsc-menu-hud.json: '${keys.join(".")}' not found.`);
-    return okResult(JSON.stringify(val, null, 2));
+    if (val === void 0) throw new CommandError(`gsc-menu-hud.json: '${keys.join(".")}' not found.`);
+    return { reference: val };
+  },
+  render(d, { topic }) {
+    if (d.reference !== null) return JSON.stringify(d.reference, null, 2);
+    return `No match found for topic '${topic}'.
+Valid topics: ${MENU_HUD_VALID_TOPICS}.
+Or use any property name (e.g. 'fontscale', 'glowAlpha').`;
   }
-  return searchMenuTopic(sections, t, topic);
-}
+});
+var KNOWLEDGE_COMMANDS = [dvarSearch, menuHud];
 function registerKnowledgeTools(server2) {
   server2.resource(
     "DVAR Reference",
@@ -25036,39 +24986,7 @@ function registerKnowledgeTools(server2) {
       ]
     })
   );
-  server2.registerTool(
-    "dvar_search",
-    {
-      title: "Search DVAR Knowledge Base",
-      description: "Search the MW2 DVAR knowledge base without loading the full file. Filters by name or description. Returns top 20 results to save context.",
-      inputSchema: {
-        query: external_exports.string().describe("Search term (e.g. 'fov', 'shadow', 'network')"),
-        category: external_exports.string().optional().describe("Optional category filter (e.g. 'graphic', 'sound', 'network')")
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    handleDvarSearch
-  );
-  server2.registerTool(
-    "gsc_menu_hud",
-    {
-      title: "GSC Menu HUD Reference",
-      description: "Reference for building HUD-element script menus in CoD4/CoD4X and MW2/IW4X GSC. Covers the positioning system (setPoint), all HUD element properties, background/layering patterns, and CoD4 vs IW4X input differences. Call this before writing any HUD menu code. Topics: positioning, properties, layering, setPoint, fonts, sort, color, all.",
-      inputSchema: {
-        topic: external_exports.string().describe(
-          "Topic to look up. One of: 'positioning', 'properties', 'layering', 'setPoint', 'fonts', 'sort', 'color', 'all', or any property name."
-        )
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true
-      }
-    },
-    handleMenuHud
-  );
+  registerCommands(server2, KNOWLEDGE_COMMANDS);
 }
 function isPlainObject3(value) {
   if (value === null || typeof value !== "object") return false;

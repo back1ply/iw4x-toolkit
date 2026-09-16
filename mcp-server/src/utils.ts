@@ -714,3 +714,21 @@ export function requireEntry(zip: AdmZip, entry: string): { normalized: string; 
 }
 
 type IZipEntry = NonNullable<ReturnType<AdmZip["getEntry"]>>;
+
+/** Validate an entry path for writing: non-empty and no traversal. */
+export function requireSafeEntry(entry: string, label = "entry"): string {
+  const normalized = normalizeEntry(entry);
+  if (!normalized) throw new CommandError(`Error: ${label} path cannot be empty.`);
+  if (!isSafeEntryPath(normalized)) {
+    throw new CommandError(`Error: ${label} path is invalid or contains path traversal sequences (not allowed).`);
+  }
+  return normalized;
+}
+
+/** The one safe way to modify an IWD: backup, edit the (cached) zip, write atomically, drop the cache. */
+export async function saveIwd(zip: AdmZip, resolved: string, edit: (zip: AdmZip) => void): Promise<void> {
+  await ensureBackup(resolved);
+  edit(zip);
+  await atomicWrite(zip, resolved);
+  invalidateIwdCache(resolved);
+}

@@ -9,10 +9,11 @@
  * JSON.parse calls on dvar_search invocations.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "node:fs";
-import { errResult, okResult, getErrMsg, getKnowledgeDir } from "../utils.js";
+import { CommandError, getErrMsg, getKnowledgeDir } from "../utils.js";
+import { command, registerCommands, type AnyCommand } from "../command.js";
 
 // ---------------------------------------------------------------------------
 // DVAR type
@@ -117,10 +118,8 @@ function getParsedDvars(): { dvars: Dvar[] } | { error: string } {
 }
 
 // ---------------------------------------------------------------------------
-// Tool handlers
+// Commands
 // ---------------------------------------------------------------------------
-
-type ToolResult = ReturnType<typeof okResult>;
 
 /** Match a DVAR against the query (name/description) and optional category filter. */
 function matchesDvar(d: Dvar, q: string, cat: string | undefined): boolean {
@@ -135,21 +134,33 @@ function formatDvarLine(d: Dvar): string {
   return `- ${d.name} [${d.type}, default: ${d.default}] (${d.category}/${d.subcategory ?? ""})${desc}`;
 }
 
-async function handleDvarSearch({ query, category }: { query: string; category?: string }): Promise<ToolResult> {
-  const result = getParsedDvars();
-  if ("error" in result) return errResult(result.error);
-  if (!Array.isArray(result.dvars)) return errResult("Invalid dvars.json structure: missing 'dvars' array.");
-
-  const cat = category?.toLowerCase();
-  const matches = result.dvars.filter(d => matchesDvar(d, query.toLowerCase(), cat));
-  if (matches.length === 0) {
-    return okResult(`No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`);
-  }
-
-  const output = matches.slice(0, 20).map(formatDvarLine).join("\n");
-  const footer = matches.length > 20 ? `\n\n... and ${matches.length - 20} more. Refine your search.` : "";
-  return okResult(`Found ${matches.length} DVARs matching '${query}':\n\n${output}${footer}`);
-}
+const dvarSearch = command({
+  name: "dvar_search",
+  title: "Search DVAR Knowledge Base",
+  description:
+    "Search the MW2 DVAR knowledge base without loading the full file. " +
+    "Filters by name or description. Returns top 20 results to save context.",
+  input: {
+    query: z.string().describe("Search term (e.g. 'fov', 'shadow', 'network')"),
+    category: z.string().optional().describe("Optional category filter (e.g. 'graphic', 'sound', 'network')"),
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ query, category }): { total: number; dvars: Dvar[] } {
+    const result = getParsedDvars();
+    if ("error" in result) throw new CommandError(result.error);
+    if (!Array.isArray(result.dvars)) throw new CommandError("Invalid dvars.json structure: missing 'dvars' array.");
+    const cat = category?.toLowerCase();
+    const matches = result.dvars.filter(d => matchesDvar(d, query.toLowerCase(), cat));
+    return { total: matches.length, dvars: matches.slice(0, 20) };
+  },
+  render(d, { query, category }) {
+    const cat = category?.toLowerCase();
+    if (d.total === 0) return `No DVARs found matching query='${query}'${cat ? ` category='${cat}'` : ""}.`;
+    const output = d.dvars.map(formatDvarLine).join("\n");
+    const footer = d.total > 20 ? `\n\n... and ${d.total - 20} more. Refine your search.` : "";
+    return `Found ${d.total} DVARs matching '${query}':\n\n${output}${footer}`;
+  },
+});
 
 // Maps a menu-hud topic alias to its key path within the JSON `sections` object.
 const MENU_HUD_PATHS: Record<string, string[]> = {
@@ -196,38 +207,54 @@ function resolvePath(sections: Record<string, unknown>, keys: string[]): unknown
   return current;
 }
 
-/** Fallback search: scan every section for a key matching the topic. */
-function searchMenuTopic(sections: Record<string, unknown>, term: string, topic: string): ToolResult {
+/** Fallback search: scan every section for a key matching the topic; null when nothing matches. */
+function searchMenuTopic(sections: Record<string, unknown>, term: string): Record<string, unknown> | null {
   const results: Record<string, unknown> = {};
   for (const [sectionName, section] of Object.entries(sections)) {
     const found = findInSection(section as Record<string, unknown>, term);
     if (found !== null) results[sectionName] = found;
   }
-  if (Object.keys(results).length > 0) return okResult(JSON.stringify(results, null, 2));
-  return okResult(
-    `No match found for topic '${topic}'.\n` +
-    `Valid topics: ${MENU_HUD_VALID_TOPICS}.\n` +
-    `Or use any property name (e.g. 'fontscale', 'glowAlpha').`
-  );
+  return Object.keys(results).length > 0 ? results : null;
 }
 
-async function handleMenuHud({ topic }: { topic: string }): Promise<ToolResult> {
-  const loaded = loadMenuHudSections();
-  if ("error" in loaded) return errResult(loaded.error);
-  const { sections } = loaded;
+const menuHud = command({
+  name: "gsc_menu_hud",
+  title: "GSC Menu HUD Reference",
+  description:
+    "Reference for building HUD-element script menus in CoD4/CoD4X and MW2/IW4X GSC. " +
+    "Covers the positioning system (setPoint), all HUD element properties, " +
+    "background/layering patterns, and CoD4 vs IW4X input differences. " +
+    "Call this before writing any HUD menu code. " +
+    "Topics: positioning, properties, layering, setPoint, fonts, sort, color, all.",
+  input: {
+    topic: z.string().describe(
+      "Topic to look up. One of: 'positioning', 'properties', 'layering', " +
+      "'setPoint', 'fonts', 'sort', 'color', 'all', or any property name."
+    ),
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ topic }): { reference: unknown | null } {
+    const loaded = loadMenuHudSections();
+    if ("error" in loaded) throw new CommandError(loaded.error);
+    const { sections } = loaded;
 
-  const t = topic.toLowerCase().trim();
-  if (t === "all") return okResult(JSON.stringify(sections, null, 2));
-
-  const keys = MENU_HUD_PATHS[t];
-  if (keys) {
+    const t = topic.toLowerCase().trim();
+    if (t === "all") return { reference: sections };
+    const keys = MENU_HUD_PATHS[t];
+    if (!keys) return { reference: searchMenuTopic(sections, t) };
     const val = resolvePath(sections, keys);
-    if (val === undefined) return errResult(`gsc-menu-hud.json: '${keys.join(".")}' not found.`);
-    return okResult(JSON.stringify(val, null, 2));
-  }
+    if (val === undefined) throw new CommandError(`gsc-menu-hud.json: '${keys.join(".")}' not found.`);
+    return { reference: val };
+  },
+  render(d, { topic }) {
+    if (d.reference !== null) return JSON.stringify(d.reference, null, 2);
+    return `No match found for topic '${topic}'.\n` +
+      `Valid topics: ${MENU_HUD_VALID_TOPICS}.\n` +
+      `Or use any property name (e.g. 'fontscale', 'glowAlpha').`;
+  },
+});
 
-  return searchMenuTopic(sections, t, topic);
-}
+export const KNOWLEDGE_COMMANDS: AnyCommand[] = [dvarSearch, menuHud];
 
 // ---------------------------------------------------------------------------
 // Registration
@@ -279,52 +306,8 @@ export function registerKnowledgeTools(server: McpServer): void {
     }),
   );
 
-  // --- Tool: dvar_search ---
-  server.registerTool(
-    "dvar_search",
-    {
-      title: "Search DVAR Knowledge Base",
-      description:
-        "Search the MW2 DVAR knowledge base without loading the full file. " +
-        "Filters by name or description. Returns top 20 results to save context.",
-      inputSchema: {
-        query: z.string().describe("Search term (e.g. 'fov', 'shadow', 'network')"),
-        category: z.string().optional().describe("Optional category filter (e.g. 'graphic', 'sound', 'network')"),
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true,
-      },
-    },
-    handleDvarSearch,
-  );
-
-  // --- Tool: gsc_menu_hud ---
-  server.registerTool(
-    "gsc_menu_hud",
-    {
-      title: "GSC Menu HUD Reference",
-      description:
-        "Reference for building HUD-element script menus in CoD4/CoD4X and MW2/IW4X GSC. " +
-        "Covers the positioning system (setPoint), all HUD element properties, " +
-        "background/layering patterns, and CoD4 vs IW4X input differences. " +
-        "Call this before writing any HUD menu code. " +
-        "Topics: positioning, properties, layering, setPoint, fonts, sort, color, all.",
-      inputSchema: {
-        topic: z.string().describe(
-          "Topic to look up. One of: 'positioning', 'properties', 'layering', " +
-          "'setPoint', 'fonts', 'sort', 'color', 'all', or any property name."
-        ),
-      },
-      annotations: {
-        readOnlyHint: true,
-        idempotentHint: true,
-      },
-    },
-    handleMenuHud,
-  );
-
-} // end registerKnowledgeTools
+  registerCommands(server, KNOWLEDGE_COMMANDS);
+}
 
 /** A non-null, non-array object — i.e. a plain `{ ... }` record. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {

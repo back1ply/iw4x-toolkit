@@ -1,38 +1,39 @@
 /**
  * @file iwd/archive-tools.ts
- * Archive IWD tools: iwd_pack, iwd_sync, iwd_extract
+ * Archive IWD commands: iwd_extract, iwd_pack, iwd_sync
  */
 
-import { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as path from "node:path";
 import type AdmZip from "adm-zip";
 import {
   resolveIwdPath,
-  openIwd,
   invalidateIwdCache,
   isSafeEntryPath,
   ensureBackup,
   atomicWrite,
   globToRegex,
-  errResult,
-  okResult,
-  checkRateLimit,
+  CommandError,
+  requireIwd,
+  saveIwd,
 } from "../utils.js";
+import { command, registerCommands, type AnyCommand } from "../command.js";
 
-type ToolResult = ReturnType<typeof okResult>;
 type ZipEntry = ReturnType<AdmZip["getEntries"]>[number];
 
-/** Verify a source directory exists and is a directory; returns an error result or null. */
-async function validateSourceDir(resolvedSrc: string): Promise<ToolResult | null> {
+/** Resolve a source directory, throwing `CommandError` unless it exists and is a directory. */
+export async function requireSourceDir(sourceDir: string): Promise<string> {
+  const resolved = path.resolve(sourceDir);
   const fs = await import("node:fs/promises");
+  let isDir: boolean;
   try {
-    const stat = await fs.stat(resolvedSrc);
-    if (!stat.isDirectory()) return errResult(`Error: source_dir is not a directory: ${resolvedSrc}`);
+    isDir = (await fs.stat(resolved)).isDirectory();
   } catch {
-    return errResult(`Error: source_dir does not exist: ${resolvedSrc}`);
+    throw new CommandError(`Error: source_dir does not exist: ${resolved}`);
   }
-  return null;
+  if (!isDir) throw new CommandError(`Error: source_dir is not a directory: ${resolved}`);
+  return resolved;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +54,7 @@ function resolveSafeOutPath(entryName: string, resolvedDest: string): string | n
   return outPath;
 }
 
-async function extractEntries(zip: AdmZip, entries: ZipEntry[], resolvedDest: string): Promise<{ extracted: string[]; skipped: string[] }> {
+export async function extractEntries(zip: AdmZip, entries: ZipEntry[], resolvedDest: string): Promise<{ extracted: string[]; skipped: string[] }> {
   const { mkdir, writeFile } = await import("node:fs/promises");
   const extracted: string[] = [];
   const skipped: string[] = [];
@@ -74,167 +75,130 @@ async function extractEntries(zip: AdmZip, entries: ZipEntry[], resolvedDest: st
   return { extracted, skipped };
 }
 
-function formatExtractResult(extracted: string[], skipped: string[], resolvedDest: string): string {
-  let msg = `Extracted ${extracted.length} file(s) to ${resolvedDest}`;
-  if (extracted.length > 0) msg += `:\n\n` + extracted.join("\n");
-  if (skipped.length > 0) msg += `\n\n⚠️ Skipped ${skipped.length} unsafe entry path(s): ${skipped.join(", ")}`;
-  return msg;
+interface ExtractData {
+  archive: string; dest: string; dryRun: boolean;
+  /** Entries selected by the glob (what dry_run lists). */
+  selected: string[];
+  extracted: string[]; skipped: string[];
 }
 
-interface ExtractArgs { path: string; dest: string; entry_glob?: string; dry_run: boolean; }
-
-async function handleIwdExtract({ path: iwdPath, dest, entry_glob, dry_run }: ExtractArgs): Promise<ToolResult> {
-  const resolved = resolveIwdPath(iwdPath);
-  const resolvedDest = path.resolve(dest);
-  const opened = openIwd(resolved);
-  if (!opened.ok) return errResult(opened.error);
-
-  const globRe = entry_glob ? globToRegex(entry_glob) : null;
-  const entries = opened.value.getEntries().filter((e) => isExtractableEntry(e, globRe));
-  if (entries.length === 0) {
-    return okResult(entry_glob
-      ? `No entries match glob '${entry_glob}' in ${resolved}.\nTip: use iwd_list to see all entries.`
-      : `No entries found in ${resolved}.`);
-  }
-
-  if (dry_run) {
-    return okResult(
-      `[dry_run] Would extract ${entries.length} file(s) to ${resolvedDest}:\n\n` +
-      entries.map((e) => e.entryName).join("\n"),
-    );
-  }
-
-  const { extracted, skipped } = await extractEntries(opened.value, entries, resolvedDest);
-  return okResult(formatExtractResult(extracted, skipped, resolvedDest));
-}
+const iwdExtract = command({
+  name: "iwd_extract",
+  title: "Extract Archive Entries",
+  description:
+    "Extract entries from an IWD archive to a directory on disk. " +
+    "Once extracted, standard shell tools (rg, fd, bat) work natively. " +
+    "Use entry_glob to extract only a subset of files. " +
+    "Returns the destination path and list of extracted files.",
+  input: {
+    path: z.string().describe("Absolute or relative path to the IWD file"),
+    dest: z.string().describe("Destination directory path. Created if it does not exist."),
+    entry_glob: z.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
+    dry_run: z.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false },
+  async run({ path: iwdPath, dest, entry_glob, dry_run }): Promise<ExtractData> {
+    const resolvedDest = path.resolve(dest);
+    const { resolved, zip } = requireIwd(iwdPath);
+    const globRe = entry_glob ? globToRegex(entry_glob) : null;
+    const entries = zip.getEntries().filter((e) => isExtractableEntry(e, globRe));
+    const data: ExtractData = {
+      archive: resolved, dest: resolvedDest, dryRun: dry_run,
+      selected: entries.map((e) => e.entryName), extracted: [], skipped: [],
+    };
+    if (entries.length === 0 || dry_run) return data;
+    return { ...data, ...(await extractEntries(zip, entries, resolvedDest)) };
+  },
+  render(d, { entry_glob }) {
+    if (d.selected.length === 0) {
+      return entry_glob
+        ? `No entries match glob '${entry_glob}' in ${d.archive}.\nTip: use iwd_list to see all entries.`
+        : `No entries found in ${d.archive}.`;
+    }
+    if (d.dryRun) {
+      return `[dry_run] Would extract ${d.selected.length} file(s) to ${d.dest}:\n\n` + d.selected.join("\n");
+    }
+    let msg = `Extracted ${d.extracted.length} file(s) to ${d.dest}`;
+    if (d.extracted.length > 0) msg += `:\n\n` + d.extracted.join("\n");
+    if (d.skipped.length > 0) msg += `\n\n⚠️ Skipped ${d.skipped.length} unsafe entry path(s): ${d.skipped.join(", ")}`;
+    return msg;
+  },
+});
 
 // ---------------------------------------------------------------------------
 // iwd_pack
 // ---------------------------------------------------------------------------
 
-interface PackArgs { source_dir: string; dest_path: string; dry_run: boolean; }
+interface PackData { source: string; archive: string; dryRun: boolean; }
 
-async function handleIwdPack({ source_dir, dest_path, dry_run }: PackArgs): Promise<ToolResult> {
-  const rateCheck = checkRateLimit("iwd_pack");
-  if (!rateCheck.allowed) {
-    return errResult(`Rate limit exceeded for iwd_pack. Try again in ${rateCheck.resetIn} seconds.`);
-  }
+const iwdPack = command({
+  name: "iwd_pack",
+  title: "Pack Workspace to Archive (Full Rebuild)",
+  description:
+    "Zips the entire contents of a workspace directory into a BRAND NEW IWD archive. " +
+    "WARNING: If the destination file already exists, it is completely overwritten and replaced. " +
+    "If you want to inject a few changed files into an existing archive without deleting everything else, use iwd_sync instead.",
+  input: {
+    source_dir: z.string().describe("The folder containing loose files to pack"),
+    dest_path: z.string().describe("The .iwd file to create/overwrite"),
+    dry_run: z.boolean().optional().default(false).describe("If true, validates without writing the archive"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  rateLimit: "iwd_pack",
+  async run({ source_dir, dest_path, dry_run }): Promise<PackData> {
+    const source = await requireSourceDir(source_dir);
+    const archive = resolveIwdPath(dest_path);
+    if (dry_run) return { source, archive, dryRun: true };
 
-  const resolvedSrc = path.resolve(source_dir);
-  const srcError = await validateSourceDir(resolvedSrc);
-  if (srcError) return srcError;
-
-  const resolvedDst = resolveIwdPath(dest_path);
-  if (dry_run) {
-    return okResult(`[dry_run] Would pack directory ${resolvedSrc} into new archive ${resolvedDst}`);
-  }
-
-  const { existsSync } = await import("node:fs");
-  if (existsSync(resolvedDst)) await ensureBackup(resolvedDst);
-
-  const { default: AdmZipCtor } = await import("adm-zip");
-  const zip = new AdmZipCtor();
-  zip.addLocalFolder(resolvedSrc, "");
-  await atomicWrite(zip, resolvedDst);
-  invalidateIwdCache(resolvedDst);
-
-  return okResult(`Packed ${resolvedSrc}\n    → ${resolvedDst}`);
-}
+    const { existsSync } = await import("node:fs");
+    if (existsSync(archive)) await ensureBackup(archive);
+    const { default: AdmZipCtor } = await import("adm-zip");
+    const zip = new AdmZipCtor();
+    zip.addLocalFolder(source, "");
+    await atomicWrite(zip, archive);
+    invalidateIwdCache(archive);
+    return { source, archive, dryRun: false };
+  },
+  render(d) {
+    return d.dryRun
+      ? `[dry_run] Would pack directory ${d.source} into new archive ${d.archive}`
+      : `Packed ${d.source}\n    → ${d.archive}`;
+  },
+});
 
 // ---------------------------------------------------------------------------
 // iwd_sync
 // ---------------------------------------------------------------------------
 
-interface SyncArgs { source_dir: string; dest_path: string; dry_run: boolean; }
+const iwdSync = command({
+  name: "iwd_sync",
+  title: "Sync Workspace to Existing Archive (Partial Update)",
+  description:
+    "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. " +
+    "Crucially, it leaves all other files in the archive untouched. " +
+    "Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
+  input: {
+    source_dir: z.string().describe("Folder with modified loose files"),
+    dest_path: z.string().describe("The existing .iwd file to update"),
+    dry_run: z.boolean().optional().default(false).describe("If true, validates without modifying the archive"),
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  async run({ source_dir, dest_path, dry_run }): Promise<PackData> {
+    const source = await requireSourceDir(source_dir);
+    const { resolved, zip } = requireIwd(dest_path);
+    if (!dry_run) await saveIwd(zip, resolved, (z) => z.addLocalFolder(source, ""));
+    return { source, archive: resolved, dryRun: dry_run };
+  },
+  render(d) {
+    return d.dryRun
+      ? `[dry_run] Would sync files from ${d.source} into existing archive ${d.archive}`
+      : `Synced files from ${d.source}\n    → ${d.archive}`;
+  },
+});
 
-async function handleIwdSync({ source_dir, dest_path, dry_run }: SyncArgs): Promise<ToolResult> {
-  const resolvedSrc = path.resolve(source_dir);
-  const srcError = await validateSourceDir(resolvedSrc);
-  if (srcError) return srcError;
+export const ARCHIVE_COMMANDS: AnyCommand[] = [iwdExtract, iwdPack, iwdSync];
 
-  const resolvedDst = resolveIwdPath(dest_path);
-  const opened = openIwd(resolvedDst);
-  if (!opened.ok) return errResult(opened.error);
-
-  if (dry_run) {
-    return okResult(`[dry_run] Would sync files from ${resolvedSrc} into existing archive ${resolvedDst}`);
-  }
-
-  await ensureBackup(resolvedDst);
-  opened.value.addLocalFolder(resolvedSrc, "");
-  await atomicWrite(opened.value, resolvedDst);
-  invalidateIwdCache(resolvedDst);
-
-  return okResult(`Synced files from ${resolvedSrc}\n    → ${resolvedDst}`);
-}
-
-// ---------------------------------------------------------------------------
-// Registration
-// ---------------------------------------------------------------------------
-
-interface ToolConfig<A extends z.ZodRawShape> {
-  title: string;
-  description: string;
-  inputSchema: A;
-  annotations?: Record<string, boolean>;
-}
-
-/** Defer a single registerTool call, preserving per-tool schema↔handler typing. */
-function archiveTool<A extends z.ZodRawShape>(
-  name: string, config: ToolConfig<A>, handler: ToolCallback<A>,
-): (server: McpServer) => void {
-  return (server) => { server.registerTool(name, config, handler); };
-}
-
-const ARCHIVE_TOOLS: ((server: McpServer) => void)[] = [
-  archiveTool("iwd_extract", {
-    title: "Extract Archive Entries",
-    description:
-      "Extract entries from an IWD archive to a directory on disk. " +
-      "Once extracted, standard shell tools (rg, fd, bat) work natively. " +
-      "Use entry_glob to extract only a subset of files. " +
-      "Returns the destination path and list of extracted files.",
-    inputSchema: {
-      path: z.string().describe("Absolute or relative path to the IWD file"),
-      dest: z.string().describe("Destination directory path. Created if it does not exist."),
-      entry_glob: z.string().optional().describe("Optional glob to extract only matching entries (e.g. '*.gsc', 'maps/**/*.gsc')"),
-      dry_run: z.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files"),
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false },
-  }, handleIwdExtract),
-
-  archiveTool("iwd_pack", {
-    title: "Pack Workspace to Archive (Full Rebuild)",
-    description:
-      "Zips the entire contents of a workspace directory into a BRAND NEW IWD archive. " +
-      "WARNING: If the destination file already exists, it is completely overwritten and replaced. " +
-      "If you want to inject a few changed files into an existing archive without deleting everything else, use iwd_sync instead.",
-    inputSchema: {
-      source_dir: z.string().describe("The folder containing loose files to pack"),
-      dest_path: z.string().describe("The .iwd file to create/overwrite"),
-      dry_run: z.boolean().optional().default(false).describe("If true, validates without writing the archive"),
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true },
-  }, handleIwdPack),
-
-  archiveTool("iwd_sync", {
-    title: "Sync Workspace to Existing Archive (Partial Update)",
-    description:
-      "Injects or overwrites specific files from a workspace directory into an EXISTING IWD archive. " +
-      "Crucially, it leaves all other files in the archive untouched. " +
-      "Use this (instead of iwd_pack) when you've extracted a mod, edited a few files, and want to put just those files back into the original archive.",
-    inputSchema: {
-      source_dir: z.string().describe("Folder with modified loose files"),
-      dest_path: z.string().describe("The existing .iwd file to update"),
-      dry_run: z.boolean().optional().default(false).describe("If true, validates without modifying the archive"),
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true },
-  }, handleIwdSync),
-];
-
-/**
- * Registers archive IWD tools on the given MCP server instance.
- */
+/** Registers archive IWD tools on the given MCP server instance. */
 export function registerArchiveTools(server: McpServer): void {
-  for (const register of ARCHIVE_TOOLS) register(server);
+  registerCommands(server, ARCHIVE_COMMANDS);
 }
