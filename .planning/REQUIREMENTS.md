@@ -20,14 +20,14 @@
 
 ### Tests
 
-- [ ] **TEST-01**: Formatter (`gsc/formatter.ts`) has unit test coverage
-- [ ] **TEST-02**: Knowledge cache (mtime/TTL logic) has unit test coverage
-- [ ] **TEST-03**: Linter edge cases identified in CONCERNS.md covered
+- [x] **TEST-01**: Formatter (`gsc/formatter.ts`) has unit test coverage
+- [x] **TEST-02**: Knowledge cache (mtime/TTL logic) has unit test coverage — superseded 2026-09-17: knowledge is embedded in the build and the mtime/TTL caches were removed; the IWD mtime cache is covered by `benchmark.test.ts`
+- [x] **TEST-03**: Linter edge cases identified in CONCERNS.md covered
 
 ### Arch / Code Quality
 
-- [ ] **ARCH-01**: No structural inconsistencies between module exports and their actual usage
-- [ ] **ARCH-02**: All tests pass (≥99 tests green) after all changes
+- [x] **ARCH-01**: No structural inconsistencies between module exports and their actual usage
+- [x] **ARCH-02**: All tests pass (≥99 tests green) after all changes
 
 ## v2 Requirements
 
@@ -62,11 +62,11 @@
 | CODE-01 | Phase 2 | Complete |
 | CODE-02 | Phase 2 | Complete |
 | CODE-03 | Phase 2 | Complete |
-| TEST-01 | Phase 3 | Pending |
-| TEST-02 | Phase 3 | Pending |
-| TEST-03 | Phase 3 | Pending |
-| ARCH-01 | Phase 3 | Pending |
-| ARCH-02 | Phase 3 | Pending |
+| TEST-01 | Phase 3 | Complete |
+| TEST-02 | Phase 3 | Superseded |
+| TEST-03 | Phase 3 | Complete |
+| ARCH-01 | Phase 3 | Complete |
+| ARCH-02 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total
@@ -75,4 +75,4 @@
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after initial definition*
+*Last updated: 2026-09-17 after Phase 3 completion*

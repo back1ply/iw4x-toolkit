@@ -8,7 +8,7 @@ A brownfield polish pass across docs, code gaps, and test coverage. Every Phase 
 
 - [x] **Phase 1: Docs & Accuracy** - README matches implementation exactly; phantom tools resolved (completed 2026-03-22)
 - [x] **Phase 2: Code Gaps** - Rate limiter, temp cleanup, and path resolution hardened (completed 2026-03-22)
-- [ ] **Phase 3: Tests & Arch Quality** - Formatter, cache, and linter edge cases covered; all tests green
+- [x] **Phase 3: Tests & Arch Quality** - Formatter, cache, and linter edge cases covered; all tests green (completed 2026-09-17)
 
 ## Phase Details
 
@@ -38,7 +38,7 @@ Plans:
 **Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 02-01-PLAN.md — Harden rate limiter, temp cleanup, and getKnowledgeDir (CODE-01, CODE-02, CODE-03)
+- [x] 02-01-PLAN.md — Harden rate limiter, temp cleanup, and getKnowledgeDir (CODE-01, CODE-02, CODE-03)
 
 ### Phase 3: Tests & Arch Quality
 **Goal**: Untested paths have coverage, structural inconsistencies are eliminated, and all 99+ tests pass after every change in this milestone
@@ -50,7 +50,13 @@ Plans:
   3. Linter edge cases identified in CONCERNS.md each have a corresponding test
   4. Module exports match their actual usage — no dead exports, no undocumented public API surface
   5. `vitest run` exits green with >=99 passing tests after all Phase 1-3 changes
-**Plans**: TBD
+**Plans**: none — completed alongside the 2026-09 v2 work (command registry, SDK v2, CLI)
+**Evidence**:
+  1. Formatter: `gsc.test.ts` "GSCFormatter" (strings, `#include`, `/# #/`, `for` headers, idempotency)
+  2. Caches: knowledge caches removed (embedded data); IWD mtime cache in `benchmark.test.ts`
+  3. CONCERNS.md edge cases: `isSafeEntryPath` traversal/separator/drive/null-byte tests in `index.test.ts`; linter tests for IW4 definitions, builtins isolation, tokenizer codes
+  4. Dead exports/helpers removed (`okResult`, `unwrapResult`, `entryNotFoundErr`, `openIwdAsync`, `getKnowledgeDir`, `lookupSymbol`)
+  5. `vitest run`: 286 passing
 
 ## Progress
 
@@ -60,4 +66,4 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Docs & Accuracy | 2/2 | Complete   | 2026-03-22 |
 | 2. Code Gaps | 1/1 | Complete   | 2026-03-22 |
-| 3. Tests & Arch Quality | 0/? | Not started | - |
+| 3. Tests & Arch Quality | — | Complete | 2026-09-17 |

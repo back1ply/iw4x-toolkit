@@ -7,6 +7,7 @@ import * as os from "node:os";
 import {
   isBinaryEntry,
   normalizeEntry,
+  isSafeEntryPath,
   loadDvars,
   loadGscBuiltins,
   loadMenuHud,
@@ -72,6 +73,31 @@ describe("normalizeEntry", () => {
 
   it("strips leading slashes", () => {
     expect(normalizeEntry("/maps/mp/test.gsc")).toBe("maps/mp/test.gsc");
+  });
+});
+
+describe("isSafeEntryPath (after normalizeEntry)", () => {
+  const safe = (entry: string) => isSafeEntryPath(normalizeEntry(entry));
+
+  it("accepts ordinary archive paths", () => {
+    expect(safe("maps/mp/gametypes/_mod.gsc")).toBe(true);
+    expect(safe("/maps/mp/_mod.gsc")).toBe(true); // leading slash is stripped, stays inside the archive
+  });
+
+  it("rejects parent-directory traversal with either separator", () => {
+    for (const entry of ["../x.gsc", "a/../../x", "..\\..\\x.gsc", "a\\..\\..\\x", "a/..", ".."]) {
+      expect(safe(entry), entry).toBe(false);
+    }
+  });
+
+  it("rejects drive letters and null bytes", () => {
+    for (const entry of ["C:\\x.gsc", "C:/x.gsc", "a/\0b"]) {
+      expect(safe(entry), JSON.stringify(entry)).toBe(false);
+    }
+  });
+
+  it("treats percent-encoded dots as literal names (zip entries are never URL-decoded)", () => {
+    expect(safe("%2e%2e/x")).toBe(true);
   });
 });
 
