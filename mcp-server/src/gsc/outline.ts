@@ -281,8 +281,7 @@ function recordProp(prop: PropAssignment | null, seen: Map<string, PropAssignmen
  * Format an OutlineResult as a human-readable text block.
  * Used by the gsc_outline MCP tool response.
  */
-export function formatOutline(result: OutlineResult, source: string): string {
-  const totalLines = source.split("\n").length;
+export function formatOutline(result: OutlineResult, totalLines: number): string {
   return [
     `📋 GSC Outline (${totalLines} lines)\n\n`,
     formatIncludes(result.includes),

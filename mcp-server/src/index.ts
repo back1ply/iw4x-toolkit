@@ -33,7 +33,6 @@ export {
   backedUp,
   atomicWriteDirs,
   openIwd,
-  openIwdAsync,
   invalidateIwdCache,
   getKnowledgeDir,
   getCachedRegex,

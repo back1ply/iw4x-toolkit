@@ -9480,7 +9480,6 @@ __export(utils_exports, {
   buildSideBySideDiff: () => buildSideBySideDiff,
   checkRateLimit: () => checkRateLimit,
   ensureBackup: () => ensureBackup,
-  entryNotFoundErr: () => entryNotFoundErr,
   err: () => err,
   errResult: () => errResult,
   getCachedRegex: () => getCachedRegex,
@@ -9492,16 +9491,13 @@ __export(utils_exports, {
   isSafeEntryPath: () => isSafeEntryPath,
   normalizeEntry: () => normalizeEntry,
   ok: () => ok,
-  okResult: () => okResult,
   openIwd: () => openIwd,
-  openIwdAsync: () => openIwdAsync,
   rateLimitMap: () => rateLimitMap,
   requireEntry: () => requireEntry,
   requireIwd: () => requireIwd,
   requireSafeEntry: () => requireSafeEntry,
   resolveIwdPath: () => resolveIwdPath,
-  saveIwd: () => saveIwd,
-  unwrapResult: () => unwrapResult
+  saveIwd: () => saveIwd
 });
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -9795,20 +9791,6 @@ Reason: ${getErrMsg(e)}`);
   const cached2 = getCachedZip(resolved, mtime);
   return cached2 ? ok(cached2) : parseAndCacheZip(resolved, mtime);
 }
-async function openIwdAsync(resolved) {
-  const fsPromises = await import("node:fs/promises");
-  let mtime;
-  try {
-    mtime = (await fsPromises.stat(resolved)).mtimeMs;
-  } catch {
-    return err(
-      `IWD file not found: ${resolved}
-Tip: verify the file path is correct and the file exists.`
-    );
-  }
-  const cached2 = getCachedZip(resolved, mtime);
-  return cached2 ? ok(cached2) : parseAndCacheZip(resolved, mtime);
-}
 function ok(value) {
   return { ok: true, value };
 }
@@ -9817,16 +9799,6 @@ function err(error2) {
 }
 function errResult(text) {
   return { content: [{ type: "text", text }], isError: true };
-}
-function okResult(text) {
-  return { content: [{ type: "text", text }] };
-}
-function unwrapResult(result) {
-  if (result.ok) return result.value;
-  return errResult(result.error);
-}
-function entryNotFoundErr(normalized) {
-  return errResult(entryNotFoundMessage(normalized));
 }
 function entryNotFoundMessage(normalized) {
   return `Error: Entry not found: ${normalized}
@@ -25799,8 +25771,7 @@ function recordProp(prop, seen) {
   const key = `${prop.object}.${prop.property}`;
   if (!seen.has(key)) seen.set(key, prop);
 }
-function formatOutline(result, source) {
-  const totalLines = source.split("\n").length;
+function formatOutline(result, totalLines) {
   return [
     `\u{1F4CB} GSC Outline (${totalLines} lines)
 
@@ -26804,6 +26775,124 @@ function resolveInclude(includePath, hintDir) {
   return { symbols: /* @__PURE__ */ new Set(), source: "unresolved" };
 }
 
+// src/gsc/orphans.ts
+var NON_CODE_TOKENS = /* @__PURE__ */ new Set(["COMMENT" /* COMMENT */, "BLOCK_COMMENT" /* BLOCK_COMMENT */, "EOF" /* EOF */]);
+function nextRealToken(tokens, from) {
+  for (let k = from; k < tokens.length; k++) {
+    if (!NON_CODE_TOKENS.has(tokens[k].type)) return k;
+  }
+  return -1;
+}
+function isFunctionDefParen(tokens, parenIndex) {
+  let j = parenIndex + 1;
+  let depth = 1;
+  while (j < tokens.length && depth > 0) {
+    if (tokens[j].type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
+    else if (tokens[j].type === "RIGHT_PAREN" /* RIGHT_PAREN */) depth--;
+    j++;
+  }
+  const afterParen = nextRealToken(tokens, j);
+  return afterParen !== -1 && tokens[afterParen].type === "LEFT_BRACE" /* LEFT_BRACE */;
+}
+function isDoubleBracket(tokens, i) {
+  return tokens[i].type === "RIGHT_BRACKET" /* RIGHT_BRACKET */ && tokens[i + 1]?.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */;
+}
+function skipPointerCall(tokens, i) {
+  while (i < tokens.length - 1 && !isDoubleBracket(tokens, i)) i++;
+  return i + 1;
+}
+function callSiteAt(tokens, i, braceDepth) {
+  if (tokens[i].type !== "IDENTIFIER" /* IDENTIFIER */) return null;
+  const nxt = nextRealToken(tokens, i + 1);
+  if (nxt === -1 || tokens[nxt].type !== "LEFT_PAREN" /* LEFT_PAREN */) return null;
+  if (braceDepth === 0 && isFunctionDefParen(tokens, nxt)) return null;
+  return { name: tokens[i].value, line: tokens[i].line };
+}
+function collectCallSites(tokens) {
+  const callSites = [];
+  let ptrCallCount = 0;
+  let braceDepth = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
+      braceDepth++;
+      continue;
+    }
+    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
+      braceDepth = Math.max(0, braceDepth - 1);
+      continue;
+    }
+    if (tok.type === "LEFT_BRACKET" /* LEFT_BRACKET */ && tokens[i + 1]?.type === "LEFT_BRACKET" /* LEFT_BRACKET */) {
+      ptrCallCount++;
+      i = skipPointerCall(tokens, i);
+      continue;
+    }
+    const call = callSiteAt(tokens, i, braceDepth);
+    if (call) callSites.push(call);
+  }
+  return { callSites, ptrCallCount };
+}
+function resolveIncludedSymbols(includes, hintDir) {
+  const included = /* @__PURE__ */ new Set();
+  const unresolved = [];
+  for (const inc of includes) {
+    const resolved = resolveInclude(inc.path, hintDir);
+    if (resolved.source === "unresolved") unresolved.push(inc.path);
+    else for (const sym of resolved.symbols) included.add(sym);
+  }
+  return { included, unresolved };
+}
+async function findOrphans(source, hintDir) {
+  const outlineResult = outline(source);
+  const local = new Set(outlineResult.functions.map((f) => f.name.toLowerCase()));
+  const { included, unresolved } = resolveIncludedSymbols(outlineResult.includes, hintDir);
+  const builtins = await getKnownBuiltins();
+  const { callSites, ptrCallCount } = collectCallSites(tokenize(source).tokens);
+  const orphans = callSites.filter((c) => {
+    const lower = c.name.toLowerCase();
+    return !local.has(lower) && !included.has(lower) && !builtins.has(lower) && !hasSymbol(lower);
+  });
+  return { orphans, unresolvedIncludes: unresolved, ptrCallCount, indexStats: getStats() };
+}
+function formatOrphanList(orphans, fileName, indexStats) {
+  const uniqueOrphans = new Set(orphans.map((o) => o.name.toLowerCase())).size;
+  let out = `Found ${orphans.length} orphaned call(s) (${uniqueOrphans} unique) in ${fileName}
+`;
+  out += indexStats.symbols === 0 ? `\u26A0\uFE0F  Symbol index is empty \u2014 run iwd_index_symbols first to reduce false positives.
+` : `Symbol index: ${indexStats.symbols} symbols \u2014 indexed at ${indexStats.indexedAt?.toLocaleTimeString() ?? "unknown"}
+`;
+  out += "\n";
+  const seen = /* @__PURE__ */ new Set();
+  for (const o of orphans) {
+    const isDup = seen.has(o.name.toLowerCase());
+    seen.add(o.name.toLowerCase());
+    out += `  Line ${String(o.line).padStart(4)}  ${o.name}()${isDup ? "  (duplicate)" : ""}
+`;
+  }
+  return out;
+}
+function formatOrphanFooter(unresolvedIncludes, ptrCallCount) {
+  let out = "";
+  if (unresolvedIncludes.length > 0) {
+    out += `
+Unresolved includes (symbols unknown \u2014 not on disk, not in index):
+`;
+    for (const inc of unresolvedIncludes) out += `  ${inc}
+`;
+  }
+  if (ptrCallCount > 0) {
+    out += `
+Note: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped \u2014 not statically resolvable.
+`;
+  }
+  return out;
+}
+function formatOrphanReport(a, fileName) {
+  const body = a.orphans.length === 0 ? `\u2705 0 orphaned calls in ${fileName}.
+All function calls are resolved (local, includes, builtins, or symbol index).` : formatOrphanList(a.orphans, fileName, a.indexStats);
+  return body + formatOrphanFooter(a.unresolvedIncludes, a.ptrCallCount);
+}
+
 // src/gsc/tools.ts
 var gscBuiltinsCache = null;
 var templatesCache = null;
@@ -26864,21 +26953,20 @@ function loadTemplates() {
     return templatesCache;
   }
 }
-function loadFromPathOrContent(filePath, content) {
+function requireSource(filePath, content) {
   if (filePath) {
     const resolved = path7.resolve(filePath);
-    if (!fs4.existsSync(resolved)) {
-      return { error: errResult(`\u274C File not found: ${resolved}`) };
-    }
+    if (!fs4.existsSync(resolved)) throw new CommandError(`\u274C File not found: ${resolved}`);
     try {
-      return { source: fs4.readFileSync(resolved, "utf-8") };
+      return fs4.readFileSync(resolved, "utf-8");
     } catch (e) {
-      return { error: errResult(`\u274C Error reading file: ${e}`) };
+      throw new CommandError(`\u274C Error reading file: ${e}`);
     }
   }
-  if (content) return { source: content };
-  return { error: errResult("\u274C Either path or content must be provided") };
+  if (content) return content;
+  throw new CommandError("\u274C Either path or content must be provided");
 }
+var displayName = (filePath) => filePath ? path7.basename(filePath) : "<inline>";
 function formatErrorGroup(heading, errors, trailingBlank) {
   if (errors.length === 0) return "";
   let out = `${heading}
@@ -26903,34 +26991,38 @@ ${stats}`;
 ---
 ${stats}`;
 }
-async function handleGscLint({ path: filePath, content, check_undefined, check_patterns }) {
-  let source;
-  if (filePath) {
-    const resolved = path7.resolve(filePath);
-    if (!fs4.existsSync(resolved)) {
-      return { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] };
-    }
-    if (!resolved.toLowerCase().endsWith(".gsc") && !resolved.toLowerCase().endsWith(".gsh")) {
-      return { content: [{ type: "text", text: `\u26A0\uFE0F Warning: File doesn't appear to be a GSC file (.gsc or .gsh)` }] };
-    }
-    try {
-      source = fs4.readFileSync(resolved, "utf-8");
-    } catch (e) {
-      return { content: [{ type: "text", text: `\u274C Error reading file: ${e}` }] };
-    }
-  } else if (content) {
-    source = content;
-  } else {
-    return { content: [{ type: "text", text: "\u274C Either path or content must be provided" }] };
+async function lintInput(filePath, content) {
+  if (!filePath) return content ? { source: content } : { notice: "\u274C Either path or content must be provided" };
+  const resolved = path7.resolve(filePath);
+  if (!fs4.existsSync(resolved)) return { notice: `\u274C File not found: ${resolved}` };
+  const lower = resolved.toLowerCase();
+  if (!lower.endsWith(".gsc") && !lower.endsWith(".gsh")) {
+    return { notice: `\u26A0\uFE0F Warning: File doesn't appear to be a GSC file (.gsc or .gsh)` };
   }
-  const lintOptions = {
-    checkUndefined: check_undefined,
-    checkPatterns: check_patterns
-  };
-  const result = await lint(source, lintOptions);
-  const formatted = formatLintResult(result);
-  return { content: [{ type: "text", text: formatted }] };
+  try {
+    return { source: fs4.readFileSync(resolved, "utf-8") };
+  } catch (e) {
+    return { notice: `\u274C Error reading file: ${e}` };
+  }
 }
+var gscLint = command({
+  name: "gsc_lint",
+  title: "Lint GSC Code",
+  description: "Lints GSC (Game Script) code for syntax errors, undefined variables, bad patterns, and best practice violations. Use this to validate GSC scripts before testing in-game. Supports vibe coding: the LLM should run this after writing/modifying .gsc files.",
+  input: {
+    path: external_exports.string().optional().describe("Path to .gsc file to lint. Either this or content must be provided."),
+    content: external_exports.string().optional().describe("GSC source code to lint directly. Either this or path must be provided."),
+    check_undefined: external_exports.boolean().optional().default(true).describe("Check for undefined variables and functions"),
+    check_patterns: external_exports.boolean().optional().default(true).describe("Check for bad patterns and anti-patterns")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  async run({ path: filePath, content, check_undefined, check_patterns }) {
+    const input = await lintInput(filePath, content);
+    if ("notice" in input) return input;
+    return lint(input.source, { checkUndefined: check_undefined, checkPatterns: check_patterns });
+  },
+  render: (d) => "notice" in d ? d.notice : formatLintResult(d)
+});
 function matchesBuiltin(name, func, q, cat) {
   const nameMatch = name.toLowerCase().includes(q);
   const descMatch = func.description?.toLowerCase().includes(q) ?? false;
@@ -26950,27 +27042,36 @@ function formatBuiltinEntry(func) {
   s += "\n";
   return s;
 }
-async function handleGscLookup({ query, category }) {
-  const builtins = loadGscBuiltins2();
-  const q = query.toLowerCase();
-  const cat = category?.toLowerCase();
-  const matches = [];
-  for (const [name, func] of builtins) {
-    if (matchesBuiltin(name, func, q, cat)) matches.push(func);
-  }
-  if (matches.length === 0) {
-    return { content: [{ type: "text", text: `No functions found matching '${query}'${cat ? ` in category '${cat}'` : ""}` }] };
-  }
-  let output = `Found ${matches.length} functions:
+var gscLookup = command({
+  name: "gsc_lookup",
+  title: "GSC Function Lookup",
+  description: "Search the GSC built-in function reference. Use this to find correct function signatures and descriptions. Helps prevent hallucinated function names in vibe coding.",
+  input: {
+    query: external_exports.string().describe("Search term (function name or keyword)"),
+    category: external_exports.string().optional().describe("Optional category filter")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ query, category }) {
+    const q = query.toLowerCase();
+    const cat = category?.toLowerCase();
+    const matches = [];
+    for (const [name, func] of loadGscBuiltins2()) {
+      if (matchesBuiltin(name, func, q, cat)) matches.push(func);
+    }
+    return { total: matches.length, functions: matches.slice(0, 20) };
+  },
+  render(d, { query, category }) {
+    const cat = category?.toLowerCase();
+    if (d.total === 0) return `No functions found matching '${query}'${cat ? ` in category '${cat}'` : ""}`;
+    let output = `Found ${d.total} functions:
 
 `;
-  for (const func of matches.slice(0, 20)) output += formatBuiltinEntry(func);
-  if (matches.length > 20) {
-    output += `
-...and ${matches.length - 20} more.`;
+    for (const func of d.functions) output += formatBuiltinEntry(func);
+    if (d.total > 20) output += `
+...and ${d.total - 20} more.`;
+    return output;
   }
-  return { content: [{ type: "text", text: output }] };
-}
+});
 function listTemplates(templates) {
   const names = Object.keys(templates);
   if (names.length === 0) {
@@ -26997,68 +27098,92 @@ function renderTemplate(code, variables) {
   }
   return code;
 }
-async function handleGscTemplate({ template, variables, list }) {
-  const templates = loadTemplates();
-  if (list || !template) {
-    return { content: [{ type: "text", text: listTemplates(templates) }] };
-  }
-  const t = templates[template];
-  if (!t) {
-    return { content: [{ type: "text", text: `Template '${template}' not found. Use list=true to see available templates.` }] };
-  }
-  const code = renderTemplate(t.code || "", variables);
-  return { content: [{ type: "text", text: `Generated from '${template}':
+var gscTemplate = command({
+  name: "gsc_template",
+  title: "Generate GSC from Template",
+  description: "Generate GSC code from common templates. Use this to quickly scaffold common patterns like callbacks, gametypes, menus, etc. Reduces boilerplate errors.",
+  input: {
+    template: external_exports.string().optional().describe("Template name (e.g., 'player_connect', 'killstreak'). Not required if list=true"),
+    variables: external_exports.record(external_exports.string()).optional().describe("Variables to substitute in template (e.g., {player: 'self'})"),
+    list: external_exports.boolean().optional().default(false).describe("If true, list available templates instead of generating")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ template, variables, list }) {
+    const templates = loadTemplates();
+    if (list || !template) return { kind: "list", templates };
+    const t = templates[template];
+    if (!t) return { kind: "missing" };
+    return { kind: "generated", code: renderTemplate(t.code || "", variables) };
+  },
+  render(d, { template }) {
+    if (d.kind === "list") return listTemplates(d.templates);
+    if (d.kind === "missing") return `Template '${template}' not found. Use list=true to see available templates.`;
+    return `Generated from '${template}':
 
 \`\`\`gsc
-${code}
-\`\`\`` }] };
-}
-async function handleGscFix({ path: filePath, content, write_back }) {
-  const loaded = loadFromPathOrContent(filePath, content);
-  if ("error" in loaded) return loaded.error;
-  const source = loaded.source;
-  const result = fix(source);
-  let output;
-  if (!result.fixed) {
-    output = "\u2139\uFE0F  No auto-fixable issues found.\n\nRun gsc_lint for a full diagnostic report.";
-  } else {
-    output = `\u2705 Fixed ${result.fixesApplied.length} issue(s):
+${d.code}
+\`\`\``;
+  }
+});
+function formatFix(d) {
+  if (!d.fixed) return "\u2139\uFE0F  No auto-fixable issues found.\n\nRun gsc_lint for a full diagnostic report.";
+  let output = `\u2705 Fixed ${d.fixesApplied.length} issue(s):
 `;
-    for (const change of result.fixesApplied) {
-      output += `  \u2022 ${change}
+  for (const change of d.fixesApplied) output += `  \u2022 ${change}
 `;
-    }
-    output += `
+  output += `
 **Fixed code:**
 \`\`\`gsc
-${result.fixedCode}
+${d.fixedCode}
 \`\`\``;
-    if (write_back && filePath) {
-      const target = path7.resolve(filePath);
-      try {
-        await ensureBackup(target);
-        fs4.writeFileSync(target + ".tmp", result.fixedCode, "utf-8");
-        fs4.renameSync(target + ".tmp", target);
-        output += `
+  if (d.writtenTo) output += `
 
-\u270D\uFE0F  Written back to: ${filePath}`;
-      } catch (e) {
-        return errResult(`${output}
+\u270D\uFE0F  Written back to: ${d.writtenTo}`;
+  return output;
+}
+var gscFix = command({
+  name: "gsc_fix",
+  title: "Auto-fix GSC Syntax Errors",
+  description: "Attempts to auto-fix common GSC syntax errors: unmatched braces, unterminated strings, and missing closing brackets. Returns the fixed code and a list of changes made. Use after gsc_lint reports fixable errors. Set write_back=true to write the fix directly to a file path.",
+  input: {
+    path: external_exports.string().optional().describe("Path to .gsc file to fix. Either this or content must be provided."),
+    content: external_exports.string().optional().describe("GSC source code to fix directly. Either this or path must be provided."),
+    write_back: external_exports.boolean().optional().default(false).describe("If true and path is provided, write the fixed code back to the file.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true },
+  async run({ path: filePath, content, write_back }) {
+    const result = fix(requireSource(filePath, content));
+    const data = { fixed: result.fixed, fixesApplied: result.fixesApplied, fixedCode: result.fixedCode };
+    if (!result.fixed || !write_back || !filePath) return data;
+    const target = path7.resolve(filePath);
+    try {
+      await ensureBackup(target);
+      fs4.writeFileSync(target + ".tmp", result.fixedCode, "utf-8");
+      fs4.renameSync(target + ".tmp", target);
+    } catch (e) {
+      throw new CommandError(`${formatFix(data)}
 
 \u274C Write failed: ${e}`);
-      }
     }
-  }
-  return { content: [{ type: "text", text: output }] };
-}
-async function handleGscOutline({ path: filePath, content }) {
-  const loaded = loadFromPathOrContent(filePath, content);
-  if ("error" in loaded) return loaded.error;
-  const source = loaded.source;
-  const result = outline(source);
-  const formatted = formatOutline(result, source);
-  return { content: [{ type: "text", text: formatted }] };
-}
+    return { ...data, writtenTo: filePath };
+  },
+  render: formatFix
+});
+var gscOutline = command({
+  name: "gsc_outline",
+  title: "GSC File Outline",
+  description: "Parses a GSC file and returns its structural skeleton: function definitions (name, params, line), #include directives, thread calls, event listeners (waittill/notify/endon), and shared-state property assignments (level.x, self.x, game.x). Use this BEFORE editing a GSC file to understand its structure and avoid accidentally deleting functions or breaking event chains.",
+  input: {
+    path: external_exports.string().optional().describe("Path to .gsc file to outline. Either this or content must be provided."),
+    content: external_exports.string().optional().describe("GSC source code to outline directly. Either this or path must be provided.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ path: filePath, content }) {
+    const source = requireSource(filePath, content);
+    return { ...outline(source), lines: source.split("\n").length };
+  },
+  render: (d) => formatOutline(d, d.lines)
+});
 function matchesAntiPattern(p, q, cat) {
   const inCat = cat ? p.category === cat : true;
   const inSearch = q ? p.title.toLowerCase().includes(q) || p.wrong.toLowerCase().includes(q) || p.right.toLowerCase().includes(q) || p.explanation.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) : true;
@@ -27101,28 +27226,37 @@ ${p.right}
 
 `;
 }
-function renderAntiPatternMatches(matches) {
-  let out = `Found ${matches.length} pattern(s):
+var gscAntiPatterns = command({
+  name: "gsc_anti_patterns",
+  title: "GSC Anti-Patterns Reference",
+  description: "Search IW4 GSC anti-patterns: common mistakes from JS/BO3/modern languages with correct IW4 equivalents. Call this BEFORE writing code to check how to do something correctly in IW4. Returns wrong\u2192right pairs with explanations. Examples: query='push' for array append, query='null' for null checks, query='object' for struct creation, list=true to see all categories.",
+  input: {
+    query: external_exports.string().optional().describe("Search term (e.g. 'push', 'null', 'object', 'loop', 'event'). Not required if list=true."),
+    category: external_exports.string().optional().describe("Filter by category: syntax, arrays, objects, types, loops, events, entities"),
+    list: external_exports.boolean().optional().default(false).describe("If true, list all categories with entry counts instead of searching")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ query, category, list }) {
+    const patterns = loadAntiPatterns();
+    if (list || !(query || category)) return { kind: "categories", patterns };
+    const cat = category?.toLowerCase();
+    return { kind: "matches", matches: patterns.filter((p) => matchesAntiPattern(p, query?.toLowerCase() ?? "", cat)) };
+  },
+  render(d, { query, category }) {
+    if (d.kind === "categories") return formatAntiPatternCategories(d.patterns);
+    const cat = category?.toLowerCase();
+    if (d.matches.length === 0) {
+      return `No patterns found for '${query}'${cat ? ` in category '${cat}'` : ""}.
+Use list=true to see all categories.`;
+    }
+    let out = `Found ${d.matches.length} pattern(s):
 
 `;
-  for (const p of matches.slice(0, 10)) out += formatAntiPatternEntry(p);
-  if (matches.length > 10) out += `...and ${matches.length - 10} more. Narrow your query.`;
-  return out;
-}
-async function handleGscAntiPatterns({ query, category, list }) {
-  const patterns = loadAntiPatterns();
-  const hasFilter = Boolean(query || category);
-  if (list || !hasFilter) {
-    return { content: [{ type: "text", text: formatAntiPatternCategories(patterns) }] };
+    for (const p of d.matches.slice(0, 10)) out += formatAntiPatternEntry(p);
+    if (d.matches.length > 10) out += `...and ${d.matches.length - 10} more. Narrow your query.`;
+    return out;
   }
-  const cat = category?.toLowerCase();
-  const matches = patterns.filter((p) => matchesAntiPattern(p, query?.toLowerCase() ?? "", cat));
-  if (matches.length === 0) {
-    return { content: [{ type: "text", text: `No patterns found for '${query}'${cat ? ` in category '${cat}'` : ""}.
-Use list=true to see all categories.` }] };
-  }
-  return { content: [{ type: "text", text: renderAntiPatternMatches(matches) }] };
-}
+});
 var isIwdFile = (p) => p.toLowerCase().endsWith(".iwd");
 var statOrNull = (p) => {
   try {
@@ -27144,183 +27278,81 @@ function iwdFilesAt(resolved) {
   if (!stat.isDirectory()) return isIwdFile(resolved) ? [resolved] : [];
   return (readdirOrNull(resolved) ?? []).filter(isIwdFile).map((e) => path7.join(resolved, e));
 }
-function expandIwdPaths(paths) {
-  return paths.flatMap((p) => iwdFilesAt(path7.resolve(p)));
-}
-async function handleIwdIndexSymbols({ paths, clear }) {
-  const iwdPaths = expandIwdPaths(paths);
-  const prevStats = getStats();
-  const result = buildIndex(iwdPaths, clear);
-  let out = `Indexed ${result.stats.symbols} symbols across ${result.stats.files} files in ${result.stats.archives} archive(s)`;
-  if (result.perArchive.length === 0) {
-    out += ".\nNo valid .iwd archives found in provided paths.";
-  } else {
-    out += ":\n";
-    for (const a of result.perArchive) {
-      const name = path7.basename(a.archive);
-      out += `  ${name.padEnd(40)} \u2014 ${a.symbols} symbols (${a.files} files)
+var iwdIndexSymbols = command({
+  name: "iwd_index_symbols",
+  title: "Index GSC Symbols from IWD Archives",
+  description: "Scans one or more IWD archives and indexes every GSC function definition into an in-memory symbol registry. Run this once before gsc_find_orphans to enable cross-archive symbol resolution. Accepts .iwd file paths or directories containing .iwd files. The index persists for the duration of the MCP server session.",
+  input: {
+    paths: external_exports.array(external_exports.string()).describe("Paths to .iwd files or directories containing .iwd files to index"),
+    clear: external_exports.boolean().optional().default(false).describe("If true, clear the existing index before scanning (default: false \u2014 adds to existing)")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: false },
+  run({ paths, clear }) {
+    const iwdPaths = paths.flatMap((p) => iwdFilesAt(path7.resolve(p)));
+    const previousSymbols = getStats().symbols;
+    return { ...buildIndex(iwdPaths, clear), previousSymbols };
+  },
+  render(d, { clear }) {
+    let out = `Indexed ${d.stats.symbols} symbols across ${d.stats.files} files in ${d.stats.archives} archive(s)`;
+    if (d.perArchive.length === 0) {
+      out += ".\nNo valid .iwd archives found in provided paths.";
+    } else {
+      out += ":\n";
+      for (const a of d.perArchive) {
+        out += `  ${path7.basename(a.archive).padEnd(40)} \u2014 ${a.symbols} symbols (${a.files} files)
 `;
+      }
+    }
+    if (d.stats.symbols === 0) out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
+    if (clear || d.previousSymbols > 0) out += `
+Replaced previous index (was ${d.previousSymbols} symbols).`;
+    return out;
+  }
+});
+function orphanInput(content, filePath, iwd) {
+  if (content) return { source: content };
+  if (!filePath) return { notice: "\u274C Either content or path must be provided" };
+  if (iwd) {
+    let zip;
+    try {
+      zip = requireIwd(iwd).zip;
+    } catch (e) {
+      return { notice: `\u274C ${e.message}` };
+    }
+    const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
+    const entry = zip.getEntry(normalized);
+    if (!entry) return { notice: `\u274C Entry not found in archive: ${normalized}` };
+    try {
+      return { source: entry.getData().toString("utf-8") };
+    } catch (e) {
+      return { notice: `\u274C Failed to read entry: ${e}` };
     }
   }
-  if (result.stats.symbols === 0) {
-    out += "\nTip: verify the paths contain .iwd files with .gsc entries.";
-  }
-  if (clear || prevStats.symbols > 0) {
-    out += `
-Replaced previous index (was ${prevStats.symbols} symbols).`;
-  }
-  return { content: [{ type: "text", text: out }] };
-}
-var orphanErr = (text) => ({ error: { content: [{ type: "text", text }] } });
-function readOrphanFromIwd(filePath, iwd) {
-  const iwdResult = openIwd(path7.resolve(iwd));
-  if (!iwdResult.ok) return orphanErr(`\u274C ${iwdResult.error}`);
-  const normalized = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
-  const entry = iwdResult.value.getEntry(normalized);
-  if (!entry) return orphanErr(`\u274C Entry not found in archive: ${normalized}`);
-  try {
-    return { source: entry.getData().toString("utf-8") };
-  } catch (e) {
-    return orphanErr(`\u274C Failed to read entry: ${e}`);
-  }
-}
-function readOrphanFromDisk(filePath) {
   const resolved = path7.resolve(filePath);
-  if (!fs4.existsSync(resolved)) return orphanErr(`\u274C File not found: ${resolved}`);
+  if (!fs4.existsSync(resolved)) return { notice: `\u274C File not found: ${resolved}` };
   try {
     return { source: fs4.readFileSync(resolved, "utf-8"), hintDir: path7.dirname(resolved) };
   } catch (e) {
-    return orphanErr(`\u274C Failed to read file: ${e}`);
+    return { notice: `\u274C Failed to read file: ${e}` };
   }
 }
-function loadOrphanSource(content, filePath, iwd) {
-  if (content) return { source: content };
-  if (filePath && iwd) return readOrphanFromIwd(filePath, iwd);
-  if (filePath) return readOrphanFromDisk(filePath);
-  return orphanErr("\u274C Either content or path must be provided");
-}
-var NON_CODE_TOKENS = /* @__PURE__ */ new Set(["COMMENT" /* COMMENT */, "BLOCK_COMMENT" /* BLOCK_COMMENT */, "EOF" /* EOF */]);
-function nextRealToken(tokens, from) {
-  for (let k = from; k < tokens.length; k++) {
-    if (!NON_CODE_TOKENS.has(tokens[k].type)) return k;
-  }
-  return -1;
-}
-function isFunctionDefParen(tokens, parenIndex) {
-  let j = parenIndex + 1;
-  let depth = 1;
-  while (j < tokens.length && depth > 0) {
-    if (tokens[j].type === "LEFT_PAREN" /* LEFT_PAREN */) depth++;
-    else if (tokens[j].type === "RIGHT_PAREN" /* RIGHT_PAREN */) depth--;
-    j++;
-  }
-  const afterParen = nextRealToken(tokens, j);
-  return afterParen !== -1 && tokens[afterParen].type === "LEFT_BRACE" /* LEFT_BRACE */;
-}
-function isDoubleBracket(tokens, i) {
-  return tokens[i].type === "RIGHT_BRACKET" /* RIGHT_BRACKET */ && tokens[i + 1]?.type === "RIGHT_BRACKET" /* RIGHT_BRACKET */;
-}
-function skipPointerCall(tokens, i) {
-  while (i < tokens.length - 1 && !isDoubleBracket(tokens, i)) i++;
-  return i + 1;
-}
-function callSiteAt(tokens, i, braceDepth) {
-  if (tokens[i].type !== "IDENTIFIER" /* IDENTIFIER */) return null;
-  const nxt = nextRealToken(tokens, i + 1);
-  if (nxt === -1 || tokens[nxt].type !== "LEFT_PAREN" /* LEFT_PAREN */) return null;
-  if (braceDepth === 0 && isFunctionDefParen(tokens, nxt)) return null;
-  return { name: tokens[i].value, line: tokens[i].line };
-}
-function collectCallSites(tokens) {
-  const callSites = [];
-  let ptrCallCount = 0;
-  let braceDepth = 0;
-  for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i];
-    if (tok.type === "LEFT_BRACE" /* LEFT_BRACE */) {
-      braceDepth++;
-      continue;
-    }
-    if (tok.type === "RIGHT_BRACE" /* RIGHT_BRACE */) {
-      braceDepth = Math.max(0, braceDepth - 1);
-      continue;
-    }
-    if (tok.type === "LEFT_BRACKET" /* LEFT_BRACKET */ && tokens[i + 1]?.type === "LEFT_BRACKET" /* LEFT_BRACKET */) {
-      ptrCallCount++;
-      i = skipPointerCall(tokens, i);
-      continue;
-    }
-    const call = callSiteAt(tokens, i, braceDepth);
-    if (call) callSites.push(call);
-  }
-  return { callSites, ptrCallCount };
-}
-function formatOrphanList(orphans, fileName, indexStats) {
-  const uniqueOrphans = new Set(orphans.map((o) => o.name.toLowerCase())).size;
-  let out = `Found ${orphans.length} orphaned call(s) (${uniqueOrphans} unique) in ${fileName}
-`;
-  out += indexStats.symbols === 0 ? `\u26A0\uFE0F  Symbol index is empty \u2014 run iwd_index_symbols first to reduce false positives.
-` : `Symbol index: ${indexStats.symbols} symbols \u2014 indexed at ${indexStats.indexedAt?.toLocaleTimeString() ?? "unknown"}
-`;
-  out += "\n";
-  const seen = /* @__PURE__ */ new Set();
-  for (const o of orphans) {
-    const isDup = seen.has(o.name.toLowerCase());
-    seen.add(o.name.toLowerCase());
-    out += `  Line ${String(o.line).padStart(4)}  ${o.name}()${isDup ? "  (duplicate)" : ""}
-`;
-  }
-  return out;
-}
-function formatOrphanFooter(unresolvedIncludes, ptrCallCount) {
-  let out = "";
-  if (unresolvedIncludes.length > 0) {
-    out += `
-Unresolved includes (symbols unknown \u2014 not on disk, not in index):
-`;
-    for (const inc of unresolvedIncludes) out += `  ${inc}
-`;
-  }
-  if (ptrCallCount > 0) {
-    out += `
-Note: ${ptrCallCount} function pointer call(s) [[ptr]]() skipped \u2014 not statically resolvable.
-`;
-  }
-  return out;
-}
-function formatOrphanReport({ orphans, fileName, indexStats, unresolvedIncludes, ptrCallCount }) {
-  const body = orphans.length === 0 ? `\u2705 0 orphaned calls in ${fileName}.
-All function calls are resolved (local, includes, builtins, or symbol index).` : formatOrphanList(orphans, fileName, indexStats);
-  return body + formatOrphanFooter(unresolvedIncludes, ptrCallCount);
-}
-function resolveIncludedSymbols(includes, hintDir) {
-  const included = /* @__PURE__ */ new Set();
-  const unresolved = [];
-  for (const inc of includes) {
-    const resolved = resolveInclude(inc.path, hintDir);
-    if (resolved.source === "unresolved") unresolved.push(inc.path);
-    else for (const sym of resolved.symbols) included.add(sym);
-  }
-  return { included, unresolved };
-}
-function isUnresolvedCall(name, local, included, builtins) {
-  const lower = name.toLowerCase();
-  return !local.has(lower) && !included.has(lower) && !builtins.has(lower) && !hasSymbol(lower);
-}
-async function handleGscFindOrphans({ content, path: filePath, iwd }) {
-  const loaded = loadOrphanSource(content, filePath, iwd);
-  if ("error" in loaded) return loaded.error;
-  const { source, hintDir } = loaded;
-  const outlineResult = outline(source);
-  const localFunctions = new Set(outlineResult.functions.map((f) => f.name.toLowerCase()));
-  const { included, unresolved } = resolveIncludedSymbols(outlineResult.includes, hintDir);
-  const builtins = await getKnownBuiltins();
-  const { callSites, ptrCallCount } = collectCallSites(tokenize(source).tokens);
-  const orphans = callSites.filter((c) => isUnresolvedCall(c.name, localFunctions, included, builtins));
-  const fileName = filePath ? path7.basename(filePath) : "<inline>";
-  const out = formatOrphanReport({ orphans, fileName, indexStats: getStats(), unresolvedIncludes: unresolved, ptrCallCount });
-  return { content: [{ type: "text", text: out }] };
-}
+var gscFindOrphans = command({
+  name: "gsc_find_orphans",
+  title: "Find Orphaned GSC Function Calls",
+  description: "Statically analyzes a GSC file and reports every function call that cannot be resolved: not defined locally, not in any #include, not a known IW4 builtin, and not in the symbol index (run iwd_index_symbols first for cross-archive resolution). Converts the 'one crash at a time' Promod porting cycle into a single batch fix.",
+  input: {
+    content: external_exports.string().optional().describe("GSC source code to analyze. Either this or path must be provided."),
+    path: external_exports.string().optional().describe("Path to a .gsc file on disk. Either this or content must be provided."),
+    iwd: external_exports.string().optional().describe("Path to an IWD archive. If provided, reads the file specified by path from inside this archive.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  async run({ content, path: filePath, iwd }) {
+    const input = orphanInput(content, filePath, iwd);
+    if ("notice" in input) return input;
+    return findOrphans(input.source, input.hintDir);
+  },
+  render: (d, { path: filePath }) => "notice" in d ? d.notice : formatOrphanReport(d, displayName(filePath))
+});
 function extractDvarAccesses(source) {
   const DVAR_CALL_RE = /\b(getDvar|getDvarInt|getDvarFloat|getDvarVector|setDvar|setDvarifuninitialized)\s*\(\s*"([^"]+)"/gi;
   const lines = source.split("\n");
@@ -27359,44 +27391,29 @@ function formatDvarReport(fileName, known, unknown2) {
   }
   return out;
 }
-async function handleDvarIntegrityCheck({ path: filePath, content }) {
-  const loaded = loadFromPathOrContent(filePath, content);
-  if ("error" in loaded) return loaded.error;
-  const accesses = extractDvarAccesses(loaded.source);
-  if (accesses.length === 0) {
-    return { content: [{ type: "text", text: "\u2705 No DVAR string literal accesses found." }] };
+var dvarIntegrityCheck = command({
+  name: "dvar_integrity_check",
+  title: "DVAR Integrity Check",
+  description: "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string literals against the known IW4x/MW2 DVAR database (1900+ entries). Reports unknown names that are likely typos or unsupported DVARs. Skips dynamic (non-literal) arguments silently. Use path or content as input (same as gsc_lint).",
+  input: {
+    path: external_exports.string().optional().describe("Path to .gsc / .gsh file. Either this or content must be provided."),
+    content: external_exports.string().optional().describe("Raw GSC source code. Either this or path must be provided.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  async run({ path: filePath, content }) {
+    const accesses = extractDvarAccesses(requireSource(filePath, content));
+    if (accesses.length === 0) return { known: [], unknown: [] };
+    const knownDvars = await getKnownDvars();
+    return {
+      known: accesses.filter((a) => knownDvars.has(a.name.toLowerCase())),
+      unknown: accesses.filter((a) => !knownDvars.has(a.name.toLowerCase()))
+    };
+  },
+  render(d, { path: filePath }) {
+    if (d.known.length + d.unknown.length === 0) return "\u2705 No DVAR string literal accesses found.";
+    return formatDvarReport(displayName(filePath), d.known, d.unknown);
   }
-  const knownDvars = await getKnownDvars();
-  const known = accesses.filter((a) => knownDvars.has(a.name.toLowerCase()));
-  const unknown2 = accesses.filter((a) => !knownDvars.has(a.name.toLowerCase()));
-  const fileName = filePath ? path7.basename(filePath) : "<inline>";
-  return { content: [{ type: "text", text: formatDvarReport(fileName, known, unknown2) }] };
-}
-function loadFormatSource(code, iwd_path, entry) {
-  if (code) return { source: code };
-  const iwdResult = openIwd(iwd_path);
-  if (!iwdResult.ok) return { error: errResult(iwdResult.error) };
-  const fileEntry = iwdResult.value.getEntry(entry);
-  if (!fileEntry) return { error: errResult(`Entry not found: ${entry}`) };
-  return { source: fileEntry.getData().toString("utf-8") };
-}
-async function writeFormattedToIwd({ iwd_path, entry, source, formatted, dry_run }) {
-  const iwdResult = openIwd(iwd_path);
-  if (!iwdResult.ok) return errResult(iwdResult.error);
-  const { snippet } = buildDiffSnippet(source, formatted);
-  if (dry_run) {
-    return okResult(`[dry_run] Would write formatted ${entry}:
-
-${snippet}`);
-  }
-  await ensureBackup(iwd_path);
-  iwdResult.value.updateFile(entry, Buffer.from(formatted, "utf-8"));
-  await atomicWrite(iwdResult.value, iwd_path);
-  invalidateIwdCache(iwd_path);
-  return okResult(`Formatted and wrote ${entry}:
-
-${snippet}`);
-}
+});
 function formatTokenizerWarnings(tokErrors) {
   if (tokErrors.length === 0) return "";
   return `
@@ -27404,137 +27421,65 @@ function formatTokenizerWarnings(tokErrors) {
 \u26A0\uFE0F Tokenizer warnings (${tokErrors.length}):
 ` + tokErrors.map((e) => `  L${e.line}: ${e.message}`).join("\n");
 }
-async function handleGscFormat({ code, iwd_path, entry, write_back, dry_run }) {
-  const hasIwdTarget = Boolean(iwd_path && entry);
-  if (!code && !hasIwdTarget) {
-    return errResult("Provide either 'code', or both 'iwd_path' and 'entry'.");
-  }
-  const resolvedIwd = iwd_path ? resolveIwdPath(iwd_path) : void 0;
-  const normalizedEntry = entry ? normalizeEntry(entry) : void 0;
-  if (normalizedEntry !== void 0 && !isSafeEntryPath(normalizedEntry)) {
-    return errResult("Error: entry path is invalid or contains path traversal sequences (not allowed).");
-  }
-  const loaded = loadFormatSource(code, resolvedIwd, normalizedEntry);
-  if ("error" in loaded) return loaded.error;
-  const { tokens, errors: tokErrors } = tokenize(loaded.source);
-  const formatted = format(tokens);
-  if (write_back && hasIwdTarget) {
-    if (tokErrors.length > 0) {
-      return errResult(`Not writing ${normalizedEntry}: tokenizer reported errors.` + formatTokenizerWarnings(tokErrors));
+var gscFormat = command({
+  name: "gsc_format",
+  title: "Format GSC Source Code",
+  description: "Format GSC source code with consistent 4-space indentation, K&R brace style, and proper operator spacing. Accepts raw code or an IWD path+entry. Use write_back=true to save the formatted result back to the IWD.",
+  input: {
+    code: external_exports.string().optional().describe("Raw GSC source code to format"),
+    iwd_path: external_exports.string().optional().describe("Absolute path to the .iwd archive"),
+    entry: external_exports.string().optional().describe("Entry path within the IWD (e.g. maps/mp/gametypes/_mymod.gsc)"),
+    write_back: external_exports.boolean().optional().describe("Write formatted result back to IWD entry (default: false)"),
+    dry_run: external_exports.boolean().optional().describe("Preview diff without writing when write_back=true (default: false)")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+  async run({ code, iwd_path, entry, write_back, dry_run }) {
+    if (!code && !(iwd_path && entry)) {
+      throw new CommandError("Provide either 'code', or both 'iwd_path' and 'entry'.");
     }
-    return writeFormattedToIwd({ iwd_path: resolvedIwd, entry: normalizedEntry, source: loaded.source, formatted, dry_run: dry_run ?? false });
+    const normalized = entry ? requireSafeEntry(entry) : void 0;
+    let source = code;
+    let target;
+    if (!source) {
+      target = requireIwd(iwd_path);
+      const fileEntry = target.zip.getEntry(normalized);
+      if (!fileEntry) throw new CommandError(`Entry not found: ${normalized}`);
+      source = fileEntry.getData().toString("utf-8");
+    }
+    const { tokens, errors } = tokenize(source);
+    const formatted = format(tokens);
+    if (!(write_back && iwd_path && entry)) return { kind: "formatted", code: formatted, warnings: errors };
+    if (errors.length > 0) {
+      throw new CommandError(`Not writing ${normalized}: tokenizer reported errors.` + formatTokenizerWarnings(errors));
+    }
+    const { resolved, zip } = target ?? requireIwd(iwd_path);
+    const { snippet } = buildDiffSnippet(source, formatted);
+    if (!dry_run) await saveIwd(zip, resolved, (z) => z.updateFile(normalized, Buffer.from(formatted, "utf-8")));
+    return { kind: "written", entry: normalized, snippet, dryRun: dry_run ?? false };
+  },
+  render(d) {
+    if (d.kind === "formatted") return "```gsc\n" + d.code + "\n```" + formatTokenizerWarnings(d.warnings);
+    return d.dryRun ? `[dry_run] Would write formatted ${d.entry}:
+
+${d.snippet}` : `Formatted and wrote ${d.entry}:
+
+${d.snippet}`;
   }
-  return okResult("```gsc\n" + formatted + "\n```" + formatTokenizerWarnings(tokErrors));
-}
-var READ_ONLY = { readOnlyHint: true, idempotentHint: true };
-function gscTool(name, config2, handler) {
-  return (server2) => {
-    server2.registerTool(name, config2, handler);
-  };
-}
-var GSC_TOOLS = [
-  gscTool("gsc_lint", {
-    title: "Lint GSC Code",
-    description: "Lints GSC (Game Script) code for syntax errors, undefined variables, bad patterns, and best practice violations. Use this to validate GSC scripts before testing in-game. Supports vibe coding: the LLM should run this after writing/modifying .gsc files.",
-    inputSchema: {
-      path: external_exports.string().optional().describe("Path to .gsc file to lint. Either this or content must be provided."),
-      content: external_exports.string().optional().describe("GSC source code to lint directly. Either this or path must be provided."),
-      check_undefined: external_exports.boolean().optional().default(true).describe("Check for undefined variables and functions"),
-      check_patterns: external_exports.boolean().optional().default(true).describe("Check for bad patterns and anti-patterns")
-    },
-    annotations: READ_ONLY
-  }, handleGscLint),
-  gscTool("gsc_lookup", {
-    title: "GSC Function Lookup",
-    description: "Search the GSC built-in function reference. Use this to find correct function signatures and descriptions. Helps prevent hallucinated function names in vibe coding.",
-    inputSchema: {
-      query: external_exports.string().describe("Search term (function name or keyword)"),
-      category: external_exports.string().optional().describe("Optional category filter")
-    },
-    annotations: READ_ONLY
-  }, handleGscLookup),
-  gscTool("gsc_template", {
-    title: "Generate GSC from Template",
-    description: "Generate GSC code from common templates. Use this to quickly scaffold common patterns like callbacks, gametypes, menus, etc. Reduces boilerplate errors.",
-    inputSchema: {
-      template: external_exports.string().optional().describe("Template name (e.g., 'player_connect', 'killstreak'). Not required if list=true"),
-      variables: external_exports.record(external_exports.string()).optional().describe("Variables to substitute in template (e.g., {player: 'self'})"),
-      list: external_exports.boolean().optional().default(false).describe("If true, list available templates instead of generating")
-    },
-    annotations: READ_ONLY
-  }, handleGscTemplate),
-  gscTool("gsc_fix", {
-    title: "Auto-fix GSC Syntax Errors",
-    description: "Attempts to auto-fix common GSC syntax errors: unmatched braces, unterminated strings, and missing closing brackets. Returns the fixed code and a list of changes made. Use after gsc_lint reports fixable errors. Set write_back=true to write the fix directly to a file path.",
-    inputSchema: {
-      path: external_exports.string().optional().describe("Path to .gsc file to fix. Either this or content must be provided."),
-      content: external_exports.string().optional().describe("GSC source code to fix directly. Either this or path must be provided."),
-      write_back: external_exports.boolean().optional().default(false).describe("If true and path is provided, write the fixed code back to the file.")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true }
-  }, handleGscFix),
-  gscTool("gsc_outline", {
-    title: "GSC File Outline",
-    description: "Parses a GSC file and returns its structural skeleton: function definitions (name, params, line), #include directives, thread calls, event listeners (waittill/notify/endon), and shared-state property assignments (level.x, self.x, game.x). Use this BEFORE editing a GSC file to understand its structure and avoid accidentally deleting functions or breaking event chains.",
-    inputSchema: {
-      path: external_exports.string().optional().describe("Path to .gsc file to outline. Either this or content must be provided."),
-      content: external_exports.string().optional().describe("GSC source code to outline directly. Either this or path must be provided.")
-    },
-    annotations: READ_ONLY
-  }, handleGscOutline),
-  gscTool("gsc_anti_patterns", {
-    title: "GSC Anti-Patterns Reference",
-    description: "Search IW4 GSC anti-patterns: common mistakes from JS/BO3/modern languages with correct IW4 equivalents. Call this BEFORE writing code to check how to do something correctly in IW4. Returns wrong\u2192right pairs with explanations. Examples: query='push' for array append, query='null' for null checks, query='object' for struct creation, list=true to see all categories.",
-    inputSchema: {
-      query: external_exports.string().optional().describe("Search term (e.g. 'push', 'null', 'object', 'loop', 'event'). Not required if list=true."),
-      category: external_exports.string().optional().describe("Filter by category: syntax, arrays, objects, types, loops, events, entities"),
-      list: external_exports.boolean().optional().default(false).describe("If true, list all categories with entry counts instead of searching")
-    },
-    annotations: READ_ONLY
-  }, handleGscAntiPatterns),
-  gscTool("iwd_index_symbols", {
-    title: "Index GSC Symbols from IWD Archives",
-    description: "Scans one or more IWD archives and indexes every GSC function definition into an in-memory symbol registry. Run this once before gsc_find_orphans to enable cross-archive symbol resolution. Accepts .iwd file paths or directories containing .iwd files. The index persists for the duration of the MCP server session.",
-    inputSchema: {
-      paths: external_exports.array(external_exports.string()).describe("Paths to .iwd files or directories containing .iwd files to index"),
-      clear: external_exports.boolean().optional().default(false).describe("If true, clear the existing index before scanning (default: false \u2014 adds to existing)")
-    },
-    annotations: { readOnlyHint: true, idempotentHint: false }
-  }, handleIwdIndexSymbols),
-  gscTool("gsc_find_orphans", {
-    title: "Find Orphaned GSC Function Calls",
-    description: "Statically analyzes a GSC file and reports every function call that cannot be resolved: not defined locally, not in any #include, not a known IW4 builtin, and not in the symbol index (run iwd_index_symbols first for cross-archive resolution). Converts the 'one crash at a time' Promod porting cycle into a single batch fix.",
-    inputSchema: {
-      content: external_exports.string().optional().describe("GSC source code to analyze. Either this or path must be provided."),
-      path: external_exports.string().optional().describe("Path to a .gsc file on disk. Either this or content must be provided."),
-      iwd: external_exports.string().optional().describe("Path to an IWD archive. If provided, reads the file specified by path from inside this archive.")
-    },
-    annotations: READ_ONLY
-  }, handleGscFindOrphans),
-  gscTool("dvar_integrity_check", {
-    title: "DVAR Integrity Check",
-    description: "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string literals against the known IW4x/MW2 DVAR database (1900+ entries). Reports unknown names that are likely typos or unsupported DVARs. Skips dynamic (non-literal) arguments silently. Use path or content as input (same as gsc_lint).",
-    inputSchema: {
-      path: external_exports.string().optional().describe("Path to .gsc / .gsh file. Either this or content must be provided."),
-      content: external_exports.string().optional().describe("Raw GSC source code. Either this or path must be provided.")
-    },
-    annotations: READ_ONLY
-  }, handleDvarIntegrityCheck),
-  gscTool("gsc_format", {
-    title: "Format GSC Source Code",
-    description: "Format GSC source code with consistent 4-space indentation, K&R brace style, and proper operator spacing. Accepts raw code or an IWD path+entry. Use write_back=true to save the formatted result back to the IWD.",
-    inputSchema: {
-      code: external_exports.string().optional().describe("Raw GSC source code to format"),
-      iwd_path: external_exports.string().optional().describe("Absolute path to the .iwd archive"),
-      entry: external_exports.string().optional().describe("Entry path within the IWD (e.g. maps/mp/gametypes/_mymod.gsc)"),
-      write_back: external_exports.boolean().optional().describe("Write formatted result back to IWD entry (default: false)"),
-      dry_run: external_exports.boolean().optional().describe("Preview diff without writing when write_back=true (default: false)")
-    },
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true }
-  }, handleGscFormat)
+});
+var GSC_COMMANDS = [
+  gscLint,
+  gscLookup,
+  gscTemplate,
+  gscFix,
+  gscOutline,
+  gscAntiPatterns,
+  iwdIndexSymbols,
+  gscFindOrphans,
+  dvarIntegrityCheck,
+  gscFormat
 ];
 function registerGscTools(server2) {
-  for (const register of GSC_TOOLS) register(server2);
+  registerCommands(server2, GSC_COMMANDS);
 }
 
 // src/index.ts
@@ -27612,7 +27557,6 @@ export {
   loadMenuHud,
   normalizeEntry,
   openIwd,
-  openIwdAsync,
   rateLimitMap,
   resolveIwdPath,
   server

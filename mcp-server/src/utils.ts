@@ -534,7 +534,7 @@ export function buildDiffSnippet(
  * access — or when the file has been modified — reads from disk and updates
  * the cache. Evicts the least recently used entry when the cache exceeds `IWD_CACHE_MAX`.
  *
- * @returns `Result<AdmZip>` - use `unwrapResult()` for early returns in tool handlers
+ * @returns `Result<AdmZip>`
  */
 /** Return a cached zip if present and unchanged (refreshing its LRU access time). */
 function getCachedZip(resolved: string, mtime: number): AdmZip | null {
@@ -595,32 +595,6 @@ export function openIwd(resolved: string): Result<AdmZip> {
   return cached ? ok(cached) : parseAndCacheZip(resolved, mtime);
 }
 
-/**
- * Async version of openIwd for use in tools that benefit from non-blocking file I/O.
- * Opens and validates an IWD (ZIP) file. Returns the cached `AdmZip` instance
- * when the file has not changed since the last open (mtime-keyed). On first
- * access — or when the file has been modified — reads from disk and updates
- * the cache. Evicts the least recently used entry when the cache exceeds `IWD_CACHE_MAX`.
- *
- * @returns `Result<AdmZip>` - use `unwrapResult()` for early returns in tool handlers
- */
-export async function openIwdAsync(resolved: string): Promise<Result<AdmZip>> {
-  const fsPromises = await import("node:fs/promises");
-
-  let mtime: number;
-  try {
-    mtime = (await fsPromises.stat(resolved)).mtimeMs;
-  } catch {
-    return err(
-      `IWD file not found: ${resolved}\n` +
-      `Tip: verify the file path is correct and the file exists.`
-    );
-  }
-
-  const cached = getCachedZip(resolved, mtime);
-  return cached ? ok(cached) : parseAndCacheZip(resolved, mtime);
-}
-
 // ---------------------------------------------------------------------------
 // Result type for internal operations
 // ---------------------------------------------------------------------------
@@ -660,28 +634,6 @@ type McpResult = { content: McpTextContent[]; isError?: true };
 /** Builds an MCP error result content object. */
 export function errResult(text: string): McpResult {
   return { content: [{ type: "text" as const, text }], isError: true as const };
-}
-
-/** Builds an MCP success result content object. */
-export function okResult(text: string): McpResult {
-  return { content: [{ type: "text" as const, text }] };
-}
-
-/**
- * Unwraps a Result, returning the value or converting the error to an McpResult.
- * Useful for early returns in tool handlers.
- */
-export function unwrapResult<T>(result: Result<T>): T | McpResult {
-  if (result.ok) return result.value;
-  return errResult(result.error);
-}
-
-/**
- * Standard "entry not found" error, shared across all tools that look up
- * an IWD entry by path. Points the user to `iwd_list` for discovery.
- */
-export function entryNotFoundErr(normalized: string): McpResult {
-  return errResult(entryNotFoundMessage(normalized));
 }
 
 function entryNotFoundMessage(normalized: string): string {
