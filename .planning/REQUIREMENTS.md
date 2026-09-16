@@ -14,9 +14,9 @@
 
 ### Code Gaps
 
-- [ ] **CODE-01**: Rate limiter `Map` has eviction to prevent unbounded growth
-- [ ] **CODE-02**: Orphaned temp file cleanup scans write locations, not just CWD
-- [ ] **CODE-03**: `getKnowledgeDir()` path resolution hardened for bundled/relocated installs
+- [x] **CODE-01**: Rate limiter `Map` has eviction to prevent unbounded growth
+- [x] **CODE-02**: Orphaned temp file cleanup scans write locations, not just CWD
+- [x] **CODE-03**: `getKnowledgeDir()` path resolution hardened for bundled/relocated installs
 
 ### Tests
 
@@ -59,9 +59,9 @@
 | DOCS-02 | Phase 1 | Complete |
 | DOCS-03 | Phase 1 | Complete |
 | DOCS-04 | Phase 1 | Complete |
-| CODE-01 | Phase 2 | Pending |
-| CODE-02 | Phase 2 | Pending |
-| CODE-03 | Phase 2 | Pending |
+| CODE-01 | Phase 2 | Complete |
+| CODE-02 | Phase 2 | Complete |
+| CODE-03 | Phase 2 | Complete |
 | TEST-01 | Phase 3 | Pending |
 | TEST-02 | Phase 3 | Pending |
 | TEST-03 | Phase 3 | Pending |
