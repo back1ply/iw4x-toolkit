@@ -322,7 +322,7 @@ const gscTemplate = command({
     "gametypes, menus, etc. Reduces boilerplate errors.",
   input: {
     template: z.string().optional().describe("Template name (e.g., 'player_connect', 'killstreak'). Not required if list=true"),
-    variables: z.record(z.string()).optional().describe("Variables to substitute in template (e.g., {player: 'self'})"),
+    variables: z.record(z.string(), z.string()).optional().describe("Variables to substitute in template (e.g., {player: 'self'})"),
     list: z.boolean().optional().default(false).describe("If true, list available templates instead of generating"),
   },
   annotations: { readOnlyHint: true, idempotentHint: true },

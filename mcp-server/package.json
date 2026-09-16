@@ -14,7 +14,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "adm-zip": "^0.5.16",
-    "zod": "^3.23.0"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
