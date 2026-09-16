@@ -10,6 +10,7 @@ import AdmZip from "adm-zip";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { execFileSync } from "node:child_process";
 import { runCli } from "./cli.js";
 import { COMMANDS } from "./commands.js";
 import { cleanupOrphanedTempFiles, createMcpServer } from "./mcp.js";
@@ -88,6 +89,52 @@ describe("CLI ↔ MCP parity", () => {
     const hints = Object.fromEntries(tools.map((t) => [t.name, t.annotations?.destructiveHint]));
     expect(hints.iwd_rename).toBe(true);
     expect(hints.iwd_copy).toBe(true);
+  });
+
+  it("iwd_textconv output does not depend on entry order and normalizes line endings", async () => {
+    const build = (file: string, names: string[]) => {
+      const zip = new AdmZip();
+      for (const n of names) {
+        zip.addFile(n, n.endsWith(".iwi") ? Buffer.alloc(8, 2) : Buffer.from(`// ${n}\r\nline2`));
+      }
+      zip.writeZip(path.join(tmpDir, file));
+      return path.join(tmpDir, file);
+    };
+    const a = await cli("iwd_textconv", "--path", build("a.iwd", ["z.gsc", "images/x.iwi", "maps/a.gsc"]));
+    const b = await cli("iwd_textconv", "--path", build("b.iwd", ["maps/a.gsc", "z.gsc", "images/x.iwi"]));
+    expect(a.code).toBe(0);
+    expect(a.stdout).toBe(b.stdout);
+    expect(a.stdout).toMatch(/^3 entries\n[0-9A-F]{8} +8  images\/x\.iwi\n/);
+    expect(a.stdout).toContain("\n=== maps/a.gsc ===\n// maps/a.gsc\nline2");
+    expect(a.stdout).not.toContain("=== images/x.iwi ===");
+    expect(a.stdout).not.toContain("\r");
+  });
+
+  it.skipIf(!fs.existsSync(path.resolve("dist/bin.js")))("works as a git textconv diff driver", () => {
+    const repo = path.join(tmpDir, "repo");
+    fs.mkdirSync(repo);
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" });
+    git("init", "-q");
+    git("config", "user.email", "t@example.com");
+    git("config", "user.name", "t");
+    git("config", "core.autocrlf", "false");
+    git("config", "diff.iwd.textconv", `node "${path.resolve("dist/bin.js").replace(/\\/g, "/")}" iwd_textconv --path`);
+    fs.writeFileSync(path.join(repo, ".gitattributes"), "*.iwd diff=iwd\n");
+
+    const write = (body: string) => {
+      const zip = new AdmZip();
+      zip.addFile("maps/mp/_mod.gsc", Buffer.from(body));
+      zip.writeZip(path.join(repo, "mod.iwd"));
+    };
+    write("init()\n{\n    wait 1;\n}\n");
+    git("add", ".");
+    git("commit", "-q", "-m", "one");
+    write("init()\n{\n    wait 2;\n}\n");
+
+    const diff = git("diff", "mod.iwd");
+    expect(diff).not.toContain("Binary files");
+    expect(diff).toContain("-    wait 1;");
+    expect(diff).toContain("+    wait 2;");
   });
 
   it("--json prints the command's data", async () => {

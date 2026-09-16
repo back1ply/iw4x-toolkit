@@ -317,4 +317,44 @@ const iwdGrep = command({
   },
 });
 
-export const READ_COMMANDS: AnyCommand[] = [iwdList, iwdRead, iwdInfo, iwdGrep];
+// ---------------------------------------------------------------------------
+// iwd_textconv (git diff driver)
+// ---------------------------------------------------------------------------
+
+interface TextconvEntry { name: string; size: number; crc: string; text?: string; }
+
+const iwdTextconv = command({
+  name: "iwd_textconv",
+  title: "IWD as Text (git diff driver)",
+  description:
+    "Render a whole IWD archive as stable text: a sorted entry table (CRC32, size, path) followed by the " +
+    "full content of every text entry. Built for git's textconv so `git diff` shows what changed inside " +
+    ".iwd files. Output can be large; to inspect an archive use iwd_list / iwd_read instead.",
+  input: {
+    path: z.string().describe("Path to the IWD file (git passes this as the last argument)"),
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  run({ path: iwdPath }): { entries: TextconvEntry[] } {
+    const { zip } = requireIwd(iwdPath);
+    const entries = zip.getEntries()
+      .filter((e) => !e.isDirectory)
+      .map((e) => ({
+        name: e.entryName,
+        size: e.header.size,
+        crc: (e.header.crc >>> 0).toString(16).toUpperCase().padStart(8, "0"),
+        text: isBinaryEntry(e.entryName) ? undefined : zip.readAsText(e).replace(/\r\n/g, "\n"),
+      }))
+      // Plain code-unit comparison, not localeCompare, so output is identical on every machine.
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    return { entries };
+  },
+  render({ entries }) {
+    const table = entries.map((e) => `${e.crc}  ${String(e.size).padStart(10)}  ${e.name}`);
+    const bodies = entries
+      .filter((e) => e.text !== undefined)
+      .map((e) => `\n=== ${e.name} ===\n${e.text}`);
+    return [`${entries.length} entries`, ...table, ...bodies].join("\n");
+  },
+});
+
+export const READ_COMMANDS: AnyCommand[] = [iwdList, iwdRead, iwdInfo, iwdGrep, iwdTextconv];

@@ -12,7 +12,7 @@ IW4X/MW2 modding toolkit: IWD archive tools, GSC linting and formatting, a DVAR 
 
 ### Commands
 
-- **IWD**: `iwd_list`, `iwd_read`, `iwd_info`, `iwd_grep`, `iwd_write`, `iwd_patch`, `iwd_remove`, `iwd_extract`, `iwd_pack`, `iwd_sync`, `iwd_diff`, `iwd_rename`, `iwd_copy`
+- **IWD**: `iwd_list`, `iwd_read`, `iwd_info`, `iwd_grep`, `iwd_write`, `iwd_patch`, `iwd_remove`, `iwd_extract`, `iwd_pack`, `iwd_sync`, `iwd_diff`, `iwd_rename`, `iwd_copy`, `iwd_textconv`
 - **Sync to game folders**: `mods_sync`, `userraw_sync`
 - **GSC**: `gsc_lint`, `gsc_format`, `gsc_fix`, `gsc_lookup`, `gsc_template`, `gsc_outline`, `gsc_anti_patterns`, `gsc_menu_hud`, `iwd_index_symbols`, `gsc_find_orphans`
 - **DVAR**: `dvar_search`, `dvar_integrity_check`
@@ -63,6 +63,18 @@ iw4x-toolkit mcp                              # serve the commands as MCP tools 
 The CLI has no MCP resources or rate limits. Each CLI run is its own session: the `iwd_index_symbols` index does not carry over to a later `gsc_find_orphans` run, and each run that modifies an IWD makes its own backup.
 
 For MCP workflows and examples, see [WORKFLOW.md](docs/WORKFLOW.md).
+
+### `git diff` inside .iwd files
+
+Git shows `.iwd` changes as "Binary files differ". `iwd_textconv` renders an archive as text (sorted CRC/size/path table plus every text entry), so git can diff it line by line. In your mod repository:
+
+```bash
+echo "*.iwd diff=iwd" >> .gitattributes
+git config diff.iwd.textconv "iw4x-toolkit iwd_textconv --path"
+git config diff.iwd.cachetextconv true
+```
+
+`git diff`, `git log -p`, and `git show` then show changed lines inside archives. The `.gitattributes` line can be committed; the two `git config` lines are per clone. Diffs are for reading only and cannot be applied as patches.
 
 ## Implementation details
 

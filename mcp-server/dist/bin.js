@@ -23725,7 +23725,7 @@ function grepEntries(zip, entries, searchRe, maxMatches) {
   }
   return { matches, truncated: false };
 }
-var iwdList, iwdRead, iwdInfo, iwdGrep, READ_COMMANDS;
+var iwdList, iwdRead, iwdInfo, iwdGrep, iwdTextconv, READ_COMMANDS;
 var init_read_tools = __esm({
   "src/iwd/read-tools.ts"() {
     "use strict";
@@ -23881,7 +23881,33 @@ Tip: use iwd_list to see all entries.`;
 ${lines.join("\n")}${footer}`;
       }
     });
-    READ_COMMANDS = [iwdList, iwdRead, iwdInfo, iwdGrep];
+    iwdTextconv = command({
+      name: "iwd_textconv",
+      title: "IWD as Text (git diff driver)",
+      description: "Render a whole IWD archive as stable text: a sorted entry table (CRC32, size, path) followed by the full content of every text entry. Built for git's textconv so `git diff` shows what changed inside .iwd files. Output can be large; to inspect an archive use iwd_list / iwd_read instead.",
+      input: {
+        path: external_exports.string().describe("Path to the IWD file (git passes this as the last argument)")
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true },
+      run({ path: iwdPath }) {
+        const { zip } = requireIwd(iwdPath);
+        const entries = zip.getEntries().filter((e) => !e.isDirectory).map((e) => ({
+          name: e.entryName,
+          size: e.header.size,
+          crc: (e.header.crc >>> 0).toString(16).toUpperCase().padStart(8, "0"),
+          text: isBinaryEntry(e.entryName) ? void 0 : zip.readAsText(e).replace(/\r\n/g, "\n")
+        })).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+        return { entries };
+      },
+      render({ entries }) {
+        const table = entries.map((e) => `${e.crc}  ${String(e.size).padStart(10)}  ${e.name}`);
+        const bodies = entries.filter((e) => e.text !== void 0).map((e) => `
+=== ${e.name} ===
+${e.text}`);
+        return [`${entries.length} entries`, ...table, ...bodies].join("\n");
+      }
+    });
+    READ_COMMANDS = [iwdList, iwdRead, iwdInfo, iwdGrep, iwdTextconv];
   }
 });
 
