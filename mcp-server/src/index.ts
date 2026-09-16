@@ -23,7 +23,6 @@ export {
   atomicWriteDirs,
   openIwd,
   invalidateIwdCache,
-  getKnowledgeDir,
   getCachedRegex,
   checkRateLimit,
   rateLimitMap,

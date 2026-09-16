@@ -163,43 +163,6 @@ export function checkRateLimit(
 // Path resolution utilities
 // ---------------------------------------------------------------------------
 
-/**
- * Resolves the path to a knowledge file, trying multiple candidate locations.
- * Candidates cover:
- *  - src/knowledge/ (vitest runs source files directly): ../../.. = iw4x-toolkit root
- *  - dist/          (esbuild bundle, flat output):       ../..    = mcp-server dir
- *  - src/           (alternate source layout):           ../..    = mcp-server dir
- * 
- * @param filename - The name of the knowledge file to resolve (e.g., "dvars.json")
- * @returns The resolved absolute path, or null if not found
- */
-export function getKnowledgeDir(filename: string): string | null {
-  let baseDir: string | undefined;
-  try {
-    baseDir = import.meta.dirname || path.dirname(new URL(import.meta.url).pathname);
-  } catch { /* baseDir remains undefined */ }
-
-  const candidates = [
-    ...(baseDir ? [
-      // From dist/knowledge/ -> project root
-      path.resolve(baseDir, "..", "knowledge", filename),
-      // From dist/ -> mcp-server/ -> project root
-      path.resolve(baseDir, "..", "..", "knowledge", filename),
-      // From src/knowledge/ -> project root
-      path.resolve(baseDir, "..", "..", "..", "knowledge", filename),
-    ] : []),
-    // Direct from project root (for when running from mcp-server folder)
-    path.resolve("knowledge", filename),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-
-  console.error(`[iw4x-toolkit] Could not locate knowledge file: ${filename} — searched: ${candidates.join(", ")}`);
-  return null;
-}
-
 // ---------------------------------------------------------------------------
 // Session-level backup tracker
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import * as path from "node:path";
 import { lint, fix, type LintResult, type LintError, getKnownDvars } from "./linter.js";
 import { outline, formatOutline, type OutlineResult } from "./outline.js";
 import {
-  getKnowledgeDir, buildDiffSnippet, ensureBackup,
+  buildDiffSnippet, ensureBackup,
   CommandError, requireIwd, requireSafeEntry, saveIwd,
 } from "../utils.js";
 import { format } from "./formatter.js";
@@ -17,119 +17,13 @@ import { buildIndex, getStats, type BuildIndexResult } from "./symbols.js";
 import { tokenize } from "./tokenizer.js";
 import { findOrphans, formatOrphanReport, type OrphanAnalysis } from "./orphans.js";
 import { command, type AnyCommand } from "../command.js";
+import { ANTI_PATTERNS, GSC_BUILTINS, TEMPLATES, type AntiPattern, type GscBuiltin, type GscTemplate } from "../knowledge/data.js";
 
-/**
- * GSC builtin function metadata
- */
-interface GscBuiltin {
-  name: string;
-  description?: string;
-  category?: string;
-  parameters?: { name: string; type: string; optional?: boolean }[];
-  returnType?: string;
-  engines?: string[];
-}
+let builtinsByName: Map<string, GscBuiltin> | null = null;
 
-/**
- * GSC template metadata
- */
-interface GscTemplate {
-  code: string;
-  description?: string;
-  category?: string;
-  variables?: Record<string, string>;
-}
-
-/**
- * IW4 GSC anti-pattern entry
- */
-interface AntiPattern {
-  id: string;
-  category: string;
-  title: string;
-  wrong: string;
-  right: string;
-  explanation: string;
-}
-
-// ---------------------------------------------------------------------------
-// Module-level caches for knowledge base data
-// ---------------------------------------------------------------------------
-
-let gscBuiltinsCache: Map<string, GscBuiltin> | null = null;
-let templatesCache: Record<string, GscTemplate> | null = null;
-let antiPatternsCache: AntiPattern[] | null = null;
-
-function loadAntiPatterns(): AntiPattern[] {
-  if (antiPatternsCache) return antiPatternsCache;
-
-  const filePath = getKnowledgeDir("gsc-anti-patterns.json");
-  if (!filePath) {
-    antiPatternsCache = [];
-    return antiPatternsCache;
-  }
-
-  try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    const data = JSON.parse(raw);
-    antiPatternsCache = data.patterns ?? [];
-    return antiPatternsCache!;
-  } catch {
-    antiPatternsCache = [];
-    return antiPatternsCache;
-  }
-}
-
-/**
- * Load GSC builtins from knowledge base (cached after first load)
- */
-function loadGscBuiltins(): Map<string, GscBuiltin> {
-  if (gscBuiltinsCache) return gscBuiltinsCache;
-
-  const filePath = getKnowledgeDir("gsc-builtins.json");
-  if (!filePath) {
-    gscBuiltinsCache = new Map();
-    return gscBuiltinsCache;
-  }
-
-  try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    const data = JSON.parse(raw);
-    const funcs = new Map<string, GscBuiltin>();
-
-    if (data.functions) {
-      for (const func of data.functions) {
-        funcs.set(func.name, func);
-      }
-    }
-    gscBuiltinsCache = funcs;
-    return gscBuiltinsCache;
-  } catch {
-    gscBuiltinsCache = new Map();
-    return gscBuiltinsCache;
-  }
-}
-
-/**
- * Load templates from knowledge base (cached after first load)
- */
-function loadTemplates(): Record<string, GscTemplate> {
-  if (templatesCache) return templatesCache;
-
-  const filePath = getKnowledgeDir("templates.json");
-  if (!filePath) {
-    templatesCache = {};
-    return templatesCache;
-  }
-
-  try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    templatesCache = JSON.parse(raw);
-    return templatesCache!;
-  } catch {
-    templatesCache = {};
-    return templatesCache;
-  }
+/** Builtins keyed by name (built once from the embedded knowledge base). */
+function builtinsMap(): Map<string, GscBuiltin> {
+  return (builtinsByName ??= new Map(GSC_BUILTINS.functions.map((f) => [f.name, f])));
 }
 
 /** Read source from a file path or inline content; throws `CommandError` when neither works. */
@@ -260,7 +154,7 @@ const gscLookup = command({
     const q = query.toLowerCase();
     const cat = category?.toLowerCase();
     const matches: GscBuiltin[] = [];
-    for (const [name, func] of loadGscBuiltins()) {
+    for (const [name, func] of builtinsMap()) {
       if (matchesBuiltin(name, func, q, cat)) matches.push(func);
     }
     return { total: matches.length, functions: matches.slice(0, 20) };
@@ -325,7 +219,7 @@ const gscTemplate = command({
   },
   annotations: { readOnlyHint: true, idempotentHint: true },
   run({ template, variables, list }): TemplateData {
-    const templates = loadTemplates();
+    const templates = TEMPLATES;
     if (list || !template) return { kind: "list", templates };
     const t = templates[template];
     if (!t) return { kind: "missing" };
@@ -473,7 +367,7 @@ const gscAntiPatterns = command({
   },
   annotations: { readOnlyHint: true, idempotentHint: true },
   run({ query, category, list }): AntiPatternData {
-    const patterns = loadAntiPatterns();
+    const patterns = ANTI_PATTERNS;
     if (list || !(query || category)) return { kind: "categories", patterns };
     const cat = category?.toLowerCase();
     return { kind: "matches", matches: patterns.filter(p => matchesAntiPattern(p, query?.toLowerCase() ?? "", cat)) };

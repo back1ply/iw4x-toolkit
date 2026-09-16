@@ -20,7 +20,6 @@ import {
   rateLimitMap,
   checkRateLimit,
   atomicWriteDirs,
-  getKnowledgeDir,
   RATE_LIMIT_MAX_SIZE,
   server,
 } from "./index.js";
@@ -1975,18 +1974,3 @@ describe("CODE-02: atomicWriteDirs tracking", () => {
   });
 });
 
-describe("CODE-03: getKnowledgeDir error logging", () => {
-  it("returns null for nonexistent knowledge file", () => {
-    expect(getKnowledgeDir("nonexistent-file-xyz.json")).toBeNull();
-  });
-
-  it("logs error with filename and searched paths on failure", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    getKnowledgeDir("nonexistent-file-xyz.json");
-    expect(spy).toHaveBeenCalledOnce();
-    const msg = spy.mock.calls[0][0] as string;
-    expect(msg).toContain("nonexistent-file-xyz.json");
-    expect(msg).toContain("searched:");
-    spy.mockRestore();
-  });
-});

@@ -6,7 +6,7 @@
  * lazily from the knowledge base on first access and cached.
  */
 
-import { getKnowledgeDir } from "../utils.js";
+import { DVARS, GSC_BUILTINS } from "../knowledge/data.js";
 
 // ---------------------------------------------------------------------------
 // Core entries that are always available (no file I/O needed)
@@ -83,40 +83,16 @@ let _knownBuiltins: Set<string> | null = null;
 let _knownDvars: Set<string> | null = null;
 
 /**
- * Merge named entries from a knowledge-base JSON file into `target`.
- * `add` controls how each entry's name is inserted (e.g. with/without
- * a lowercase alias). On any I/O or parse failure, `target` is returned
- * unchanged so callers fall back to the core set.
- */
-async function loadNames(
-  fileName: string,
-  key: string,
-  target: Set<string>,
-  add: (set: Set<string>, name: string) => void,
-): Promise<Set<string>> {
-  const filePath = getKnowledgeDir(fileName);
-  if (!filePath) return target;
-  try {
-    const { readFile } = await import("node:fs/promises");
-    const data = JSON.parse(await readFile(filePath, "utf-8"));
-    const entries = Array.isArray(data[key]) ? data[key] : [];
-    for (const entry of entries) {
-      if (entry.name) add(target, entry.name);
-    }
-  } catch {
-    // Fall back to the core entries already in `target`
-  }
-  return target;
-}
-
-/**
  * Returns the set of known GSC builtins (case-insensitive), loading from the
  * knowledge base on first access.
  */
 export async function getKnownBuiltins(): Promise<Set<string>> {
   if (!_knownBuiltins) {
-    _knownBuiltins = await loadNames("gsc-builtins.json", "functions", new Set(CORE_BUILTINS),
-      (set, name) => { set.add(name); set.add(name.toLowerCase()); });
+    _knownBuiltins = new Set(CORE_BUILTINS);
+    for (const { name } of GSC_BUILTINS.functions) {
+      _knownBuiltins.add(name);
+      _knownBuiltins.add(name.toLowerCase());
+    }
   }
   return _knownBuiltins;
 }
@@ -127,8 +103,8 @@ export async function getKnownBuiltins(): Promise<Set<string>> {
  */
 export async function getKnownDvars(): Promise<Set<string>> {
   if (!_knownDvars) {
-    _knownDvars = await loadNames("dvars.json", "dvars", new Set(CORE_DVARS),
-      (set, name) => set.add(name.toLowerCase()));
+    _knownDvars = new Set(CORE_DVARS);
+    for (const { name } of DVARS.dvars) _knownDvars.add(name.toLowerCase());
   }
   return _knownDvars;
 }
