@@ -6,3 +6,6 @@ node_modules/
 testiwd/
 mcp-server/dist/
 .mcp.json
+
+# Large generated IWD content listings
+scripts/*.txt
