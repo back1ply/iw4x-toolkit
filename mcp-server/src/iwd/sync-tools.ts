@@ -2,11 +2,10 @@
  * @file iwd/sync-tools.ts
  * External sync commands: mods_sync, userraw_sync
  */
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as path from "node:path";
 import { CommandError } from "../utils.js";
-import { command, registerCommands, type AnyCommand } from "../command.js";
+import { command, type AnyCommand } from "../command.js";
 import { requireSourceDir } from "./archive-tools.js";
 
 interface CopyDirData { source: string; dest: string; dryRun: boolean; }
@@ -63,8 +62,3 @@ const userrawSync = command({
 });
 
 export const SYNC_COMMANDS: AnyCommand[] = [modsSync, userrawSync];
-
-/** Registers external sync tools on the given MCP server instance. */
-export function registerSyncTools(server: McpServer): void {
-  registerCommands(server, SYNC_COMMANDS);
-}

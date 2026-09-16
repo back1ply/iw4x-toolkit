@@ -3,7 +3,6 @@
  * GSC commands: gsc_lint, gsc_lookup, gsc_template, gsc_fix, gsc_outline,
  * gsc_anti_patterns, iwd_index_symbols, gsc_find_orphans, dvar_integrity_check, gsc_format
  */
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -17,7 +16,7 @@ import { format } from "./formatter.js";
 import { buildIndex, getStats, type BuildIndexResult } from "./symbols.js";
 import { tokenize } from "./tokenizer.js";
 import { findOrphans, formatOrphanReport, type OrphanAnalysis } from "./orphans.js";
-import { command, registerCommands, type AnyCommand } from "../command.js";
+import { command, type AnyCommand } from "../command.js";
 
 /**
  * GSC builtin function metadata
@@ -747,8 +746,3 @@ export const GSC_COMMANDS: AnyCommand[] = [
   gscLint, gscLookup, gscTemplate, gscFix, gscOutline, gscAntiPatterns,
   iwdIndexSymbols, gscFindOrphans, dvarIntegrityCheck, gscFormat,
 ];
-
-/** Register GSC tools on the MCP server. */
-export function registerGscTools(server: McpServer): void {
-  registerCommands(server, GSC_COMMANDS);
-}

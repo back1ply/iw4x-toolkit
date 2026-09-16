@@ -2,7 +2,6 @@
  * @file iwd/diff-tools.ts
  * Diff/copy IWD archive commands: iwd_diff, iwd_rename, iwd_copy
  */
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as path from "node:path";
 import type AdmZip from "adm-zip";
@@ -19,7 +18,7 @@ import {
   requireSafeEntry,
   saveIwd,
 } from "../utils.js";
-import { command, registerCommands, type AnyCommand } from "../command.js";
+import { command, type AnyCommand } from "../command.js";
 
 const entryNotFound = (normalized: string) =>
   `Error: Entry not found: ${normalized}\n` +
@@ -268,8 +267,3 @@ const iwdCopy = command({
 });
 
 export const DIFF_COMMANDS: AnyCommand[] = [iwdDiff, iwdRename, iwdCopy];
-
-/** Registers diff/copy IWD archive tools on the given MCP server instance. */
-export function registerDiffTools(server: McpServer): void {
-  registerCommands(server, DIFF_COMMANDS);
-}

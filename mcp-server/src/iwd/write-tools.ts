@@ -2,7 +2,6 @@
  * @file iwd/write-tools.ts
  * Write IWD archive commands: iwd_write, iwd_patch, iwd_remove
  */
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   isBinaryEntry,
@@ -12,7 +11,7 @@ import {
   requireSafeEntry,
   saveIwd,
 } from "../utils.js";
-import { command, registerCommands, type AnyCommand } from "../command.js";
+import { command, type AnyCommand } from "../command.js";
 
 const entryNotFoundTip = "Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).";
 
@@ -195,8 +194,3 @@ const iwdRemove = command({
 });
 
 export const WRITE_COMMANDS: AnyCommand[] = [iwdWrite, iwdPatch, iwdRemove];
-
-/** Registers write IWD archive tools on the given MCP server instance. */
-export function registerWriteTools(server: McpServer): void {
-  registerCommands(server, WRITE_COMMANDS);
-}

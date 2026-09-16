@@ -1,20 +1,10 @@
 /**
  * @file index.ts
- * MCP server entry point for iw4x-toolkit.
- * Creates the server, wires up all tools, and starts listening on stdio.
- *
- * All tool implementations live in:
- *   - src/iwd/tools.ts      (IWD archive tools)
- *   - src/gsc/tools.ts      (GSC language tools)
- *   - src/knowledge/tools.ts (DVAR / GSC knowledge tools)
- *
- * All shared utilities are in src/utils.ts.
+ * MCP server entry point for iw4x-toolkit (`node dist/index.js`).
+ * Registers every command in src/commands.ts as a tool (the CLI in src/cli.ts
+ * uses the same list) plus the knowledge resources, then serves stdio.
  */
-import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { McpServer } from "@modelcontextprotocol/server";
-import { registerIwdTools } from "./iwd/tools.js";
-import { registerKnowledgeTools } from "./knowledge/tools.js";
-import { registerGscTools } from "./gsc/tools.js";
+import { createMcpServer, startMcpServer } from "./mcp.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports — maintain the same public surface for index.test.ts
@@ -43,68 +33,7 @@ export {
 
 export { loadDvars, loadGscBuiltins, loadMenuHud } from "./knowledge/tools.js";
 
-// ---------------------------------------------------------------------------
-// Startup cleanup
-// ---------------------------------------------------------------------------
-
-/**
- * Cleans up orphaned .tmp files from previous crashed sessions.
- * Called once on server startup.
- */
-async function cleanupOrphanedTempFiles(): Promise<void> {
-  const fs = await import("node:fs/promises");
-  const path = await import("node:path");
-  const { atomicWriteDirs } = await import("./utils.js");
-
-  const dirsToScan = new Set([...atomicWriteDirs, process.cwd()]);
-  let cleaned = 0;
-
-  for (const dir of dirsToScan) {
-    try {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith(".tmp")) {
-          try {
-            const fullPath = path.join(dir, entry.name);
-            const stat = await fs.stat(fullPath);
-            // Only remove files older than 1 hour
-            if (Date.now() - stat.mtimeMs > 3600000) {
-              await fs.unlink(fullPath);
-              cleaned++;
-            }
-          } catch { /* Ignore errors for individual files */ }
-        }
-      }
-    } catch { /* Ignore errors for inaccessible directories */ }
-  }
-
-  if (cleaned > 0) {
-    console.error(`[iw4x-toolkit] Cleaned up ${cleaned} orphaned .tmp file(s)`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Server
-// ---------------------------------------------------------------------------
-
-export const server = new McpServer({
-  name: "iw4x-toolkit",
-  version: "1.0.1",
-});
-
-registerIwdTools(server);
-registerKnowledgeTools(server);
-registerGscTools(server);
-
-// ---------------------------------------------------------------------------
-// Start
-// ---------------------------------------------------------------------------
-
-async function main(): Promise<void> {
-  await cleanupOrphanedTempFiles();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-}
+export const server = createMcpServer();
 
 // Only auto-start when run directly (not when imported by tests).
 // On Windows, import.meta.url URL-encodes spaces/special chars and may differ
@@ -123,7 +52,7 @@ const isDirectRun = (() => {
 })();
 
 if (isDirectRun) {
-  main().catch((err: unknown) => {
+  startMcpServer(server).catch((err: unknown) => {
     console.error("Fatal:", err);
     process.exit(1);
   });

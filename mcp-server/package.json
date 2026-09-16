@@ -5,11 +5,12 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js \"--banner:js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build": "esbuild src/index.ts src/bin.ts --bundle --platform=node --format=esm --outdir=dist \"--banner:js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "dev": "tsc --watch",
     "test": "vitest run",
     "docs": "typedoc --options typedoc.json",
-    "docs:watch": "typedoc --options typedoc.json --watch"
+    "docs:watch": "typedoc --options typedoc.json --watch",
+    "build:binary": "bun build src/bin.ts --compile --outfile dist/iw4x-toolkit"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
@@ -23,5 +24,8 @@
     "typedoc": "^0.28.20",
     "typescript": "~5.9.3",
     "vitest": "^5.0.1"
+  },
+  "bin": {
+    "iw4x-toolkit": "dist/bin.js"
   }
 }

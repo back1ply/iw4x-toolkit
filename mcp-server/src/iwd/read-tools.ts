@@ -2,7 +2,6 @@
  * @file iwd/read-tools.ts
  * Read-only IWD archive commands: iwd_list, iwd_read, iwd_info, iwd_grep
  */
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as path from "node:path";
 import type AdmZip from "adm-zip";
@@ -16,7 +15,7 @@ import {
   MINIFIED_FILE_CHARS_PER_LINE,
   getCachedRegex,
 } from "../utils.js";
-import { command, registerCommands, type AnyCommand } from "../command.js";
+import { command, type AnyCommand } from "../command.js";
 
 type ZipEntry = ReturnType<AdmZip["getEntries"]>[number];
 
@@ -320,8 +319,3 @@ const iwdGrep = command({
 });
 
 export const READ_COMMANDS: AnyCommand[] = [iwdList, iwdRead, iwdInfo, iwdGrep];
-
-/** Registers read-only IWD archive tools on the given MCP server instance. */
-export function registerReadTools(server: McpServer): void {
-  registerCommands(server, READ_COMMANDS);
-}

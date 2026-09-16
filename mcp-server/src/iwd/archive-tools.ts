@@ -2,7 +2,6 @@
  * @file iwd/archive-tools.ts
  * Archive IWD commands: iwd_extract, iwd_pack, iwd_sync
  */
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as path from "node:path";
 import type AdmZip from "adm-zip";
@@ -17,7 +16,7 @@ import {
   requireIwd,
   saveIwd,
 } from "../utils.js";
-import { command, registerCommands, type AnyCommand } from "../command.js";
+import { command, type AnyCommand } from "../command.js";
 
 type ZipEntry = ReturnType<AdmZip["getEntries"]>[number];
 
@@ -196,8 +195,3 @@ const iwdSync = command({
 });
 
 export const ARCHIVE_COMMANDS: AnyCommand[] = [iwdExtract, iwdPack, iwdSync];
-
-/** Registers archive IWD tools on the given MCP server instance. */
-export function registerArchiveTools(server: McpServer): void {
-  registerCommands(server, ARCHIVE_COMMANDS);
-}

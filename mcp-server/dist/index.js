@@ -11,14 +11,6 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
-var __esm = (fn, res, err2) => function __init() {
-  if (err2) throw err2[0];
-  try {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-  } catch (e) {
-    throw err2 = [e], e;
-  }
-};
 var __commonJS = (cb, mod) => function __require2() {
   try {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -2872,435 +2864,6 @@ var require_adm_zip = __commonJS({
           return _zip.compressToBuffer();
         }
       };
-    };
-  }
-});
-
-// src/utils.ts
-var utils_exports = {};
-__export(utils_exports, {
-  BINARY_EXTENSIONS: () => BINARY_EXTENSIONS,
-  CommandError: () => CommandError,
-  GREP_MAX_MATCHES_DEFAULT: () => GREP_MAX_MATCHES_DEFAULT,
-  MAX_LINE_LENGTH_WARNING: () => MAX_LINE_LENGTH_WARNING,
-  MINIFIED_FILE_CHARS_PER_LINE: () => MINIFIED_FILE_CHARS_PER_LINE,
-  RATE_LIMITS: () => RATE_LIMITS,
-  RATE_LIMIT_MAX_SIZE: () => RATE_LIMIT_MAX_SIZE,
-  atomicWrite: () => atomicWrite,
-  atomicWriteDirs: () => atomicWriteDirs,
-  backedUp: () => backedUp,
-  buildDiffSnippet: () => buildDiffSnippet,
-  buildSideBySideDiff: () => buildSideBySideDiff,
-  checkRateLimit: () => checkRateLimit,
-  ensureBackup: () => ensureBackup,
-  err: () => err,
-  errResult: () => errResult,
-  getCachedRegex: () => getCachedRegex,
-  getErrMsg: () => getErrMsg,
-  getKnowledgeDir: () => getKnowledgeDir,
-  globToRegex: () => globToRegex,
-  invalidateIwdCache: () => invalidateIwdCache,
-  isBinaryEntry: () => isBinaryEntry,
-  isSafeEntryPath: () => isSafeEntryPath,
-  normalizeEntry: () => normalizeEntry,
-  ok: () => ok,
-  openIwd: () => openIwd,
-  rateLimitMap: () => rateLimitMap,
-  requireEntry: () => requireEntry,
-  requireIwd: () => requireIwd,
-  requireSafeEntry: () => requireSafeEntry,
-  resolveIwdPath: () => resolveIwdPath,
-  saveIwd: () => saveIwd
-});
-import * as fs from "node:fs";
-import * as path from "node:path";
-function getCachedRegex(pattern, flags) {
-  const key = `${pattern}:${flags}`;
-  let re = regexCache.get(key);
-  if (!re) {
-    if (regexCache.size >= REGEX_CACHE_MAX) {
-      const firstKey = regexCache.keys().next().value;
-      if (firstKey) regexCache.delete(firstKey);
-    }
-    re = new RegExp(pattern, flags);
-    regexCache.set(key, re);
-  }
-  return re;
-}
-function cleanupExpiredRateLimits() {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitMap) {
-    if (now > entry.resetTime) {
-      rateLimitMap.delete(key);
-    }
-  }
-}
-function checkRateLimit(operation, clientId = "default") {
-  const limit = RATE_LIMITS[operation] ?? RATE_LIMITS.default;
-  const key = `${operation}:${clientId}`;
-  const now = Date.now();
-  if (rateLimitMap.size > RATE_LIMIT_CLEANUP_THRESHOLD) {
-    cleanupExpiredRateLimits();
-  }
-  let entry = rateLimitMap.get(key);
-  if (!entry || now > entry.resetTime) {
-    entry = { count: 0, resetTime: now + limit.windowMs };
-    if (rateLimitMap.size >= RATE_LIMIT_MAX_SIZE) {
-      const firstKey = rateLimitMap.keys().next().value;
-      if (firstKey) rateLimitMap.delete(firstKey);
-    }
-    rateLimitMap.set(key, entry);
-  }
-  if (entry.count >= limit.maxRequests) {
-    return {
-      allowed: false,
-      remaining: 0,
-      resetIn: Math.ceil((entry.resetTime - now) / 1e3)
-    };
-  }
-  entry.count++;
-  return {
-    allowed: true,
-    remaining: limit.maxRequests - entry.count,
-    resetIn: Math.ceil((entry.resetTime - now) / 1e3)
-  };
-}
-function getKnowledgeDir(filename) {
-  let baseDir;
-  try {
-    baseDir = import.meta.dirname || path.dirname(new URL(import.meta.url).pathname);
-  } catch {
-  }
-  const candidates = [
-    ...baseDir ? [
-      // From dist/knowledge/ -> project root
-      path.resolve(baseDir, "..", "knowledge", filename),
-      // From dist/ -> mcp-server/ -> project root
-      path.resolve(baseDir, "..", "..", "knowledge", filename),
-      // From src/knowledge/ -> project root
-      path.resolve(baseDir, "..", "..", "..", "knowledge", filename)
-    ] : [],
-    // Direct from project root (for when running from mcp-server folder)
-    path.resolve("knowledge", filename)
-  ];
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  console.error(`[iw4x-toolkit] Could not locate knowledge file: ${filename} \u2014 searched: ${candidates.join(", ")}`);
-  return null;
-}
-function invalidateIwdCache(resolved) {
-  iwdCache.delete(resolved);
-}
-function getErrMsg(e) {
-  if (e instanceof Error) return e.message;
-  return String(e);
-}
-function isBinaryEntry(entryName) {
-  const ext = path.extname(entryName).toLowerCase();
-  return BINARY_EXTENSIONS.has(ext);
-}
-function resolveIwdPath(iwdPath) {
-  return path.resolve(iwdPath);
-}
-async function ensureBackup(iwdPath) {
-  if (backedUp.has(iwdPath)) return;
-  const now = /* @__PURE__ */ new Date();
-  const timestamp = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-    "_",
-    String(now.getHours()).padStart(2, "0"),
-    String(now.getMinutes()).padStart(2, "0"),
-    String(now.getSeconds()).padStart(2, "0")
-  ].join("");
-  const bakPath = `${iwdPath}.${timestamp}.bak`;
-  const { copyFile } = await import("node:fs/promises");
-  await copyFile(iwdPath, bakPath);
-  backedUp.add(iwdPath);
-}
-async function atomicWrite(zip, targetPath) {
-  atomicWriteDirs.add(path.dirname(targetPath));
-  const tmpPath = targetPath + ".tmp";
-  const { writeFile, rename, rm } = await import("node:fs/promises");
-  try {
-    await writeFile(tmpPath, zip.toBuffer());
-    await rename(tmpPath, targetPath);
-  } catch (e) {
-    invalidateIwdCache(targetPath);
-    await rm(tmpPath, { force: true }).catch(() => {
-    });
-    throw e;
-  }
-}
-function normalizeEntry(entry) {
-  return entry.replace(/\\/g, "/").replace(/^\/+/, "");
-}
-function isAbsolutePath(entry) {
-  return entry.startsWith("/") || /^[A-Za-z]:/.test(entry);
-}
-function hasPathTraversal(entry) {
-  const normalized = entry.replace(/\\/g, "/");
-  if (normalized === "..") return true;
-  return normalized.includes("../") || normalized.includes("/..");
-}
-function isSafeEntryPath(entry) {
-  if (!entry) return false;
-  if (entry.includes("\0")) return false;
-  if (isAbsolutePath(entry)) return false;
-  return !hasPathTraversal(entry);
-}
-function globToRegex(pattern) {
-  const tokens = pattern.split(/((?:\*\*\/|\*\*|\*|\?))/);
-  const regexStr = tokens.map((tok) => {
-    if (tok === "**/") return "(.+/)?";
-    if (tok === "**") return ".*";
-    if (tok === "*") return "[^/]+";
-    if (tok === "?") return "[^/]";
-    return tok.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  }).join("");
-  return new RegExp(`^${regexStr}$`, "i");
-}
-function findChangedIndices(a, b) {
-  const changes = [];
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if (a[i] !== b[i]) changes.push(i);
-  }
-  return changes;
-}
-function groupIntoRegions(changes, ctx) {
-  const regions = [];
-  for (const idx of changes) {
-    const prev = regions[regions.length - 1];
-    if (prev && idx - prev.end <= ctx * 2) {
-      prev.end = idx + ctx;
-    } else {
-      regions.push({ start: Math.max(0, idx - ctx), end: idx + ctx });
-    }
-  }
-  return regions;
-}
-function diffRowMarkers(origLine, patchLine, idx, origLen, patchLen) {
-  if (origLine === patchLine) return { marker: " \u2502", origPrefix: "  ", patchPrefix: "  " };
-  if (idx >= origLen) return { marker: " +\u2502", origPrefix: "  ", patchPrefix: "+ " };
-  if (idx >= patchLen) return { marker: " -\u2502", origPrefix: "- ", patchPrefix: "  " };
-  return { marker: " ~\u2502", origPrefix: "~ ", patchPrefix: "~ " };
-}
-function truncateForColumn(line) {
-  return line.length > DIFF_COL_WIDTH ? line.substring(0, DIFF_COL_WIDTH - 3) + "..." : line;
-}
-function renderDiffRow(idx, originalLines, patchedLines) {
-  const origLine = idx < originalLines.length ? originalLines[idx] : "";
-  const patchLine = idx < patchedLines.length ? patchedLines[idx] : "";
-  const { marker, origPrefix, patchPrefix } = diffRowMarkers(origLine, patchLine, idx, originalLines.length, patchedLines.length);
-  const lineNum = String(idx + 1).padStart(4, " ");
-  const displayOrig = truncateForColumn(origLine).padEnd(DIFF_COL_WIDTH);
-  return `${lineNum}${origPrefix}${displayOrig}${marker}${patchPrefix}${truncateForColumn(patchLine)}`;
-}
-function renderDiffRegion(region, originalLines, patchedLines) {
-  const maxLines = Math.max(
-    region.end - region.start,
-    originalLines.slice(region.start, region.end).length,
-    patchedLines.slice(region.start, region.end).length
-  );
-  const rows = [DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP];
-  for (let i = 0; i < maxLines; i++) {
-    rows.push(renderDiffRow(region.start + i, originalLines, patchedLines));
-  }
-  rows.push(DIFF_BOX_BOTTOM);
-  return rows;
-}
-function buildSideBySideDiff(original, patched, ctx = 3) {
-  const originalLines = original.split(/\r?\n/);
-  const patchedLines = patched.split(/\r?\n/);
-  const changes = findChangedIndices(originalLines, patchedLines);
-  if (changes.length === 0) return "Files are identical (no changes)";
-  const regions = groupIntoRegions(changes, ctx);
-  const lines = [];
-  regions.forEach((region, i) => {
-    if (i > 0) lines.push("\n... (more changes) ...\n");
-    lines.push(...renderDiffRegion(region, originalLines, patchedLines));
-  });
-  return lines.join("\n");
-}
-function firstChangedLine(a, b) {
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if (a[i] !== b[i]) return i;
-  }
-  return 0;
-}
-function unifiedDiffRow(before, after, hasBefore, hasAfter) {
-  if (hasBefore && hasAfter) {
-    return before !== after ? [`- ${before}`, `+ ${after}`] : [`  ${before}`];
-  }
-  return hasBefore ? [`- ${before}`] : [`+ ${after}`];
-}
-function renderUnifiedDiff(before, after) {
-  const out = [];
-  const maxLen = Math.max(before.length, after.length);
-  for (let i = 0; i < maxLen; i++) {
-    out.push(...unifiedDiffRow(before[i], after[i], i < before.length, i < after.length));
-  }
-  return out;
-}
-function buildDiffSnippet(original, patched, ctx = 3, hintLine) {
-  const originalLines = original.split(/\r?\n/);
-  const patchedLines = patched.split(/\r?\n/);
-  const changedLine = hintLine ?? firstChangedLine(originalLines, patchedLines);
-  const start = Math.max(0, changedLine - ctx);
-  const before = originalLines.slice(start, Math.min(originalLines.length, changedLine + ctx + 1));
-  const after = patchedLines.slice(start, Math.min(patchedLines.length, changedLine + ctx + 1));
-  return { snippet: renderUnifiedDiff(before, after).join("\n"), changedLine };
-}
-function getCachedZip(resolved, mtime) {
-  const cached2 = iwdCache.get(resolved);
-  if (cached2 && cached2.mtime === mtime) {
-    cached2.lastAccess = Date.now();
-    return cached2.zip;
-  }
-  return null;
-}
-function evictLruIfFull() {
-  if (iwdCache.size < IWD_CACHE_MAX) return;
-  let lruKey;
-  let lruTime = Infinity;
-  for (const [key, entry] of iwdCache.entries()) {
-    if (entry.lastAccess < lruTime) {
-      lruTime = entry.lastAccess;
-      lruKey = key;
-    }
-  }
-  if (lruKey !== void 0) iwdCache.delete(lruKey);
-}
-function parseAndCacheZip(resolved, mtime) {
-  try {
-    const zip = new import_adm_zip.default(resolved);
-    evictLruIfFull();
-    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
-    return ok(zip);
-  } catch (e) {
-    return err(
-      `Failed to open IWD archive: ${resolved}
-Reason: ${getErrMsg(e)}
-Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
-    );
-  }
-}
-function openIwd(resolved) {
-  if (!fs.existsSync(resolved)) {
-    return err(
-      `IWD file not found: ${resolved}
-Tip: verify the file path is correct and the file exists.`
-    );
-  }
-  let mtime;
-  try {
-    mtime = fs.statSync(resolved).mtimeMs;
-  } catch (e) {
-    return err(`Failed to stat IWD file: ${resolved}
-Reason: ${getErrMsg(e)}`);
-  }
-  const cached2 = getCachedZip(resolved, mtime);
-  return cached2 ? ok(cached2) : parseAndCacheZip(resolved, mtime);
-}
-function ok(value) {
-  return { ok: true, value };
-}
-function err(error62) {
-  return { ok: false, error: error62 };
-}
-function errResult(text) {
-  return { content: [{ type: "text", text }], isError: true };
-}
-function entryNotFoundMessage(normalized) {
-  return `Error: Entry not found: ${normalized}
-Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`;
-}
-function requireIwd(iwdPath) {
-  const resolved = resolveIwdPath(iwdPath);
-  const opened = openIwd(resolved);
-  if (!opened.ok) throw new CommandError(opened.error);
-  return { resolved, zip: opened.value };
-}
-function requireEntry(zip, entry) {
-  const normalized = normalizeEntry(entry);
-  if (!normalized) throw new CommandError("Error: entry path cannot be empty.");
-  const zipEntry = zip.getEntry(normalized);
-  if (!zipEntry) throw new CommandError(entryNotFoundMessage(normalized));
-  return { normalized, zipEntry };
-}
-function requireSafeEntry(entry, label = "entry") {
-  const normalized = normalizeEntry(entry);
-  if (!normalized) throw new CommandError(`Error: ${label} path cannot be empty.`);
-  if (!isSafeEntryPath(normalized)) {
-    throw new CommandError(`Error: ${label} path is invalid or contains path traversal sequences (not allowed).`);
-  }
-  return normalized;
-}
-async function saveIwd(zip, resolved, edit) {
-  await ensureBackup(resolved);
-  edit(zip);
-  await atomicWrite(zip, resolved);
-  invalidateIwdCache(resolved);
-}
-var import_adm_zip, BINARY_EXTENSIONS, GREP_MAX_MATCHES_DEFAULT, MINIFIED_FILE_CHARS_PER_LINE, MAX_LINE_LENGTH_WARNING, regexCache, REGEX_CACHE_MAX, rateLimitMap, RATE_LIMIT_CLEANUP_THRESHOLD, RATE_LIMIT_MAX_SIZE, RATE_LIMITS, backedUp, atomicWriteDirs, iwdCache, IWD_CACHE_MAX, DIFF_COL_WIDTH, DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP, DIFF_BOX_BOTTOM, CommandError;
-var init_utils = __esm({
-  "src/utils.ts"() {
-    "use strict";
-    import_adm_zip = __toESM(require_adm_zip(), 1);
-    BINARY_EXTENSIONS = /* @__PURE__ */ new Set([
-      ".iwi",
-      ".d3dbsp",
-      ".xmodel_export",
-      ".xanim_export",
-      ".mp3",
-      ".wav",
-      ".flac",
-      ".bik",
-      ".roq",
-      ".dds",
-      ".tga",
-      ".jpg",
-      ".jpeg",
-      ".png",
-      ".bmp",
-      ".pcx",
-      ".xmodel_bin",
-      ".xanim_bin",
-      ".col_map_sp",
-      ".col_map_mp",
-      ".gfx_map",
-      ".fx"
-    ]);
-    GREP_MAX_MATCHES_DEFAULT = 50;
-    MINIFIED_FILE_CHARS_PER_LINE = 200;
-    MAX_LINE_LENGTH_WARNING = 200;
-    regexCache = /* @__PURE__ */ new Map();
-    REGEX_CACHE_MAX = 50;
-    rateLimitMap = /* @__PURE__ */ new Map();
-    RATE_LIMIT_CLEANUP_THRESHOLD = 1e3;
-    RATE_LIMIT_MAX_SIZE = 500;
-    RATE_LIMITS = {
-      iwd_grep: { maxRequests: 100, windowMs: 6e4 },
-      // 100 per minute
-      iwd_pack: { maxRequests: 20, windowMs: 6e4 },
-      // 20 per minute
-      iwd_sync: { maxRequests: 30, windowMs: 6e4 },
-      // 30 per minute
-      default: { maxRequests: 200, windowMs: 6e4 }
-      // 200 per minute default
-    };
-    backedUp = /* @__PURE__ */ new Set();
-    atomicWriteDirs = /* @__PURE__ */ new Set();
-    iwdCache = /* @__PURE__ */ new Map();
-    IWD_CACHE_MAX = 10;
-    DIFF_COL_WIDTH = 40;
-    DIFF_BOX_TOP = "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510";
-    DIFF_BOX_HEADER = "\u2502 Original (A)                          \u2502 Modified (B)                      \u2502";
-    DIFF_BOX_SEP = "\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524";
-    DIFF_BOX_BOTTOM = "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518";
-    CommandError = class extends Error {
     };
   }
 });
@@ -36969,12 +36532,395 @@ var StdioServerTransport = class {
   }
 };
 
-// src/iwd/read-tools.ts
-init_utils();
-import * as path2 from "node:path";
+// src/utils.ts
+var import_adm_zip = __toESM(require_adm_zip(), 1);
+import * as fs from "node:fs";
+import * as path from "node:path";
+var BINARY_EXTENSIONS = /* @__PURE__ */ new Set([
+  ".iwi",
+  ".d3dbsp",
+  ".xmodel_export",
+  ".xanim_export",
+  ".mp3",
+  ".wav",
+  ".flac",
+  ".bik",
+  ".roq",
+  ".dds",
+  ".tga",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".bmp",
+  ".pcx",
+  ".xmodel_bin",
+  ".xanim_bin",
+  ".col_map_sp",
+  ".col_map_mp",
+  ".gfx_map",
+  ".fx"
+]);
+var GREP_MAX_MATCHES_DEFAULT = 50;
+var MINIFIED_FILE_CHARS_PER_LINE = 200;
+var MAX_LINE_LENGTH_WARNING = 200;
+var regexCache = /* @__PURE__ */ new Map();
+var REGEX_CACHE_MAX = 50;
+function getCachedRegex(pattern, flags) {
+  const key = `${pattern}:${flags}`;
+  let re = regexCache.get(key);
+  if (!re) {
+    if (regexCache.size >= REGEX_CACHE_MAX) {
+      const firstKey = regexCache.keys().next().value;
+      if (firstKey) regexCache.delete(firstKey);
+    }
+    re = new RegExp(pattern, flags);
+    regexCache.set(key, re);
+  }
+  return re;
+}
+var rateLimitMap = /* @__PURE__ */ new Map();
+var RATE_LIMIT_CLEANUP_THRESHOLD = 1e3;
+var RATE_LIMIT_MAX_SIZE = 500;
+function cleanupExpiredRateLimits() {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+}
+var RATE_LIMITS = {
+  iwd_grep: { maxRequests: 100, windowMs: 6e4 },
+  // 100 per minute
+  iwd_pack: { maxRequests: 20, windowMs: 6e4 },
+  // 20 per minute
+  iwd_sync: { maxRequests: 30, windowMs: 6e4 },
+  // 30 per minute
+  default: { maxRequests: 200, windowMs: 6e4 }
+  // 200 per minute default
+};
+function checkRateLimit(operation, clientId = "default") {
+  const limit = RATE_LIMITS[operation] ?? RATE_LIMITS.default;
+  const key = `${operation}:${clientId}`;
+  const now = Date.now();
+  if (rateLimitMap.size > RATE_LIMIT_CLEANUP_THRESHOLD) {
+    cleanupExpiredRateLimits();
+  }
+  let entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetTime) {
+    entry = { count: 0, resetTime: now + limit.windowMs };
+    if (rateLimitMap.size >= RATE_LIMIT_MAX_SIZE) {
+      const firstKey = rateLimitMap.keys().next().value;
+      if (firstKey) rateLimitMap.delete(firstKey);
+    }
+    rateLimitMap.set(key, entry);
+  }
+  if (entry.count >= limit.maxRequests) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetIn: Math.ceil((entry.resetTime - now) / 1e3)
+    };
+  }
+  entry.count++;
+  return {
+    allowed: true,
+    remaining: limit.maxRequests - entry.count,
+    resetIn: Math.ceil((entry.resetTime - now) / 1e3)
+  };
+}
+function getKnowledgeDir(filename) {
+  let baseDir;
+  try {
+    baseDir = import.meta.dirname || path.dirname(new URL(import.meta.url).pathname);
+  } catch {
+  }
+  const candidates = [
+    ...baseDir ? [
+      // From dist/knowledge/ -> project root
+      path.resolve(baseDir, "..", "knowledge", filename),
+      // From dist/ -> mcp-server/ -> project root
+      path.resolve(baseDir, "..", "..", "knowledge", filename),
+      // From src/knowledge/ -> project root
+      path.resolve(baseDir, "..", "..", "..", "knowledge", filename)
+    ] : [],
+    // Direct from project root (for when running from mcp-server folder)
+    path.resolve("knowledge", filename)
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  console.error(`[iw4x-toolkit] Could not locate knowledge file: ${filename} \u2014 searched: ${candidates.join(", ")}`);
+  return null;
+}
+var backedUp = /* @__PURE__ */ new Set();
+var atomicWriteDirs = /* @__PURE__ */ new Set();
+var iwdCache = /* @__PURE__ */ new Map();
+var IWD_CACHE_MAX = 10;
+function invalidateIwdCache(resolved) {
+  iwdCache.delete(resolved);
+}
+function getErrMsg(e) {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+function isBinaryEntry(entryName) {
+  const ext = path.extname(entryName).toLowerCase();
+  return BINARY_EXTENSIONS.has(ext);
+}
+function resolveIwdPath(iwdPath) {
+  return path.resolve(iwdPath);
+}
+async function ensureBackup(iwdPath) {
+  if (backedUp.has(iwdPath)) return;
+  const now = /* @__PURE__ */ new Date();
+  const timestamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    "_",
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0"),
+    String(now.getSeconds()).padStart(2, "0")
+  ].join("");
+  const bakPath = `${iwdPath}.${timestamp}.bak`;
+  const { copyFile } = await import("node:fs/promises");
+  await copyFile(iwdPath, bakPath);
+  backedUp.add(iwdPath);
+}
+async function atomicWrite(zip, targetPath) {
+  atomicWriteDirs.add(path.dirname(targetPath));
+  const tmpPath = targetPath + ".tmp";
+  const { writeFile, rename, rm } = await import("node:fs/promises");
+  try {
+    await writeFile(tmpPath, zip.toBuffer());
+    await rename(tmpPath, targetPath);
+  } catch (e) {
+    invalidateIwdCache(targetPath);
+    await rm(tmpPath, { force: true }).catch(() => {
+    });
+    throw e;
+  }
+}
+function normalizeEntry(entry) {
+  return entry.replace(/\\/g, "/").replace(/^\/+/, "");
+}
+function isAbsolutePath(entry) {
+  return entry.startsWith("/") || /^[A-Za-z]:/.test(entry);
+}
+function hasPathTraversal(entry) {
+  const normalized = entry.replace(/\\/g, "/");
+  if (normalized === "..") return true;
+  return normalized.includes("../") || normalized.includes("/..");
+}
+function isSafeEntryPath(entry) {
+  if (!entry) return false;
+  if (entry.includes("\0")) return false;
+  if (isAbsolutePath(entry)) return false;
+  return !hasPathTraversal(entry);
+}
+function globToRegex(pattern) {
+  const tokens = pattern.split(/((?:\*\*\/|\*\*|\*|\?))/);
+  const regexStr = tokens.map((tok) => {
+    if (tok === "**/") return "(.+/)?";
+    if (tok === "**") return ".*";
+    if (tok === "*") return "[^/]+";
+    if (tok === "?") return "[^/]";
+    return tok.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }).join("");
+  return new RegExp(`^${regexStr}$`, "i");
+}
+var DIFF_COL_WIDTH = 40;
+var DIFF_BOX_TOP = "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510";
+var DIFF_BOX_HEADER = "\u2502 Original (A)                          \u2502 Modified (B)                      \u2502";
+var DIFF_BOX_SEP = "\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524";
+var DIFF_BOX_BOTTOM = "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518";
+function findChangedIndices(a, b) {
+  const changes = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] !== b[i]) changes.push(i);
+  }
+  return changes;
+}
+function groupIntoRegions(changes, ctx) {
+  const regions = [];
+  for (const idx of changes) {
+    const prev = regions[regions.length - 1];
+    if (prev && idx - prev.end <= ctx * 2) {
+      prev.end = idx + ctx;
+    } else {
+      regions.push({ start: Math.max(0, idx - ctx), end: idx + ctx });
+    }
+  }
+  return regions;
+}
+function diffRowMarkers(origLine, patchLine, idx, origLen, patchLen) {
+  if (origLine === patchLine) return { marker: " \u2502", origPrefix: "  ", patchPrefix: "  " };
+  if (idx >= origLen) return { marker: " +\u2502", origPrefix: "  ", patchPrefix: "+ " };
+  if (idx >= patchLen) return { marker: " -\u2502", origPrefix: "- ", patchPrefix: "  " };
+  return { marker: " ~\u2502", origPrefix: "~ ", patchPrefix: "~ " };
+}
+function truncateForColumn(line) {
+  return line.length > DIFF_COL_WIDTH ? line.substring(0, DIFF_COL_WIDTH - 3) + "..." : line;
+}
+function renderDiffRow(idx, originalLines, patchedLines) {
+  const origLine = idx < originalLines.length ? originalLines[idx] : "";
+  const patchLine = idx < patchedLines.length ? patchedLines[idx] : "";
+  const { marker, origPrefix, patchPrefix } = diffRowMarkers(origLine, patchLine, idx, originalLines.length, patchedLines.length);
+  const lineNum = String(idx + 1).padStart(4, " ");
+  const displayOrig = truncateForColumn(origLine).padEnd(DIFF_COL_WIDTH);
+  return `${lineNum}${origPrefix}${displayOrig}${marker}${patchPrefix}${truncateForColumn(patchLine)}`;
+}
+function renderDiffRegion(region, originalLines, patchedLines) {
+  const maxLines = Math.max(
+    region.end - region.start,
+    originalLines.slice(region.start, region.end).length,
+    patchedLines.slice(region.start, region.end).length
+  );
+  const rows = [DIFF_BOX_TOP, DIFF_BOX_HEADER, DIFF_BOX_SEP];
+  for (let i = 0; i < maxLines; i++) {
+    rows.push(renderDiffRow(region.start + i, originalLines, patchedLines));
+  }
+  rows.push(DIFF_BOX_BOTTOM);
+  return rows;
+}
+function buildSideBySideDiff(original, patched, ctx = 3) {
+  const originalLines = original.split(/\r?\n/);
+  const patchedLines = patched.split(/\r?\n/);
+  const changes = findChangedIndices(originalLines, patchedLines);
+  if (changes.length === 0) return "Files are identical (no changes)";
+  const regions = groupIntoRegions(changes, ctx);
+  const lines = [];
+  regions.forEach((region, i) => {
+    if (i > 0) lines.push("\n... (more changes) ...\n");
+    lines.push(...renderDiffRegion(region, originalLines, patchedLines));
+  });
+  return lines.join("\n");
+}
+function firstChangedLine(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] !== b[i]) return i;
+  }
+  return 0;
+}
+function unifiedDiffRow(before, after, hasBefore, hasAfter) {
+  if (hasBefore && hasAfter) {
+    return before !== after ? [`- ${before}`, `+ ${after}`] : [`  ${before}`];
+  }
+  return hasBefore ? [`- ${before}`] : [`+ ${after}`];
+}
+function renderUnifiedDiff(before, after) {
+  const out = [];
+  const maxLen = Math.max(before.length, after.length);
+  for (let i = 0; i < maxLen; i++) {
+    out.push(...unifiedDiffRow(before[i], after[i], i < before.length, i < after.length));
+  }
+  return out;
+}
+function buildDiffSnippet(original, patched, ctx = 3, hintLine) {
+  const originalLines = original.split(/\r?\n/);
+  const patchedLines = patched.split(/\r?\n/);
+  const changedLine = hintLine ?? firstChangedLine(originalLines, patchedLines);
+  const start = Math.max(0, changedLine - ctx);
+  const before = originalLines.slice(start, Math.min(originalLines.length, changedLine + ctx + 1));
+  const after = patchedLines.slice(start, Math.min(patchedLines.length, changedLine + ctx + 1));
+  return { snippet: renderUnifiedDiff(before, after).join("\n"), changedLine };
+}
+function getCachedZip(resolved, mtime) {
+  const cached2 = iwdCache.get(resolved);
+  if (cached2 && cached2.mtime === mtime) {
+    cached2.lastAccess = Date.now();
+    return cached2.zip;
+  }
+  return null;
+}
+function evictLruIfFull() {
+  if (iwdCache.size < IWD_CACHE_MAX) return;
+  let lruKey;
+  let lruTime = Infinity;
+  for (const [key, entry] of iwdCache.entries()) {
+    if (entry.lastAccess < lruTime) {
+      lruTime = entry.lastAccess;
+      lruKey = key;
+    }
+  }
+  if (lruKey !== void 0) iwdCache.delete(lruKey);
+}
+function parseAndCacheZip(resolved, mtime) {
+  try {
+    const zip = new import_adm_zip.default(resolved);
+    evictLruIfFull();
+    iwdCache.set(resolved, { zip, mtime, lastAccess: Date.now() });
+    return ok(zip);
+  } catch (e) {
+    return err(
+      `Failed to open IWD archive: ${resolved}
+Reason: ${getErrMsg(e)}
+Tip: The file may be corrupt or not a valid ZIP/IWD archive.`
+    );
+  }
+}
+function openIwd(resolved) {
+  if (!fs.existsSync(resolved)) {
+    return err(
+      `IWD file not found: ${resolved}
+Tip: verify the file path is correct and the file exists.`
+    );
+  }
+  let mtime;
+  try {
+    mtime = fs.statSync(resolved).mtimeMs;
+  } catch (e) {
+    return err(`Failed to stat IWD file: ${resolved}
+Reason: ${getErrMsg(e)}`);
+  }
+  const cached2 = getCachedZip(resolved, mtime);
+  return cached2 ? ok(cached2) : parseAndCacheZip(resolved, mtime);
+}
+function ok(value) {
+  return { ok: true, value };
+}
+function err(error62) {
+  return { ok: false, error: error62 };
+}
+function errResult(text) {
+  return { content: [{ type: "text", text }], isError: true };
+}
+function entryNotFoundMessage(normalized) {
+  return `Error: Entry not found: ${normalized}
+Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`;
+}
+var CommandError = class extends Error {
+};
+function requireIwd(iwdPath) {
+  const resolved = resolveIwdPath(iwdPath);
+  const opened = openIwd(resolved);
+  if (!opened.ok) throw new CommandError(opened.error);
+  return { resolved, zip: opened.value };
+}
+function requireEntry(zip, entry) {
+  const normalized = normalizeEntry(entry);
+  if (!normalized) throw new CommandError("Error: entry path cannot be empty.");
+  const zipEntry = zip.getEntry(normalized);
+  if (!zipEntry) throw new CommandError(entryNotFoundMessage(normalized));
+  return { normalized, zipEntry };
+}
+function requireSafeEntry(entry, label = "entry") {
+  const normalized = normalizeEntry(entry);
+  if (!normalized) throw new CommandError(`Error: ${label} path cannot be empty.`);
+  if (!isSafeEntryPath(normalized)) {
+    throw new CommandError(`Error: ${label} path is invalid or contains path traversal sequences (not allowed).`);
+  }
+  return normalized;
+}
+async function saveIwd(zip, resolved, edit) {
+  await ensureBackup(resolved);
+  edit(zip);
+  await atomicWrite(zip, resolved);
+  invalidateIwdCache(resolved);
+}
 
 // src/command.ts
-init_utils();
 function command(def) {
   return def;
 }
@@ -37005,6 +36951,7 @@ function registerCommands(server2, commands) {
 }
 
 // src/iwd/read-tools.ts
+import * as path2 from "node:path";
 function listEntryRows(zip) {
   return zip.getEntries().filter((e) => !e.isDirectory).map((e) => ({ name: e.entryName, size: e.header.size, compressedSize: e.header.compressedSize }));
 }
@@ -37236,12 +37183,8 @@ ${lines.join("\n")}${footer}`;
   }
 });
 var READ_COMMANDS = [iwdList, iwdRead, iwdInfo, iwdGrep];
-function registerReadTools(server2) {
-  registerCommands(server2, READ_COMMANDS);
-}
 
 // src/iwd/write-tools.ts
-init_utils();
 var entryNotFoundTip = "Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).";
 var iwdWrite = command({
   name: "iwd_write",
@@ -37386,12 +37329,8 @@ Entry was: ${d.size} bytes, CRC: ${d.crc}`;
   }
 });
 var WRITE_COMMANDS = [iwdWrite, iwdPatch, iwdRemove];
-function registerWriteTools(server2) {
-  registerCommands(server2, WRITE_COMMANDS);
-}
 
 // src/iwd/archive-tools.ts
-init_utils();
 import * as path3 from "node:path";
 async function requireSourceDir(sourceDir) {
   const resolved = path3.resolve(sourceDir);
@@ -37532,12 +37471,8 @@ var iwdSync = command({
   }
 });
 var ARCHIVE_COMMANDS = [iwdExtract, iwdPack, iwdSync];
-function registerArchiveTools(server2) {
-  registerCommands(server2, ARCHIVE_COMMANDS);
-}
 
 // src/iwd/diff-tools.ts
-init_utils();
 import * as path4 from "node:path";
 var entryNotFound = (normalized) => `Error: Entry not found: ${normalized}
 Tip: use iwd_list to verify the exact entry path (forward slashes, case-sensitive).`;
@@ -37727,12 +37662,8 @@ ${d.bytes} bytes${d.overwrote ? " [overwrote existing]" : ""}`;
   }
 });
 var DIFF_COMMANDS = [iwdDiff, iwdRename, iwdCopy];
-function registerDiffTools(server2) {
-  registerCommands(server2, DIFF_COMMANDS);
-}
 
 // src/iwd/sync-tools.ts
-init_utils();
 import * as path5 from "node:path";
 async function copyToDestination(sourceDir, destDir, dryRun) {
   const source = await requireSourceDir(sourceDir);
@@ -37778,21 +37709,8 @@ var userrawSync = command({
   render: (d) => renderCopy(d, "global userraw directory")
 });
 var SYNC_COMMANDS = [modsSync, userrawSync];
-function registerSyncTools(server2) {
-  registerCommands(server2, SYNC_COMMANDS);
-}
-
-// src/iwd/tools.ts
-function registerIwdTools(server2) {
-  registerReadTools(server2);
-  registerWriteTools(server2);
-  registerArchiveTools(server2);
-  registerDiffTools(server2);
-  registerSyncTools(server2);
-}
 
 // src/knowledge/tools.ts
-init_utils();
 import * as fs2 from "node:fs";
 var KNOWLEDGE_CACHE_TTL_MS = 5 * 60 * 1e3;
 var dvarsCache = null;
@@ -37954,7 +37872,7 @@ Or use any property name (e.g. 'fontscale', 'glowAlpha').`;
   }
 });
 var KNOWLEDGE_COMMANDS = [dvarSearch, menuHud];
-function registerKnowledgeTools(server2) {
+function registerKnowledgeResources(server2) {
   server2.registerResource(
     "DVAR Reference",
     "iw4x://dvars",
@@ -37989,7 +37907,6 @@ function registerKnowledgeTools(server2) {
       ]
     })
   );
-  registerCommands(server2, KNOWLEDGE_COMMANDS);
 }
 function isPlainObject3(value) {
   if (value === null || typeof value !== "object") return false;
@@ -38451,7 +38368,6 @@ function tokenize(source) {
 }
 
 // src/gsc/builtins.ts
-init_utils();
 var CORE_BUILTINS = [
   // IO
   "println",
@@ -39111,7 +39027,6 @@ function collectCollisions(group, errors) {
 }
 
 // src/gsc/patterns.ts
-init_utils();
 function at(m, message, length) {
   return { message, column: m.index ?? 0, length: length ?? m[0].length };
 }
@@ -39436,9 +39351,6 @@ async function lint(source, options) {
   return new GSCLinter().lint(source, options);
 }
 
-// src/gsc/tools.ts
-init_utils();
-
 // src/gsc/formatter.ts
 var WORD_TYPES = /* @__PURE__ */ new Set([
   "IDENTIFIER" /* IDENTIFIER */,
@@ -39672,7 +39584,6 @@ function format(tokens, opts) {
 // src/gsc/symbols.ts
 import * as fs3 from "node:fs";
 import * as path6 from "node:path";
-init_utils();
 var symbolCache = /* @__PURE__ */ new Map();
 var fileSet = /* @__PURE__ */ new Set();
 var archiveSet = /* @__PURE__ */ new Set();
@@ -40510,23 +40421,37 @@ var GSC_COMMANDS = [
   dvarIntegrityCheck,
   gscFormat
 ];
-function registerGscTools(server2) {
-  registerCommands(server2, GSC_COMMANDS);
-}
 
-// src/index.ts
-init_utils();
-async function cleanupOrphanedTempFiles() {
+// src/commands.ts
+var VERSION = "1.0.1";
+var COMMANDS = [
+  ...READ_COMMANDS,
+  ...WRITE_COMMANDS,
+  ...ARCHIVE_COMMANDS,
+  ...DIFF_COMMANDS,
+  ...SYNC_COMMANDS,
+  ...KNOWLEDGE_COMMANDS,
+  ...GSC_COMMANDS
+];
+
+// src/mcp.ts
+function createMcpServer() {
+  const server2 = new McpServer({ name: "iw4x-toolkit", version: VERSION });
+  registerCommands(server2, COMMANDS);
+  registerKnowledgeResources(server2);
+  return server2;
+}
+var OWN_TEMP_FILE = /\.(iwd|gsc|gsh)\.tmp$/i;
+async function cleanupOrphanedTempFiles(dirs = [...atomicWriteDirs, process.cwd()]) {
   const fs5 = await import("node:fs/promises");
   const path8 = await import("node:path");
-  const { atomicWriteDirs: atomicWriteDirs2 } = await Promise.resolve().then(() => (init_utils(), utils_exports));
-  const dirsToScan = /* @__PURE__ */ new Set([...atomicWriteDirs2, process.cwd()]);
+  const dirsToScan = new Set(dirs);
   let cleaned = 0;
   for (const dir of dirsToScan) {
     try {
       const entries = await fs5.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith(".tmp")) {
+        if (entry.isFile() && OWN_TEMP_FILE.test(entry.name)) {
           try {
             const fullPath = path8.join(dir, entry.name);
             const stat = await fs5.stat(fullPath);
@@ -40544,19 +40469,15 @@ async function cleanupOrphanedTempFiles() {
   if (cleaned > 0) {
     console.error(`[iw4x-toolkit] Cleaned up ${cleaned} orphaned .tmp file(s)`);
   }
+  return cleaned;
 }
-var server = new McpServer({
-  name: "iw4x-toolkit",
-  version: "1.0.1"
-});
-registerIwdTools(server);
-registerKnowledgeTools(server);
-registerGscTools(server);
-async function main() {
+async function startMcpServer(server2) {
   await cleanupOrphanedTempFiles();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await server2.connect(new StdioServerTransport());
 }
+
+// src/index.ts
+var server = createMcpServer();
 var isDirectRun = (() => {
   if (!process.argv[1]) return false;
   const metaPath = decodeURIComponent(import.meta.url).replace(/^file:\/\/\//, "").replace(/\\/g, "/").toLowerCase();
@@ -40564,7 +40485,7 @@ var isDirectRun = (() => {
   return metaPath === argPath;
 })();
 if (isDirectRun) {
-  main().catch((err2) => {
+  startMcpServer(server).catch((err2) => {
     console.error("Fatal:", err2);
     process.exit(1);
   });

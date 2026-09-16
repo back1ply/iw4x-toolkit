@@ -12,7 +12,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as fs from "node:fs";
 import { CommandError, getErrMsg, getKnowledgeDir } from "../utils.js";
-import { command, registerCommands, type AnyCommand } from "../command.js";
+import { command, type AnyCommand } from "../command.js";
 
 // ---------------------------------------------------------------------------
 // DVAR type
@@ -259,11 +259,8 @@ export const KNOWLEDGE_COMMANDS: AnyCommand[] = [dvarSearch, menuHud];
 // Registration
 // ---------------------------------------------------------------------------
 
-/**
- * Registers DVAR and GSC knowledge resources and the `dvar_search` tool
- * on the given MCP server instance. Call this once during server bootstrap.
- */
-export function registerKnowledgeTools(server: McpServer): void {
+/** Registers the DVAR and GSC built-in knowledge resources (MCP only; the CLI has no resources). */
+export function registerKnowledgeResources(server: McpServer): void {
 
   // --- Resource: iw4x://dvars ---
   server.registerResource(
@@ -305,7 +302,6 @@ export function registerKnowledgeTools(server: McpServer): void {
     }),
   );
 
-  registerCommands(server, KNOWLEDGE_COMMANDS);
 }
 
 /** A non-null, non-array object — i.e. a plain `{ ... }` record. */
