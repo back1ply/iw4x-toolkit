@@ -11,11 +11,20 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+var __esm = (fn, res, err2) => function __init() {
+  if (err2) throw err2[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err2 = [e], e;
+  }
 };
 var __commonJS = (cb, mod) => function __require2() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  try {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  } catch (e) {
+    throw mod = 0, e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -272,6 +281,7 @@ var require_errors2 = __commonJS({
       /* ZipEntry error messages*/
       NO_DATA: "Nothing to decompress",
       BAD_CRC: "CRC32 checksum failed {0}",
+      MAX_OUTPUT_EXCEEDED: "Decompressed data exceeds the declared uncompressed size",
       FILE_IN_THE_WAY: "There is a file in the way: {0}",
       UNKNOWN_METHOD: "Invalid/unsupported compression method",
       /* Inflater error messages */
@@ -291,11 +301,13 @@ var require_errors2 = __commonJS({
       DISK_ENTRY_TOO_LARGE: "Number of disk entries is too large",
       NO_ZIP: "No zip file was loaded",
       NO_ENTRY: "Entry doesn't exist",
+      DUPLICATE_ENTRY: "Duplicate entry name {0}",
       DIRECTORY_CONTENT_ERROR: "A directory cannot have content",
       FILE_NOT_FOUND: 'File not found: "{0}"',
       NOT_IMPLEMENTED: "Not implemented",
       INVALID_FILENAME: "Invalid filename",
       INVALID_FORMAT: "Invalid or unsupported zip format. No END header found",
+      ZIP64_VALUE_TOO_LARGE: "Zip64 value exceeds the maximum safe integer",
       INVALID_PASS_PARAM: "Incompatible password parameter",
       WRONG_PASSWORD: "Wrong Password",
       /* ADM-ZIP */
@@ -357,7 +369,11 @@ var require_utils2 = __commonJS({
           try {
             stat = self.fs.statSync(resolvedPath);
           } catch (e) {
-            self.fs.mkdirSync(resolvedPath);
+            if (e.message && e.message.startsWith("ENOENT")) {
+              self.fs.mkdirSync(resolvedPath);
+            } else {
+              throw e;
+            }
           }
           if (stat && stat.isFile()) throw Errors.FILE_IN_THE_WAY(`"${resolvedPath}"`);
         });
@@ -403,46 +419,83 @@ var require_utils2 = __commonJS({
       self.fs.exists(path8, function(exist) {
         if (exist && !overwrite) return callback(false);
         self.fs.stat(path8, function(err2, stat) {
-          if (exist && stat.isDirectory()) {
+          if (exist && stat && stat.isDirectory()) {
             return callback(false);
           }
           var folder = pth.dirname(path8);
           self.fs.exists(folder, function(exists) {
-            if (!exists) self.makeDir(folder);
+            if (!exists) {
+              try {
+                self.makeDir(folder);
+              } catch (e) {
+                return callback(false);
+              }
+            }
+            const writeToFd = function(fd) {
+              self.fs.write(fd, content, 0, content.length, 0, function(writeErr) {
+                self.fs.close(fd, function() {
+                  if (writeErr) return callback(false);
+                  self.fs.chmod(path8, attr || 438, function() {
+                    callback(true);
+                  });
+                });
+              });
+            };
             self.fs.open(path8, "w", 438, function(err3, fd) {
               if (err3) {
                 self.fs.chmod(path8, 438, function() {
-                  self.fs.open(path8, "w", 438, function(err4, fd2) {
-                    self.fs.write(fd2, content, 0, content.length, 0, function() {
-                      self.fs.close(fd2, function() {
-                        self.fs.chmod(path8, attr || 438, function() {
-                          callback(true);
-                        });
-                      });
-                    });
+                  self.fs.open(path8, "w", 438, function(retryErr, fd2) {
+                    if (retryErr || !fd2) return callback(false);
+                    writeToFd(fd2);
                   });
                 });
               } else if (fd) {
-                self.fs.write(fd, content, 0, content.length, 0, function() {
-                  self.fs.close(fd, function() {
-                    self.fs.chmod(path8, attr || 438, function() {
-                      callback(true);
-                    });
-                  });
-                });
+                writeToFd(fd);
               } else {
-                self.fs.chmod(path8, attr || 438, function() {
-                  callback(true);
-                });
+                callback(false);
               }
             });
           });
         });
       });
     };
+    Utils.prototype.assertPathSafe = function(root, target) {
+      const self = this;
+      if (typeof self.fs.lstatSync !== "function") return;
+      const resolvedRoot = pth.resolve(root);
+      const resolvedTarget = pth.resolve(target);
+      if (resolvedTarget === resolvedRoot) return;
+      const rel = pth.relative(resolvedRoot, resolvedTarget);
+      if (!rel || rel === ".." || rel.startsWith(".." + pth.sep) || pth.isAbsolute(rel)) return;
+      let cur = resolvedRoot;
+      for (const part of rel.split(pth.sep)) {
+        if (!part || part === ".") continue;
+        cur = pth.join(cur, part);
+        let stat;
+        try {
+          stat = self.fs.lstatSync(cur);
+        } catch (e) {
+          break;
+        }
+        if (stat.isSymbolicLink()) throw Errors.FILE_IN_THE_WAY(`"${cur}"`);
+      }
+    };
     Utils.prototype.findFiles = function(path8) {
       const self = this;
-      function findSync(dir, pattern, recursive2) {
+      const canLstat = typeof self.fs.lstatSync === "function";
+      const rootReal = self.fs.realpathSync(path8);
+      function escapesRoot(p) {
+        if (!canLstat) return false;
+        if (!self.fs.lstatSync(p).isSymbolicLink()) return false;
+        let real;
+        try {
+          real = self.fs.realpathSync(p);
+        } catch (e) {
+          return true;
+        }
+        return !(real === rootReal || real.startsWith(rootReal + pth.sep));
+      }
+      function findSync(dir, pattern, recursive2, visited) {
         if (typeof pattern === "boolean") {
           recursive2 = pattern;
           pattern = void 0;
@@ -450,41 +503,90 @@ var require_utils2 = __commonJS({
         let files = [];
         self.fs.readdirSync(dir).forEach(function(file2) {
           const path9 = pth.join(dir, file2);
+          if (escapesRoot(path9)) return;
           const stat = self.fs.statSync(path9);
           if (!pattern || pattern.test(path9)) {
             files.push(pth.normalize(path9) + (stat.isDirectory() ? self.sep : ""));
           }
-          if (stat.isDirectory() && recursive2) files = files.concat(findSync(path9, pattern, recursive2));
+          if (stat.isDirectory() && recursive2) {
+            const realDir = self.fs.realpathSync(path9);
+            if (!visited.has(realDir)) {
+              visited.add(realDir);
+              files = files.concat(findSync(path9, pattern, recursive2, visited));
+            }
+          }
         });
         return files;
       }
-      return findSync(path8, void 0, true);
+      return findSync(path8, void 0, true, /* @__PURE__ */ new Set([rootReal]));
     };
     Utils.prototype.findFilesAsync = function(dir, cb) {
       const self = this;
-      let results = [];
-      self.fs.readdir(dir, function(err2, list) {
-        if (err2) return cb(err2);
-        let list_length = list.length;
-        if (!list_length) return cb(null, results);
-        list.forEach(function(file2) {
-          file2 = pth.join(dir, file2);
-          self.fs.stat(file2, function(err3, stat) {
-            if (err3) return cb(err3);
-            if (stat) {
-              results.push(pth.normalize(file2) + (stat.isDirectory() ? self.sep : ""));
-              if (stat.isDirectory()) {
-                self.findFilesAsync(file2, function(err4, res) {
-                  if (err4) return cb(err4);
-                  results = results.concat(res);
-                  if (!--list_length) cb(null, results);
-                });
-              } else {
-                if (!--list_length) cb(null, results);
-              }
-            }
+      const results = [];
+      let finished = false;
+      const finish = function(err2) {
+        if (finished) return;
+        finished = true;
+        cb(err2, err2 ? void 0 : results);
+      };
+      const canLstat = typeof self.fs.lstat === "function";
+      let rootReal = null;
+      const escapesRoot = function(file2, cb2) {
+        if (!canLstat) return cb2(null, false);
+        self.fs.lstat(file2, function(err2, lst) {
+          if (err2) return cb2(err2);
+          if (!lst || !lst.isSymbolicLink()) return cb2(null, false);
+          self.fs.realpath(file2, function(err3, real) {
+            if (err3) return cb2(null, true);
+            cb2(null, !(real === rootReal || real.startsWith(rootReal + pth.sep)));
           });
         });
+      };
+      const walk = function(dir2, visited, done) {
+        self.fs.readdir(dir2, function(err2, list) {
+          if (err2) return done(err2);
+          let pending = list.length;
+          if (!pending) return done();
+          list.forEach(function(name) {
+            const file2 = pth.join(dir2, name);
+            escapesRoot(file2, function(err3, escapes) {
+              if (err3) return done(err3);
+              if (escapes) {
+                if (!--pending) done();
+                return;
+              }
+              self.fs.stat(file2, function(err4, stat) {
+                if (err4) return done(err4);
+                if (!stat) {
+                  if (!--pending) done();
+                  return;
+                }
+                results.push(pth.normalize(file2) + (stat.isDirectory() ? self.sep : ""));
+                if (!stat.isDirectory()) {
+                  if (!--pending) done();
+                  return;
+                }
+                self.fs.realpath(file2, function(err5, realDir) {
+                  if (err5) return done(err5);
+                  if (visited.has(realDir)) {
+                    if (!--pending) done();
+                    return;
+                  }
+                  visited.add(realDir);
+                  walk(file2, visited, function(err6) {
+                    if (err6) return done(err6);
+                    if (!--pending) done();
+                  });
+                });
+              });
+            });
+          });
+        });
+      };
+      self.fs.realpath(dir, function(err2, realDir) {
+        if (err2) return finish(err2);
+        rootReal = realDir;
+        walk(dir, /* @__PURE__ */ new Set([realDir]), finish);
       });
     };
     Utils.prototype.getAttributes = function() {
@@ -538,7 +640,7 @@ var require_utils2 = __commonJS({
       var parts = name.split("/");
       for (var i = 0, l = parts.length; i < l; i++) {
         var path8 = pth.normalize(pth.join(prefix, parts.slice(i, l).join(pth.sep)));
-        if (path8.indexOf(prefix) === 0) {
+        if (path8 === prefix || path8.startsWith(prefix + pth.sep)) {
           return path8;
         }
       }
@@ -554,9 +656,19 @@ var require_utils2 = __commonJS({
       }
     };
     Utils.readBigUInt64LE = function(buffer, index) {
-      var slice = Buffer.from(buffer.slice(index, index + 8));
-      slice.swap64();
-      return parseInt(`0x${slice.toString("hex")}`);
+      const lo = buffer.readUInt32LE(index);
+      const hi = buffer.readUInt32LE(index + 4);
+      const value = hi * 4294967296 + lo;
+      if (value > Number.MAX_SAFE_INTEGER) {
+        throw Errors.ZIP64_VALUE_TOO_LARGE();
+      }
+      return value;
+    };
+    Utils.writeBigUInt64LE = function(buffer, value, index) {
+      const lo = value >>> 0;
+      const hi = Math.floor(value / 4294967296) >>> 0;
+      buffer.writeUInt32LE(lo, index);
+      buffer.writeUInt32LE(hi, index + 4);
     };
     Utils.fromDOS2Date = function(val) {
       return new Date((val >> 25 & 127) + 1980, Math.max((val >> 21 & 15) - 1, 0), Math.max(val >> 16 & 31, 1), val >> 11 & 31, val >> 5 & 63, (val & 31) << 1);
@@ -728,6 +840,7 @@ var require_entryHeader = __commonJS({
           switch (val) {
             case Constants.STORED:
               this.version = 10;
+              break;
             case Constants.DEFLATED:
             default:
               this.version = 20;
@@ -738,6 +851,7 @@ var require_entryHeader = __commonJS({
           return Utils.fromDOS2Date(this.timeval);
         },
         set time(val) {
+          val = new Date(val);
           this.timeval = Utils.fromDate2DOS(val);
         },
         get timeval() {
@@ -811,7 +925,7 @@ var require_entryHeader = __commonJS({
         },
         // get Unix file permissions
         get fileAttr() {
-          return (_attr || 0) >> 16 & 4095;
+          return (_attr || 0) >> 16 & 511;
         },
         get offset() {
           return _offset;
@@ -832,12 +946,16 @@ var require_entryHeader = __commonJS({
           return _localHeader;
         },
         loadLocalHeaderFromBinary: function(input2) {
+          if (_offset < 0 || _offset + Constants.LOCHDR > input2.length) {
+            throw Utils.Errors.INVALID_LOC();
+          }
           var data = input2.slice(_offset, _offset + Constants.LOCHDR);
           if (data.readUInt32LE(0) !== Constants.LOCSIG) {
             throw Utils.Errors.INVALID_LOC();
           }
           _localHeader.version = data.readUInt16LE(Constants.LOCVER);
           _localHeader.flags = data.readUInt16LE(Constants.LOCFLG);
+          _localHeader.flags_desc = (_localHeader.flags & Constants.FLG_DESC) > 0;
           _localHeader.method = data.readUInt16LE(Constants.LOCHOW);
           _localHeader.time = data.readUInt32LE(Constants.LOCTIM);
           _localHeader.crc = data.readUInt32LE(Constants.LOCCRC);
@@ -873,7 +991,7 @@ var require_entryHeader = __commonJS({
           var data = Buffer.alloc(Constants.LOCHDR);
           data.writeUInt32LE(Constants.LOCSIG, 0);
           data.writeUInt16LE(_version, Constants.LOCVER);
-          data.writeUInt16LE(_flags, Constants.LOCFLG);
+          data.writeUInt16LE(_flags & ~Constants.FLG_DESC, Constants.LOCFLG);
           data.writeUInt16LE(_method, Constants.LOCHOW);
           data.writeUInt32LE(_time, Constants.LOCTIM);
           data.writeUInt32LE(_crc, Constants.LOCCRC);
@@ -888,7 +1006,7 @@ var require_entryHeader = __commonJS({
           data.writeUInt32LE(Constants.CENSIG, 0);
           data.writeUInt16LE(_verMade, Constants.CENVEM);
           data.writeUInt16LE(_version, Constants.CENVER);
-          data.writeUInt16LE(_flags, Constants.CENFLG);
+          data.writeUInt16LE(_flags & ~Constants.FLG_DESC, Constants.CENFLG);
           data.writeUInt16LE(_method, Constants.CENHOW);
           data.writeUInt32LE(_time, Constants.CENTIM);
           data.writeUInt32LE(_crc, Constants.CENCRC);
@@ -941,6 +1059,7 @@ var require_mainHeader = __commonJS({
     var Constants = Utils.Constants;
     module.exports = function() {
       var _volumeEntries = 0, _totalEntries = 0, _size2 = 0, _offset = 0, _commentLength = 0;
+      const needsZip64 = () => _volumeEntries > Constants.EF_ZIP64_OR_16 || _totalEntries > Constants.EF_ZIP64_OR_16 || _size2 > Constants.EF_ZIP64_OR_32 || _offset > Constants.EF_ZIP64_OR_32;
       return {
         get diskEntries() {
           return _volumeEntries;
@@ -973,7 +1092,7 @@ var require_mainHeader = __commonJS({
           _commentLength = val;
         },
         get mainHeaderSize() {
-          return Constants.ENDHDR + _commentLength;
+          return (needsZip64() ? Constants.ZIP64HDR + Constants.END64HDR : 0) + Constants.ENDHDR + _commentLength;
         },
         loadFromBinary: function(data) {
           if ((data.length !== Constants.ENDHDR || data.readUInt32LE(0) !== Constants.ENDSIG) && (data.length < Constants.ZIP64HDR || data.readUInt32LE(0) !== Constants.ZIP64SIG)) {
@@ -988,21 +1107,51 @@ var require_mainHeader = __commonJS({
           } else {
             _volumeEntries = Utils.readBigUInt64LE(data, Constants.ZIP64SUB);
             _totalEntries = Utils.readBigUInt64LE(data, Constants.ZIP64TOT);
-            _size2 = Utils.readBigUInt64LE(data, Constants.ZIP64SIZE);
+            _size2 = Utils.readBigUInt64LE(data, Constants.ZIP64SIZB);
             _offset = Utils.readBigUInt64LE(data, Constants.ZIP64OFF);
             _commentLength = 0;
           }
         },
         toBinary: function() {
-          var b = Buffer.alloc(Constants.ENDHDR + _commentLength);
-          b.writeUInt32LE(Constants.ENDSIG, 0);
-          b.writeUInt32LE(0, 4);
-          b.writeUInt16LE(_volumeEntries, Constants.ENDSUB);
-          b.writeUInt16LE(_totalEntries, Constants.ENDTOT);
-          b.writeUInt32LE(_size2, Constants.ENDSIZ);
-          b.writeUInt32LE(_offset, Constants.ENDOFF);
-          b.writeUInt16LE(_commentLength, Constants.ENDCOM);
-          b.fill(" ", Constants.ENDHDR);
+          if (!needsZip64()) {
+            var b = Buffer.alloc(Constants.ENDHDR + _commentLength);
+            b.writeUInt32LE(Constants.ENDSIG, 0);
+            b.writeUInt32LE(0, 4);
+            b.writeUInt16LE(_volumeEntries, Constants.ENDSUB);
+            b.writeUInt16LE(_totalEntries, Constants.ENDTOT);
+            b.writeUInt32LE(_size2, Constants.ENDSIZ);
+            b.writeUInt32LE(_offset, Constants.ENDOFF);
+            b.writeUInt16LE(_commentLength, Constants.ENDCOM);
+            b.fill(" ", Constants.ENDHDR);
+            return b;
+          }
+          var b = Buffer.alloc(this.mainHeaderSize);
+          let offset = 0;
+          b.writeUInt32LE(Constants.ZIP64SIG, offset);
+          Utils.writeBigUInt64LE(b, Constants.ZIP64HDR - Constants.ZIP64LEAD, offset + Constants.ZIP64SIZE);
+          b.writeUInt16LE(45, offset + Constants.ZIP64VEM);
+          b.writeUInt16LE(45, offset + Constants.ZIP64VER);
+          b.writeUInt32LE(0, offset + Constants.ZIP64DSK);
+          b.writeUInt32LE(0, offset + Constants.ZIP64DSKDIR);
+          Utils.writeBigUInt64LE(b, _volumeEntries, offset + Constants.ZIP64SUB);
+          Utils.writeBigUInt64LE(b, _totalEntries, offset + Constants.ZIP64TOT);
+          Utils.writeBigUInt64LE(b, _size2, offset + Constants.ZIP64SIZB);
+          Utils.writeBigUInt64LE(b, _offset, offset + Constants.ZIP64OFF);
+          const zip64EndOffset = _offset + _size2;
+          offset += Constants.ZIP64HDR;
+          b.writeUInt32LE(Constants.END64SIG, offset);
+          b.writeUInt32LE(0, offset + Constants.END64START);
+          Utils.writeBigUInt64LE(b, zip64EndOffset, offset + Constants.END64OFF);
+          b.writeUInt32LE(1, offset + Constants.END64NUMDISKS);
+          offset += Constants.END64HDR;
+          b.writeUInt32LE(Constants.ENDSIG, offset);
+          b.writeUInt32LE(0, offset + 4);
+          b.writeUInt16LE(Math.min(_volumeEntries, Constants.EF_ZIP64_OR_16), offset + Constants.ENDSUB);
+          b.writeUInt16LE(Math.min(_totalEntries, Constants.EF_ZIP64_OR_16), offset + Constants.ENDTOT);
+          b.writeUInt32LE(Math.min(_size2, Constants.EF_ZIP64_OR_32), offset + Constants.ENDSIZ);
+          b.writeUInt32LE(Math.min(_offset, Constants.EF_ZIP64_OR_32), offset + Constants.ENDOFF);
+          b.writeUInt16LE(_commentLength, offset + Constants.ENDCOM);
+          b.fill(" ", offset + Constants.ENDHDR);
           return b;
         },
         toJSON: function() {
@@ -1071,21 +1220,38 @@ var require_deflater = __commonJS({
 // node_modules/adm-zip/methods/inflater.js
 var require_inflater = __commonJS({
   "node_modules/adm-zip/methods/inflater.js"(exports, module) {
-    var version2 = +(process.versions ? process.versions.node : "").split(".")[0] || 0;
+    var version2 = +(process?.versions?.node ?? "").split(".")[0] || 0;
+    var Errors = require_errors2();
     module.exports = function(inbuf, expectedLength) {
       var zlib = __require("zlib");
-      const option = version2 >= 15 && expectedLength > 0 ? { maxOutputLength: expectedLength } : {};
+      const maxOutputLength = expectedLength > 0 ? expectedLength : 1;
+      const option = version2 >= 15 ? { maxOutputLength } : {};
       return {
         inflate: function() {
           return zlib.inflateRawSync(inbuf, option);
         },
         inflateAsync: function(callback) {
-          var tmp = zlib.createInflateRaw(option), parts = [], total = 0;
+          var tmp = zlib.createInflateRaw(option), parts = [], total = 0, done = false;
+          const fail = function(err2) {
+            if (done) return;
+            done = true;
+            tmp.destroy();
+            callback && callback(Buffer.alloc(0), err2);
+          };
+          tmp.on("error", function(err2) {
+            fail(err2);
+          });
           tmp.on("data", function(data) {
-            parts.push(data);
+            if (done) return;
             total += data.length;
+            if (total > maxOutputLength) {
+              return fail(Errors.MAX_OUTPUT_EXCEEDED());
+            }
+            parts.push(data);
           });
           tmp.on("end", function() {
+            if (done) return;
+            done = true;
             var buf = Buffer.alloc(total), written = 0;
             buf.fill(0);
             for (var i = 0; i < parts.length; i++) {
@@ -1244,38 +1410,16 @@ var require_zipEntry = __commonJS({
           return Buffer.alloc(0);
         }
         _extralocal = _centralHeader.loadLocalHeaderFromBinary(input2);
-        return input2.slice(_centralHeader.realDataOffset, _centralHeader.realDataOffset + _centralHeader.compressedSize);
+        const dataOffset = _centralHeader.realDataOffset;
+        const dataEnd = dataOffset + _centralHeader.compressedSize;
+        if (dataOffset < 0 || dataEnd < dataOffset || dataEnd > input2.length) {
+          throw Utils.Errors.INVALID_LOC();
+        }
+        return input2.slice(dataOffset, dataEnd);
       }
       function crc32OK(data) {
-        if (!_centralHeader.flags_desc) {
-          if (Utils.crc32(data) !== _centralHeader.localHeader.crc) {
-            return false;
-          }
-        } else {
-          const descriptor = {};
-          const dataEndOffset = _centralHeader.realDataOffset + _centralHeader.compressedSize;
-          if (input2.readUInt32LE(dataEndOffset) == Constants.LOCSIG || input2.readUInt32LE(dataEndOffset) == Constants.CENSIG) {
-            throw Utils.Errors.DESCRIPTOR_NOT_EXIST();
-          }
-          if (input2.readUInt32LE(dataEndOffset) == Constants.EXTSIG) {
-            descriptor.crc = input2.readUInt32LE(dataEndOffset + Constants.EXTCRC);
-            descriptor.compressedSize = input2.readUInt32LE(dataEndOffset + Constants.EXTSIZ);
-            descriptor.size = input2.readUInt32LE(dataEndOffset + Constants.EXTLEN);
-          } else if (input2.readUInt16LE(dataEndOffset + 12) === 19280) {
-            descriptor.crc = input2.readUInt32LE(dataEndOffset + Constants.EXTCRC - 4);
-            descriptor.compressedSize = input2.readUInt32LE(dataEndOffset + Constants.EXTSIZ - 4);
-            descriptor.size = input2.readUInt32LE(dataEndOffset + Constants.EXTLEN - 4);
-          } else {
-            throw Utils.Errors.DESCRIPTOR_UNKNOWN();
-          }
-          if (descriptor.compressedSize !== _centralHeader.compressedSize || descriptor.size !== _centralHeader.size || descriptor.crc !== _centralHeader.crc) {
-            throw Utils.Errors.DESCRIPTOR_FAULTY();
-          }
-          if (Utils.crc32(data) !== descriptor.crc) {
-            return false;
-          }
-        }
-        return true;
+        const expectedCrc = _centralHeader.flags_desc || _centralHeader.localHeader.flags_desc ? _centralHeader.crc : _centralHeader.localHeader.crc;
+        return Utils.crc32(data) === expectedCrc;
       }
       function decompress(async, callback, pass) {
         if (typeof callback === "undefined" && typeof async === "string") {
@@ -1288,20 +1432,30 @@ var require_zipEntry = __commonJS({
           }
           return Buffer.alloc(0);
         }
-        var compressedData = getCompressedDataFromZip();
-        if (compressedData.length === 0) {
-          if (async && callback) callback(compressedData);
-          return compressedData;
-        }
-        if (_centralHeader.encrypted) {
-          if ("string" !== typeof pass && !Buffer.isBuffer(pass)) {
-            throw Utils.Errors.INVALID_PASS_PARAM();
+        var compressedData;
+        try {
+          compressedData = getCompressedDataFromZip();
+          if (compressedData.length === 0) {
+            if (async && callback) callback(compressedData);
+            return compressedData;
           }
-          compressedData = Methods.ZipCrypto.decrypt(compressedData, _centralHeader, pass);
+          if (_centralHeader.encrypted) {
+            if ("string" !== typeof pass && !Buffer.isBuffer(pass)) {
+              throw Utils.Errors.INVALID_PASS_PARAM();
+            }
+            compressedData = Methods.ZipCrypto.decrypt(compressedData, _centralHeader, pass);
+          }
+        } catch (err2) {
+          if (async && callback) {
+            callback(Buffer.alloc(0), err2);
+            return Buffer.alloc(0);
+          }
+          throw err2;
         }
-        var data = Buffer.alloc(_centralHeader.size);
+        var data;
         switch (_centralHeader.method) {
           case Utils.Constants.STORED:
+            data = Buffer.alloc(compressedData.length);
             compressedData.copy(data);
             if (!crc32OK(data)) {
               if (async && callback) callback(data, Utils.Errors.BAD_CRC());
@@ -1313,21 +1467,20 @@ var require_zipEntry = __commonJS({
           case Utils.Constants.DEFLATED:
             var inflater = new Methods.Inflater(compressedData, _centralHeader.size);
             if (!async) {
-              const result = inflater.inflate(data);
-              result.copy(data, 0);
+              data = inflater.inflate();
               if (!crc32OK(data)) {
                 throw Utils.Errors.BAD_CRC(`"${decoder.decode(_entryName)}"`);
               }
               return data;
             } else {
-              inflater.inflateAsync(function(result) {
-                result.copy(result, 0);
-                if (callback) {
-                  if (!crc32OK(result)) {
-                    callback(result, Utils.Errors.BAD_CRC());
-                  } else {
-                    callback(result);
-                  }
+              inflater.inflateAsync(function(result, err2) {
+                if (!callback) return;
+                if (err2) {
+                  callback(Buffer.alloc(0), err2);
+                } else if (!crc32OK(result)) {
+                  callback(result, Utils.Errors.BAD_CRC());
+                } else {
+                  callback(result);
                 }
               });
             }
@@ -1376,7 +1529,7 @@ var require_zipEntry = __commonJS({
         }
       }
       function readUInt64LE(buffer, offset) {
-        return (buffer.readUInt32LE(offset + 4) << 4) + buffer.readUInt32LE(offset);
+        return Utils.readBigUInt64LE(buffer, offset);
       }
       function parseExtra(data) {
         try {
@@ -1461,8 +1614,8 @@ var require_zipEntry = __commonJS({
           if (_comment.length > 65535) throw Utils.Errors.COMMENT_TOO_LONG();
         },
         get name() {
-          var n = decoder.decode(_entryName);
-          return _isDirectory ? n.substr(n.length - 1).split("/").pop() : n.split("/").pop();
+          const n = decoder.decode(_entryName);
+          return _isDirectory ? n.replace(/[/\\]$/, "").split("/").pop() : n.split("/").pop();
         },
         get isDirectory() {
           return _isDirectory;
@@ -1565,7 +1718,7 @@ var require_zipFile = __commonJS({
     var Headers2 = require_headers();
     var Utils = require_util2();
     module.exports = function(inBuffer, options) {
-      var entryList = [], entryTable = {}, _comment = Buffer.alloc(0), mainHeader = new Headers2.MainHeader(), loadedEntries = false;
+      var entryList = [], entryTable = /* @__PURE__ */ Object.create(null), _comment = Buffer.alloc(0), mainHeader = new Headers2.MainHeader(), loadedEntries = false;
       var password = null;
       const temporary = /* @__PURE__ */ new Set();
       const opts = options;
@@ -1600,7 +1753,7 @@ var require_zipFile = __commonJS({
       }
       function readEntries() {
         loadedEntries = true;
-        entryTable = {};
+        entryTable = /* @__PURE__ */ Object.create(null);
         if (mainHeader.diskEntries > (inBuffer.length - mainHeader.offset) / Utils.Constants.CENHDR) {
           throw Utils.Errors.DISK_ENTRY_TOO_LARGE();
         }
@@ -1615,6 +1768,9 @@ var require_zipFile = __commonJS({
           }
           if (entry.header.commentLength) entry.comment = inBuffer.slice(tmp, tmp + entry.header.commentLength);
           index += entry.header.centralHeaderSize;
+          if (entry.entryName in entryTable) {
+            throw Utils.Errors.DUPLICATE_ENTRY(`"${entry.entryName}"`);
+          }
           entryList[i] = entry;
           entryTable[entry.entryName] = entry;
         }
@@ -1653,7 +1809,7 @@ var require_zipFile = __commonJS({
       }
       function sortEntries() {
         if (entryList.length > 1 && !noSort) {
-          entryList.sort((a, b) => a.entryName.toLowerCase().localeCompare(b.entryName.toLowerCase()));
+          entryList = entryList.map((entry) => ({ entry, key: entry.entryName.toLowerCase() })).sort((a, b) => a.key.localeCompare(b.key)).map((pair) => pair.entry);
         }
       }
       return {
@@ -1830,7 +1986,7 @@ var require_zipFile = __commonJS({
           }
           const mh = mainHeader.toBinary();
           if (_comment) {
-            _comment.copy(mh, Utils.Constants.ENDHDR);
+            _comment.copy(mh, mh.length - _comment.length);
           }
           mh.copy(outBuffer, dindex);
           inBuffer = outBuffer;
@@ -1886,7 +2042,7 @@ var require_zipFile = __commonJS({
                 });
                 const mh = mainHeader.toBinary();
                 if (_comment) {
-                  _comment.copy(mh, Utils.Constants.ENDHDR);
+                  _comment.copy(mh, mh.length - _comment.length);
                 }
                 mh.copy(outBuffer, dindex);
                 inBuffer = outBuffer;
@@ -1941,6 +2097,9 @@ var require_adm_zip = __commonJS({
       }
       Object.assign(opts, options);
       const filetools = new Utils(opts);
+      const applyDirAttributes = (dirEntries) => {
+        dirEntries.filter((d) => d.attr).sort((a, b) => b.path.length - a.path.length).forEach((d) => filetools.fs.chmodSync(d.path, d.attr));
+      };
       if (typeof opts.decoder !== "object" || typeof opts.decoder.encode !== "function" || typeof opts.decoder.decode !== "function") {
         opts.decoder = Utils.decoder;
       }
@@ -1968,7 +2127,7 @@ var require_adm_zip = __commonJS({
       }
       function fixPath(zipPath) {
         const { join: join3, normalize, sep: sep2 } = pth.posix;
-        return join3(".", normalize(sep2 + zipPath.split("\\").join(sep2) + sep2));
+        return join3(pth.isAbsolute(zipPath) ? "/" : ".", normalize(sep2 + zipPath.split("\\").join(sep2) + sep2));
       }
       function filenameFilter(filterfn) {
         if (filterfn instanceof RegExp) {
@@ -2071,6 +2230,7 @@ var require_adm_zip = __commonJS({
          * Remove the entry from the file or the entry and all it's nested directories and files if the given entry is a directory
          *
          * @param {ZipEntry|string} entry
+         * @param {boolean} withsubfolders
          * @returns {void}
          */
         deleteFile: function(entry, withsubfolders = true) {
@@ -2153,17 +2313,17 @@ var require_adm_zip = __commonJS({
          * @param {string} [zipName] Optional name for the file
          * @param {string} [comment] Optional file comment
          */
-        addLocalFile: function(localPath2, zipPath, zipName, comment) {
-          if (filetools.fs.existsSync(localPath2)) {
+        addLocalFile: function(localPath, zipPath, zipName, comment) {
+          if (filetools.fs.existsSync(localPath)) {
             zipPath = zipPath ? fixPath(zipPath) : "";
-            const p = pth.win32.basename(pth.win32.normalize(localPath2));
+            const p = pth.win32.basename(pth.win32.normalize(localPath));
             zipPath += zipName ? zipName : p;
-            const _attr = filetools.fs.statSync(localPath2);
-            const data = _attr.isFile() ? filetools.fs.readFileSync(localPath2) : Buffer.alloc(0);
+            const _attr = filetools.fs.statSync(localPath);
+            const data = _attr.isFile() ? filetools.fs.readFileSync(localPath) : Buffer.alloc(0);
             if (_attr.isDirectory()) zipPath += filetools.sep;
             this.addFile(zipPath, data, comment, _attr);
           } else {
-            throw Utils.Errors.FILE_NOT_FOUND(localPath2);
+            throw Utils.Errors.FILE_NOT_FOUND(localPath);
           }
         },
         /**
@@ -2185,17 +2345,17 @@ var require_adm_zip = __commonJS({
          */
         addLocalFileAsync: function(options2, callback) {
           options2 = typeof options2 === "object" ? options2 : { localPath: options2 };
-          const localPath2 = pth.resolve(options2.localPath);
+          const localPath = pth.resolve(options2.localPath);
           const { comment } = options2;
           let { zipPath, zipName } = options2;
           const self = this;
-          filetools.fs.stat(localPath2, function(err2, stats) {
+          filetools.fs.stat(localPath, function(err2, stats) {
             if (err2) return callback(err2, false);
             zipPath = zipPath ? fixPath(zipPath) : "";
-            const p = pth.win32.basename(pth.win32.normalize(localPath2));
+            const p = pth.win32.basename(pth.win32.normalize(localPath));
             zipPath += zipName ? zipName : p;
             if (stats.isFile()) {
-              filetools.fs.readFile(localPath2, function(err3, data) {
+              filetools.fs.readFile(localPath, function(err3, data) {
                 if (err3) return callback(err3, false);
                 self.addFile(zipPath, data, comment, stats);
                 return setImmediate(callback, void 0, true);
@@ -2214,23 +2374,23 @@ var require_adm_zip = __commonJS({
          * @param {string} [zipPath] - optional path inside zip
          * @param {(RegExp|function)} [filter] - optional RegExp or Function if files match will be included.
          */
-        addLocalFolder: function(localPath2, zipPath, filter) {
+        addLocalFolder: function(localPath, zipPath, filter) {
           filter = filenameFilter(filter);
           zipPath = zipPath ? fixPath(zipPath) : "";
-          localPath2 = pth.normalize(localPath2);
-          if (filetools.fs.existsSync(localPath2)) {
-            const items = filetools.findFiles(localPath2);
+          localPath = pth.normalize(localPath);
+          if (filetools.fs.existsSync(localPath)) {
+            const items = filetools.findFiles(localPath);
             const self = this;
             if (items.length) {
               for (const filepath of items) {
-                const p = pth.join(zipPath, relativePath(localPath2, filepath));
+                const p = pth.join(zipPath, relativePath(localPath, filepath));
                 if (filter(p)) {
                   self.addLocalFile(filepath, pth.dirname(p));
                 }
               }
             }
           } else {
-            throw Utils.Errors.FILE_NOT_FOUND(localPath2);
+            throw Utils.Errors.FILE_NOT_FOUND(localPath);
           }
         },
         /**
@@ -2241,24 +2401,24 @@ var require_adm_zip = __commonJS({
          * @param {RegExp|function} [filter] optional RegExp or Function if files match will
          *               be included.
          */
-        addLocalFolderAsync: function(localPath2, callback, zipPath, filter) {
+        addLocalFolderAsync: function(localPath, callback, zipPath, filter) {
           filter = filenameFilter(filter);
           zipPath = zipPath ? fixPath(zipPath) : "";
-          localPath2 = pth.normalize(localPath2);
+          localPath = pth.normalize(localPath);
           var self = this;
-          filetools.fs.open(localPath2, "r", function(err2) {
+          filetools.fs.open(localPath, "r", function(err2) {
             if (err2 && err2.code === "ENOENT") {
-              callback(void 0, Utils.Errors.FILE_NOT_FOUND(localPath2));
+              callback(void 0, Utils.Errors.FILE_NOT_FOUND(localPath));
             } else if (err2) {
               callback(void 0, err2);
             } else {
-              var items = filetools.findFiles(localPath2);
+              var items = filetools.findFiles(localPath);
               var i = -1;
               var next = function() {
                 i += 1;
                 if (i < items.length) {
                   var filepath = items[i];
-                  var p = relativePath(localPath2, filepath).split("\\").join("/");
+                  var p = relativePath(localPath, filepath).split("\\").join("/");
                   p = p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "");
                   if (filter(p)) {
                     filetools.fs.stat(filepath, function(er0, stats) {
@@ -2304,7 +2464,7 @@ var require_adm_zip = __commonJS({
         addLocalFolderAsync2: function(options2, callback) {
           const self = this;
           options2 = typeof options2 === "object" ? options2 : { localPath: options2 };
-          localPath = pth.resolve(fixPath(options2.localPath));
+          const localPath = pth.resolve(options2.localPath);
           let { zipPath, filter, namefix } = options2;
           if (filter instanceof RegExp) {
             filter = /* @__PURE__ */ (function(rx) {
@@ -2318,7 +2478,7 @@ var require_adm_zip = __commonJS({
             };
           }
           zipPath = zipPath ? fixPath(zipPath) : "";
-          if (namefix == "latin1") {
+          if (namefix === "latin1") {
             namefix = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "");
           }
           if (typeof namefix !== "function") namefix = (str) => str;
@@ -2326,14 +2486,14 @@ var require_adm_zip = __commonJS({
           const fileNameFix = (entry) => pth.win32.basename(pth.win32.normalize(namefix(entry)));
           filetools.fs.open(localPath, "r", function(err2) {
             if (err2 && err2.code === "ENOENT") {
-              callback(void 0, Utils.Errors.FILE_NOT_FOUND(localPath));
+              callback(Utils.Errors.FILE_NOT_FOUND(localPath), false);
             } else if (err2) {
-              callback(void 0, err2);
+              callback(err2, false);
             } else {
               filetools.findFilesAsync(localPath, function(err3, fileEntries) {
-                if (err3) return callback(err3);
+                if (err3) return callback(err3, false);
                 fileEntries = fileEntries.filter((dir) => filter(relPathFix(dir)));
-                if (!fileEntries.length) callback(void 0, false);
+                if (!fileEntries.length) return callback(void 0, true);
                 setImmediate(
                   fileEntries.reverse().reduce(function(next, entry) {
                     return function(err4, done) {
@@ -2362,10 +2522,10 @@ var require_adm_zip = __commonJS({
          * @param {RegExp|function} [props.filter] - optional RegExp or Function if files match will be included.
          * @param {function|string} [props.namefix] - optional function to help fix filename
          */
-        addLocalFolderPromise: function(localPath2, props) {
+        addLocalFolderPromise: function(localPath, props) {
           return new Promise((resolve7, reject) => {
-            this.addLocalFolderAsync2(Object.assign({ localPath: localPath2 }, props), (err2, done) => {
-              if (err2) reject(err2);
+            this.addLocalFolderAsync2(Object.assign({ localPath }, props), (err2, done) => {
+              if (err2) return reject(err2);
               if (done) resolve7(this);
             });
           });
@@ -2456,7 +2616,7 @@ var require_adm_zip = __commonJS({
             throw Utils.Errors.NO_ENTRY();
           }
           var entryName = canonical(item.entryName);
-          var target = sanitize(targetPath, outFileName && !item.isDirectory ? outFileName : maintainEntryPath ? entryName : pth.basename(entryName));
+          var target = sanitize(targetPath, outFileName && !item.isDirectory ? canonical(outFileName) : maintainEntryPath ? entryName : pth.basename(entryName));
           if (item.isDirectory) {
             var children = _zip.getEntryChildren(item);
             children.forEach(function(child) {
@@ -2465,8 +2625,9 @@ var require_adm_zip = __commonJS({
               if (!content2) {
                 throw Utils.Errors.CANT_EXTRACT_FILE();
               }
-              var name = canonical(child.entryName);
-              var childName = sanitize(targetPath, maintainEntryPath ? name : pth.basename(name));
+              var name = canonical(maintainEntryPath ? child.entryName : child.entryName.substring(item.entryName.length));
+              var childName = sanitize(targetPath, name);
+              filetools.assertPathSafe(targetPath, childName);
               const fileAttr2 = keepOriginalPermission ? child.header.fileAttr : void 0;
               filetools.writeFileTo(childName, content2, overwrite, fileAttr2);
             });
@@ -2474,6 +2635,7 @@ var require_adm_zip = __commonJS({
           }
           var content = item.getData(_zip.password);
           if (!content) throw Utils.Errors.CANT_EXTRACT_FILE();
+          filetools.assertPathSafe(targetPath, target);
           if (filetools.fs.existsSync(target) && !overwrite) {
             throw Utils.Errors.CANT_OVERRIDE();
           }
@@ -2489,12 +2651,12 @@ var require_adm_zip = __commonJS({
           if (!_zip) {
             return false;
           }
-          for (var entry in _zip.entries) {
+          for (var entry of _zip.entries) {
             try {
               if (entry.isDirectory) {
                 continue;
               }
-              var content = _zip.entries[entry].getData(pass);
+              var content = entry.getData(pass);
               if (!content) {
                 return false;
               }
@@ -2519,10 +2681,13 @@ var require_adm_zip = __commonJS({
           pass = get_Str(keepOriginalPermission, pass);
           overwrite = get_Bool(false, overwrite);
           if (!_zip) throw Utils.Errors.NO_ZIP();
+          const dirEntries = [];
           _zip.entries.forEach(function(entry) {
             var entryName = sanitize(targetPath, canonical(entry.entryName));
+            filetools.assertPathSafe(targetPath, entryName);
             if (entry.isDirectory) {
               filetools.makeDir(entryName);
+              if (keepOriginalPermission) dirEntries.push({ path: entryName, attr: entry.header.fileAttr });
               return;
             }
             var content = entry.getData(pass);
@@ -2534,9 +2699,9 @@ var require_adm_zip = __commonJS({
             try {
               filetools.fs.utimesSync(entryName, entry.header.time, entry.header.time);
             } catch (err2) {
-              throw Utils.Errors.CANT_EXTRACT_FILE();
             }
           });
+          applyDirAttributes(dirEntries);
         },
         /**
          * Asynchronous extractAllTo
@@ -2579,17 +2744,33 @@ var require_adm_zip = __commonJS({
               fileEntries.push(e);
             }
           });
+          const deferredDirAttr = [];
           for (const entry of dirEntries) {
             const dirPath = getPath(entry);
             const dirAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
             try {
+              filetools.assertPathSafe(targetPath, dirPath);
               filetools.makeDir(dirPath);
-              if (dirAttr) filetools.fs.chmodSync(dirPath, dirAttr);
-              filetools.fs.utimesSync(dirPath, entry.header.time, entry.header.time);
             } catch (er) {
               callback(getError("Unable to create folder", dirPath));
+              continue;
+            }
+            if (dirAttr) deferredDirAttr.push({ path: dirPath, attr: dirAttr });
+            try {
+              filetools.fs.utimesSync(dirPath, entry.header.time, entry.header.time);
+            } catch (er) {
             }
           }
+          const done = (err2) => {
+            if (!err2) {
+              try {
+                applyDirAttributes(deferredDirAttr);
+              } catch (er) {
+                return callback(getError("Unable to set folder permissions", er.path || ""));
+              }
+            }
+            callback(err2);
+          };
           fileEntries.reverse().reduce(function(next, entry) {
             return function(err2) {
               if (err2) {
@@ -2597,6 +2778,11 @@ var require_adm_zip = __commonJS({
               } else {
                 const entryName = pth.normalize(canonical(entry.entryName));
                 const filePath = sanitize(targetPath, entryName);
+                try {
+                  filetools.assertPathSafe(targetPath, filePath);
+                } catch (er) {
+                  return next(er);
+                }
                 entry.getDataAsync(function(content, err_1) {
                   if (err_1) {
                     next(err_1);
@@ -2606,21 +2792,17 @@ var require_adm_zip = __commonJS({
                     const fileAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
                     filetools.writeFileToAsync(filePath, content, overwrite, fileAttr, function(succ) {
                       if (!succ) {
-                        next(getError("Unable to write file", filePath));
+                        return next(getError("Unable to write file", filePath));
                       }
-                      filetools.fs.utimes(filePath, entry.header.time, entry.header.time, function(err_2) {
-                        if (err_2) {
-                          next(getError("Unable to set times", filePath));
-                        } else {
-                          next();
-                        }
+                      filetools.fs.utimes(filePath, entry.header.time, entry.header.time, function() {
+                        next();
                       });
                     });
                   }
                 });
               }
             };
-          }, callback)();
+          }, done)();
         },
         /**
          * Writes the newly created zip file to disk at the specified location or if a zip was opened and no ``targetFileName`` is provided, it will overwrite the opened zip
@@ -39371,6 +39553,7 @@ var GscFormatter = class {
   constructor(indentSize) {
     this.indentSize = indentSize;
   }
+  indentSize;
   lines = [];
   current = [];
   indent = 0;

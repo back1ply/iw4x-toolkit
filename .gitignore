@@ -9,3 +9,4 @@ mcp-server/dist/
 
 # Large generated IWD content listings
 scripts/*.txt
+.vitest/
