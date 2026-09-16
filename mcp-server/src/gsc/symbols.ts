@@ -144,6 +144,7 @@ export function buildIndex(
     const resolved = path.resolve(iwdPath);
     const result = openIwd(resolved);
     if (!result.ok) continue; // skip archives that fail to open
+    forgetArchive(resolved); // re-index from scratch so edited/removed functions don't linger
 
     const zip: AdmZip = result.value;
     const entries = zip.getEntries();
@@ -206,6 +207,24 @@ export function buildIndex(
   };
 }
 
+/** Drop every symbol and file record that came from `archive`. */
+function forgetArchive(archive: string): void {
+  if (!archiveSet.delete(archive)) return;
+  for (const key of [...fileSet]) {
+    if (key.startsWith(`${archive}::`)) fileSet.delete(key);
+  }
+  fileToSymbols.clear();
+  for (const [key, entries] of symbolCache) {
+    const kept = entries.filter(e => e.archive !== archive);
+    if (kept.length === 0) { symbolCache.delete(key); continue; }
+    symbolCache.set(key, kept);
+    for (const e of kept) {
+      const file = e.file.toLowerCase();
+      fileToSymbols.set(file, (fileToSymbols.get(file) ?? new Set<string>()).add(key));
+    }
+  }
+}
+
 /**
  * Resolve an #include path to the set of function names it exports.
  * Tries:
@@ -222,11 +241,12 @@ export function resolveInclude(
   const normalized = includePath.replace(/\\/g, "/");
   const withExt = normalized.endsWith(".gsc") ? normalized : normalized + ".gsc";
 
-  // 1. Try disk
-  if (hintDir) {
-    // Guard against path traversal in include paths
-    if (isSafeEntryPath(withExt)) {
-      const diskPath = path.join(hintDir, withExt);
+  // 1. Try disk. Include paths are relative to the mod/game root, which may sit
+  // any number of folders above the analysed file, so walk up from hintDir.
+  // ponytail: first match wins walking upward; add an explicit rawPath setting if mods nest ambiguously.
+  if (hintDir && isSafeEntryPath(withExt)) {
+    for (let dir = path.resolve(hintDir); ; dir = path.dirname(dir)) {
+      const diskPath = path.join(dir, withExt);
       if (fs.existsSync(diskPath)) {
         try {
           const source = fs.readFileSync(diskPath, "utf-8");
@@ -234,9 +254,10 @@ export function resolveInclude(
           const symbols = new Set(outlineResult.functions.map(f => f.name.toLowerCase()));
           return { symbols, source: "disk" };
         } catch {
-          // fall through to cache
+          break; // fall through to cache
         }
       }
+      if (path.dirname(dir) === dir) break; // reached filesystem root
     }
   }
 

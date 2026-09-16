@@ -9609,9 +9609,16 @@ async function ensureBackup(iwdPath) {
 async function atomicWrite(zip, targetPath) {
   atomicWriteDirs.add(path.dirname(targetPath));
   const tmpPath = targetPath + ".tmp";
-  zip.writeZip(tmpPath);
-  const { rename } = await import("node:fs/promises");
-  await rename(tmpPath, targetPath);
+  const { writeFile, rename, rm } = await import("node:fs/promises");
+  try {
+    await writeFile(tmpPath, zip.toBuffer());
+    await rename(tmpPath, targetPath);
+  } catch (e) {
+    invalidateIwdCache(targetPath);
+    await rm(tmpPath, { force: true }).catch(() => {
+    });
+    throw e;
+  }
 }
 function normalizeEntry(entry) {
   return entry.replace(/\\/g, "/").replace(/^\/+/, "");
@@ -26438,6 +26445,10 @@ var GSCLinter = class {
       errors.push({ type: "error", code: "TOK-001", message: err2.message, line: err2.line, column: err2.column });
     }
     collectDefinitions(tokens, scope);
+    for (const fn of outline(source).functions) {
+      scope.functions.add(fn.name.toLowerCase());
+      scope.definedFunctions.set(fn.name, fn.line);
+    }
     errors.push(...checkCaseCollisions(source));
     if (opts.checkUndefined !== false) {
       errors.push(...analyzeUsage(tokens, scope));
@@ -26738,6 +26749,7 @@ function buildIndex(iwdPaths, clear = false) {
     const resolved = path6.resolve(iwdPath);
     const result = openIwd(resolved);
     if (!result.ok) continue;
+    forgetArchive(resolved);
     const zip = result.value;
     const entries = zip.getEntries();
     let archiveSymbols = 0;
@@ -26785,12 +26797,31 @@ function buildIndex(iwdPaths, clear = false) {
     replaced: prevCount
   };
 }
+function forgetArchive(archive) {
+  if (!archiveSet.delete(archive)) return;
+  for (const key of [...fileSet]) {
+    if (key.startsWith(`${archive}::`)) fileSet.delete(key);
+  }
+  fileToSymbols.clear();
+  for (const [key, entries] of symbolCache) {
+    const kept = entries.filter((e) => e.archive !== archive);
+    if (kept.length === 0) {
+      symbolCache.delete(key);
+      continue;
+    }
+    symbolCache.set(key, kept);
+    for (const e of kept) {
+      const file = e.file.toLowerCase();
+      fileToSymbols.set(file, (fileToSymbols.get(file) ?? /* @__PURE__ */ new Set()).add(key));
+    }
+  }
+}
 function resolveInclude(includePath, hintDir) {
   const normalized = includePath.replace(/\\/g, "/");
   const withExt = normalized.endsWith(".gsc") ? normalized : normalized + ".gsc";
-  if (hintDir) {
-    if (isSafeEntryPath(withExt)) {
-      const diskPath = path6.join(hintDir, withExt);
+  if (hintDir && isSafeEntryPath(withExt)) {
+    for (let dir = path6.resolve(hintDir); ; dir = path6.dirname(dir)) {
+      const diskPath = path6.join(dir, withExt);
       if (fs3.existsSync(diskPath)) {
         try {
           const source = fs3.readFileSync(diskPath, "utf-8");
@@ -26798,8 +26829,10 @@ function resolveInclude(includePath, hintDir) {
           const symbols = new Set(outlineResult.functions.map((f) => f.name.toLowerCase()));
           return { symbols, source: "disk" };
         } catch {
+          break;
         }
       }
+      if (path6.dirname(dir) === dir) break;
     }
   }
   const fromCache = symbolsForFile(withExt);
@@ -26873,16 +26906,16 @@ function loadFromPathOrContent(filePath, content) {
   if (filePath) {
     const resolved = path7.resolve(filePath);
     if (!fs4.existsSync(resolved)) {
-      return { error: { content: [{ type: "text", text: `\u274C File not found: ${resolved}` }] } };
+      return { error: errResult(`\u274C File not found: ${resolved}`) };
     }
     try {
       return { source: fs4.readFileSync(resolved, "utf-8") };
     } catch (e) {
-      return { error: { content: [{ type: "text", text: `\u274C Error reading file: ${e}` }] } };
+      return { error: errResult(`\u274C Error reading file: ${e}`) };
     }
   }
   if (content) return { source: content };
-  return { error: { content: [{ type: "text", text: "\u274C Either path or content must be provided" }] } };
+  return { error: errResult("\u274C Either path or content must be provided") };
 }
 function formatErrorGroup(heading, errors, trailingBlank) {
   if (errors.length === 0) return "";

@@ -213,6 +213,15 @@ function test()
       expect(undefinedFuncErrors.filter(e => e.message.includes("myCustomFunction"))).toHaveLength(0);
     });
 
+    it("recognizes IW4-style definitions without the function keyword", async () => {
+      const result = await lint(
+        "init()\n{\n    level thread localFn();\n    level thread OtherFN();\n}\n\n" +
+        "localFn()\n{\n    wait 1;\n}\n\notherFn()\n{\n    wait 1;\n}",
+      );
+      const fun001 = result.errors.filter(e => e.code === "FUN-001");
+      expect(fun001.map(e => e.message)).toEqual([]);
+    });
+
     it("does not leak a file's definitions into the shared builtins set", async () => {
       await lint("function leakedHelper() { }");
       expect((await getKnownBuiltins()).has("leakedHelper")).toBe(false);

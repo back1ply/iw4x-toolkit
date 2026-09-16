@@ -149,16 +149,16 @@ function loadFromPathOrContent(
   if (filePath) {
     const resolved = path.resolve(filePath);
     if (!fs.existsSync(resolved)) {
-      return { error: { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] } };
+      return { error: errResult(`❌ File not found: ${resolved}`) };
     }
     try {
       return { source: fs.readFileSync(resolved, "utf-8") };
     } catch (e) {
-      return { error: { content: [{ type: "text", text: `❌ Error reading file: ${e}` }] } };
+      return { error: errResult(`❌ Error reading file: ${e}`) };
     }
   }
   if (content) return { source: content };
-  return { error: { content: [{ type: "text", text: "❌ Either path or content must be provided" }] } };
+  return { error: errResult("❌ Either path or content must be provided") };
 }
 
 /** Render one "Line N: message" block under a heading, or "" if empty. */

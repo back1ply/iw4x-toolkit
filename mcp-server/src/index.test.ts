@@ -620,6 +620,28 @@ describe("MCP tool handlers", () => {
       expect(zip.readAsText(newEntry)).toBe(content);
     });
 
+    it("a failed write leaves no unsaved edits visible to later reads", async () => {
+      const ghost = "scripts/never_saved.gsc";
+      // Warm the IWD cache, then make the atomic write's temp path unwritable.
+      await client.callTool({ name: "iwd_list", arguments: { path: iwdPath } });
+      fs.mkdirSync(iwdPath + ".tmp");
+
+      const write = await client.callTool({
+        name: "iwd_write",
+        arguments: { path: iwdPath, entry: ghost, content: "// ghost" },
+      });
+      expect(write.isError).toBe(true);
+
+      const read = await client.callTool({
+        name: "iwd_read",
+        arguments: { path: iwdPath, entry: ghost },
+      });
+      expect(read.isError).toBe(true);
+      // The archive itself must survive untouched (not replaced by the .tmp directory).
+      expect(fs.statSync(iwdPath).isFile()).toBe(true);
+      expect(new AdmZip(iwdPath).readAsText(TEXT_ENTRY)).toBe(TEXT_CONTENT);
+    });
+
     it("rejects path traversal attempts", async () => {
       const result = await client.callTool({
         name: "iwd_write",

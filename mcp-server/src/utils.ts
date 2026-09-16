@@ -313,9 +313,18 @@ export async function atomicWrite(
 ): Promise<void> {
   atomicWriteDirs.add(path.dirname(targetPath));
   const tmpPath = targetPath + ".tmp";
-  zip.writeZip(tmpPath);
-  const { rename } = await import("node:fs/promises");
-  await rename(tmpPath, targetPath);
+  const { writeFile, rename, rm } = await import("node:fs/promises");
+  try {
+    // Not zip.writeZip(): it returns silently on failure, and the rename below
+    // would then move whatever sits at tmpPath over the real archive.
+    await writeFile(tmpPath, zip.toBuffer());
+    await rename(tmpPath, targetPath);
+  } catch (e) {
+    // Callers edit the cached zip before writing; drop it so later reads see what's really on disk.
+    invalidateIwdCache(targetPath);
+    await rm(tmpPath, { force: true }).catch(() => {});
+    throw e;
+  }
 }
 
 /**

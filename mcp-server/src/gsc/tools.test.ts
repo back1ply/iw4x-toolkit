@@ -521,7 +521,7 @@ describe("GSC Tools", () => {
         name: "gsc_fix",
         arguments: {}
       });
-      expect(result.isError).toBeFalsy();
+      expect(result.isError).toBe(true);
       const text = getResultText(result as any);
       expect(text).toContain("❌");
     });
@@ -531,7 +531,7 @@ describe("GSC Tools", () => {
         name: "gsc_fix",
         arguments: { path: "/nonexistent/path/file.gsc" }
       });
-      expect(result.isError).toBeFalsy();
+      expect(result.isError).toBe(true);
       const text = getResultText(result as any);
       expect(text).toContain("❌");
     });
@@ -649,7 +649,7 @@ describe("GSC Tools", () => {
         name: "gsc_outline",
         arguments: {}
       });
-      expect(result.isError).toBeFalsy();
+      expect(result.isError).toBe(true);
       const text = getResultText(result as any);
       expect(text).toContain("❌");
     });
@@ -659,7 +659,7 @@ describe("GSC Tools", () => {
         name: "gsc_outline",
         arguments: { path: "/nonexistent/path/file.gsc" }
       });
-      expect(result.isError).toBeFalsy();
+      expect(result.isError).toBe(true);
       const text = getResultText(result as any);
       expect(text).toContain("❌");
     });
@@ -927,5 +927,47 @@ describe("symbols registry", () => {
     const { hasSymbol, clearIndex } = await import("./symbols.js");
     clearIndex();
     expect(hasSymbol("init")).toBe(false);
+  });
+
+  it("re-indexing a changed archive replaces its old symbols", async () => {
+    const { buildIndex, hasSymbol, clearIndex } = await import("./symbols.js");
+    clearIndex();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iw4x-sym-test-"));
+    const iwd = path.join(dir, "mod.iwd");
+    const writeIwd = (src: string) => {
+      const zip = new AdmZip();
+      zip.addFile("maps/mp/_mod.gsc", Buffer.from(src, "utf-8"));
+      zip.writeZip(iwd);
+    };
+    try {
+      writeIwd("oldFn()\n{\n    wait 1;\n}");
+      buildIndex([iwd]);
+      expect(hasSymbol("oldFn")).toBe(true);
+
+      writeIwd("newFn()\n{\n    wait 1;\n}");
+      const later = new Date(Date.now() + 5000);
+      fs.utimesSync(iwd, later, later); // make sure the IWD cache sees a new mtime
+      buildIndex([iwd]);
+      expect(hasSymbol("newFn")).toBe(true);
+      expect(hasSymbol("oldFn")).toBe(false);
+    } finally {
+      clearIndex();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("resolveInclude finds game-root-relative includes from a nested file's folder", async () => {
+    const { resolveInclude } = await import("./symbols.js");
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "iw4x-inc-test-"));
+    try {
+      fs.mkdirSync(path.join(root, "maps", "mp", "gametypes"), { recursive: true });
+      fs.writeFileSync(path.join(root, "maps", "mp", "_util.gsc"), "utilFn()\n{\n    wait 1;\n}");
+      const hintDir = path.join(root, "maps", "mp", "gametypes");
+      const resolved = resolveInclude("maps\\mp\\_util", hintDir);
+      expect(resolved.source).toBe("disk");
+      expect(resolved.symbols.has("utilfn")).toBe(true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -19,6 +19,7 @@ import {
   checkCaseCollisions,
 } from "./analyzer.js";
 import { checkLinePatterns } from "./patterns.js";
+import { outline } from "./outline.js";
 
 export interface LintError {
   type: "error" | "warning" | "info";
@@ -67,6 +68,11 @@ export class GSCLinter {
     }
 
     collectDefinitions(tokens, scope);
+    // IW4 defines functions as `name(params) { }` with no keyword; outline() parses that form.
+    for (const fn of outline(source).functions) {
+      scope.functions.add(fn.name.toLowerCase());
+      scope.definedFunctions.set(fn.name, fn.line);
+    }
     errors.push(...checkCaseCollisions(source));
 
     if (opts.checkUndefined !== false) {
