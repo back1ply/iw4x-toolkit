@@ -49,13 +49,14 @@ Cli.create("iw4x", { version, mcp: { tools: { discovery: "direct" } } })
 - **Compiled-binary MCP** needs a patch (`patch-package` / `bun patch`) until a release includes a bundler-visible import.
 - **Binary size** ~84 MB per platform (Bun runtime).
 
-## Recommendation
+## Decision (2026-09-17): not adopting incur
 
-Adopt incur for the registry instead of hand-building one. It already provides the pieces refactor option 1 would have to build (schema-driven CLI flags, direct MCP tools with annotations, structured output, `--llms`, completions, binary builds).
+incur works, but it pins `@modelcontextprotocol/server@2.0.0-alpha.4` while the stable `2.0.0` (2026-07-28 spec) shipped on 2026-07-27, compiled-binary MCP needs a patch, and issue #234 (MCP results drop `error.code`) is open. For 27 local stdio tools, a thin in-repo registry is smaller than that risk. No other library found does CLI + MCP from one definition (FastMCP and mcp-framework are MCP-only; FastMCP does not support the 2026-07-28 spec; trpc-cli is CLI-only).
 
-Order:
-1. Move the data-returning logic out of the MCP handler files (still required: incur's `run()` needs plain functions to call).
-2. Upgrade zod to 4 in `mcp-server`, keep the current server green.
-3. Port tools to incur commands group by group (`gsc` first: its core is already pure), with `discovery: "direct"`.
+Chosen path:
+1. Move the data-returning logic out of the MCP handler files.
+2. Upgrade to zod 4 and MCP SDK v2 (`@modelcontextprotocol/server` 2.0.0) together; v2 still serves 2025-era clients.
+3. Add a thin registry (`Command` = name, zod input/output, annotations, `run()` → data, `render()` → text) with an MCP adapter (`registerTool`) and a CLI adapter (`node:util` `parseArgs` + `z.toJSONSchema`), plus one parity test.
 4. Embed `knowledge/*.json` for compiled builds.
-5. `bun patch incur` for the stdio import until upstream releases the fix; drop the patch after upgrading.
+
+Revisit incur once it depends on stable `@modelcontextprotocol/server` and releases the bundler-visible stdio import.
