@@ -160,7 +160,7 @@ export function registerKnowledgeResources(server: McpServer): void {
     {
       title: "MW2/IW4X DVAR Reference",
       description:
-        "MW2/IW4X DVAR knowledge base — 1,731 DVARs with types, defaults, flags, categories, and FPS impact",
+        `MW2/IW4X DVAR knowledge base — ${DVARS.dvars.length.toLocaleString("en-US")} DVARs with types, defaults, flags, categories, and FPS impact`,
     },
     async () => ({
       contents: [

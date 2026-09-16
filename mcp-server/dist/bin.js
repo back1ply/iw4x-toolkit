@@ -69109,7 +69109,7 @@ function registerKnowledgeResources(server) {
     "iw4x://dvars",
     {
       title: "MW2/IW4X DVAR Reference",
-      description: "MW2/IW4X DVAR knowledge base \u2014 1,731 DVARs with types, defaults, flags, categories, and FPS impact"
+      description: `MW2/IW4X DVAR knowledge base \u2014 ${DVARS.dvars.length.toLocaleString("en-US")} DVARs with types, defaults, flags, categories, and FPS impact`
     },
     async () => ({
       contents: [
@@ -71672,7 +71672,7 @@ Replaced previous index (was ${d.previousSymbols} symbols).`;
     dvarIntegrityCheck = command({
       name: "dvar_integrity_check",
       title: "DVAR Integrity Check",
-      description: "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string literals against the known IW4x/MW2 DVAR database (1900+ entries). Reports unknown names that are likely typos or unsupported DVARs. Skips dynamic (non-literal) arguments silently. Use path or content as input (same as gsc_lint).",
+      description: `Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string literals against the known IW4x/MW2 DVAR database (${DVARS.dvars.length.toLocaleString("en-US")} entries). Reports unknown names that are likely typos or unsupported DVARs. Skips dynamic (non-literal) arguments silently.`,
       input: {
         path: external_exports.string().optional().describe("Path to .gsc / .gsh file. Either this or content must be provided."),
         content: external_exports.string().optional().describe("Raw GSC source code. Either this or path must be provided.")

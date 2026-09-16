@@ -17,7 +17,7 @@ import { buildIndex, getStats, type BuildIndexResult } from "./symbols.js";
 import { tokenize } from "./tokenizer.js";
 import { findOrphans, formatOrphanReport, type OrphanAnalysis } from "./orphans.js";
 import { command, type AnyCommand } from "../command.js";
-import { ANTI_PATTERNS, GSC_BUILTINS, TEMPLATES, type AntiPattern, type GscBuiltin, type GscTemplate } from "../knowledge/data.js";
+import { ANTI_PATTERNS, DVARS, GSC_BUILTINS, TEMPLATES, type AntiPattern, type GscBuiltin, type GscTemplate } from "../knowledge/data.js";
 
 let builtinsByName: Map<string, GscBuiltin> | null = null;
 
@@ -546,10 +546,9 @@ const dvarIntegrityCheck = command({
   title: "DVAR Integrity Check",
   description:
     "Scans a GSC file for getDvar/setDvar calls and validates the DVAR name string " +
-    "literals against the known IW4x/MW2 DVAR database (1900+ entries). " +
+    `literals against the known IW4x/MW2 DVAR database (${DVARS.dvars.length.toLocaleString("en-US")} entries). ` +
     "Reports unknown names that are likely typos or unsupported DVARs. " +
-    "Skips dynamic (non-literal) arguments silently. " +
-    "Use path or content as input (same as gsc_lint).",
+    "Skips dynamic (non-literal) arguments silently.",
   input: {
     path: z.string().optional().describe("Path to .gsc / .gsh file. Either this or content must be provided."),
     content: z.string().optional().describe("Raw GSC source code. Either this or path must be provided."),

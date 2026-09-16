@@ -5,7 +5,7 @@ description: Search and reference MW2/IW4X DVARs by name, category, or FPS impac
 
 # DVAR Lookup
 
-You have access to a comprehensive MW2/IW4X DVAR knowledge base via the `iw4x://dvars` MCP resource. This contains 1700+ DVARs with types, defaults, flags, categories, and FPS impact ratings.
+You have access to a comprehensive MW2/IW4X DVAR knowledge base via the `iw4x://dvars` MCP resource. It lists every known DVAR with its type, default, flags, category, and FPS impact rating.
 
 ## How to search
 

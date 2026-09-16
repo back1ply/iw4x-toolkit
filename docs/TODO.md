@@ -5,7 +5,7 @@
 ### Done
 
 - [x] MCP server with 5 IWD tools (`iwd_list`, `iwd_read`, `iwd_write`, `iwd_remove`, `iwd_diff`)
-- [x] DVAR knowledge base — 1,731 entries, 89 manually enriched
+- [x] DVAR knowledge base — 1,978 entries
 - [x] DVAR lookup skill with FPS optimization guide
 - [x] Auto-backup on first IWD modification per session
 - [x] Atomic writes (write to `.tmp`, then rename)
@@ -58,7 +58,7 @@
 
 - [x] Build `knowledge/gsc-builtins.json` — GSC built-in function reference. v1.1.0, 80 functions. Source: X-Labs, CoD4x, Zeroy wikis.
 - [ ] Build `knowledge/menu-properties.json` — valid menuDef/itemDef properties
-- [ ] Enrich more DVARs — currently 89/1,731 have manual descriptions. Priority targets:
+- [ ] Enrich more DVARs. Priority targets:
   - [ ] All `sm_*` shadow map DVARs (12 total, only 6 enriched)
   - [ ] All `snd_*` sound DVARs (descriptions + performance notes)
   - [ ] Network DVARs (`rate`, `cl_maxpackets`, `snaps`, `sv_maxRate`) with competitive tuning notes
