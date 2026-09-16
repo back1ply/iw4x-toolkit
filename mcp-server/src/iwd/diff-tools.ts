@@ -2,8 +2,7 @@
  * @file iwd/diff-tools.ts
  * Diff/copy IWD archive commands: iwd_diff, iwd_rename, iwd_copy
  */
-
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as path from "node:path";
 import type AdmZip from "adm-zip";

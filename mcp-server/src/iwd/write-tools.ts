@@ -2,8 +2,7 @@
  * @file iwd/write-tools.ts
  * Write IWD archive commands: iwd_write, iwd_patch, iwd_remove
  */
-
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   isBinaryEntry,

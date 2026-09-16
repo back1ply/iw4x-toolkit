@@ -3,8 +3,7 @@
  * Main registration function for IWD archive tools.
  * Orchestrates sub-modules for better maintainability.
  */
-
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { registerReadTools } from "./read-tools.js";
 import { registerWriteTools } from "./write-tools.js";
 import { registerArchiveTools } from "./archive-tools.js";

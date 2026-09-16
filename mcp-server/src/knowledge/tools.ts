@@ -8,8 +8,7 @@
  * the next access. The parsed DVAR object is also cached to avoid repeated
  * JSON.parse calls on dvar_search invocations.
  */
-
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as fs from "node:fs";
 import { CommandError, getErrMsg, getKnowledgeDir } from "../utils.js";
@@ -267,7 +266,7 @@ export const KNOWLEDGE_COMMANDS: AnyCommand[] = [dvarSearch, menuHud];
 export function registerKnowledgeTools(server: McpServer): void {
 
   // --- Resource: iw4x://dvars ---
-  server.resource(
+  server.registerResource(
     "DVAR Reference",
     "iw4x://dvars",
     {
@@ -287,7 +286,7 @@ export function registerKnowledgeTools(server: McpServer): void {
   );
 
   // --- Resource: iw4x://gsc-builtins ---
-  server.resource(
+  server.registerResource(
     "GSC Built-ins Reference",
     "iw4x://gsc-builtins",
     {

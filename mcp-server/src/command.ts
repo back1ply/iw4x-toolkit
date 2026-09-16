@@ -5,8 +5,8 @@
  * the same list, so the two surfaces cannot drift apart.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { z } from "zod";
+import type { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
 import { CommandError, checkRateLimit, errResult } from "./utils.js";
 
 export interface CommandAnnotations {
@@ -66,7 +66,7 @@ export function registerCommands(server: McpServer, commands: readonly AnyComman
   for (const cmd of commands) {
     server.registerTool(
       cmd.name,
-      { title: cmd.title, description: cmd.description, inputSchema: cmd.input, annotations: cmd.annotations },
+      { title: cmd.title, description: cmd.description, inputSchema: z.object(cmd.input), annotations: cmd.annotations },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ((args: unknown) => runForMcp(cmd, args)) as any,
     );

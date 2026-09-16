@@ -2,8 +2,7 @@
  * @file iwd/sync-tools.ts
  * External sync commands: mods_sync, userraw_sync
  */
-
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as path from "node:path";
 import { CommandError } from "../utils.js";

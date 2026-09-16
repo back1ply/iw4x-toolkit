@@ -3,8 +3,7 @@
  * GSC commands: gsc_lint, gsc_lookup, gsc_template, gsc_fix, gsc_outline,
  * gsc_anti_patterns, iwd_index_symbols, gsc_find_orphans, dvar_integrity_check, gsc_format
  */
-
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";

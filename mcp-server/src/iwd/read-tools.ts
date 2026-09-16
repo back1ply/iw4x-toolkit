@@ -2,8 +2,7 @@
  * @file iwd/read-tools.ts
  * Read-only IWD archive commands: iwd_list, iwd_read, iwd_info, iwd_grep
  */
-
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import * as path from "node:path";
 import type AdmZip from "adm-zip";
