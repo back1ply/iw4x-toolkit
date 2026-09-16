@@ -23587,8 +23587,6 @@ var init_utils = __esm({
       // 100 per minute
       iwd_pack: { maxRequests: 20, windowMs: 6e4 },
       // 20 per minute
-      iwd_sync: { maxRequests: 30, windowMs: 6e4 },
-      // 30 per minute
       default: { maxRequests: 200, windowMs: 6e4 }
       // 200 per minute default
     };
