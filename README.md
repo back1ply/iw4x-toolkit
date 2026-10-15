@@ -13,7 +13,7 @@ IW4X/MW2 modding toolkit: IWD archive tools, GSC linting and formatting, a DVAR 
 ### Commands
 
 - **IWD**: `iwd_list`, `iwd_read`, `iwd_info`, `iwd_grep`, `iwd_write`, `iwd_patch`, `iwd_remove`, `iwd_extract`, `iwd_pack`, `iwd_sync`, `iwd_diff`, `iwd_rename`, `iwd_copy`, `iwd_textconv`
-- **Sync to game folders**: `mods_sync`, `userraw_sync`
+- **Sync to game folders**: `sync_loose_files` (mods/<name> or userraw)
 - **GSC**: `gsc_lint`, `gsc_format`, `gsc_fix`, `gsc_lookup`, `gsc_template`, `gsc_outline`, `gsc_anti_patterns`, `gsc_menu_hud`, `iwd_index_symbols`, `gsc_find_orphans`
 - **DVAR**: `dvar_search`, `dvar_integrity_check`
 - **MCP resources**: `iw4x://dvars`, `iw4x://gsc-builtins`

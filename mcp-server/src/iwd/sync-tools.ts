@@ -1,6 +1,6 @@
 /**
  * @file iwd/sync-tools.ts
- * External sync commands: mods_sync, userraw_sync
+ * External sync command: sync_loose_files (workspace -> mods/<name> or userraw)
  */
 import { z } from "zod";
 import * as path from "node:path";
@@ -24,41 +24,28 @@ async function copyToDestination(sourceDir: string, destDir: string, dryRun: boo
   return { source, dest, dryRun };
 }
 
-function renderCopy(d: CopyDirData, label?: string): string {
-  if (d.dryRun) return `[dry_run] Would copy files from ${d.source} to ${label ? `${label} ${d.dest}` : d.dest}`;
-  return `Synced loose files from ${d.source}\n    → ${d.dest}`;
+function renderCopy(d: CopyDirData): string {
+  if (d.dryRun) return `[dry_run] Would copy files from ${d.source} to ${d.dest}`;
+  return `Synced loose files from ${d.source}
+    → ${d.dest}`;
 }
 
-const modsSync = command({
-  name: "mods_sync",
-  title: "Sync to Mod Directory",
+const syncLooseFiles = command({
+  name: "sync_loose_files",
+  title: "Sync Loose Files to Game Folder",
   description:
-    "Copies modified loose files from your workspace directly into a specific mods/<modname> folder. " +
-    "The engine prioritizes loose files over packed .iwd files, enabling rapid live testing.",
+    "Copies a workspace folder's loose files into a game folder for live testing, overwriting files with the same name (no backup). " +
+    "The engine loads loose files ahead of packed .iwd content. " +
+    "dest_dir is either mods/<modname> (only that mod sees the files) or userraw (loaded globally, overriding everything). " +
+    "NOT for writing into an .iwd archive — use iwd_sync for that. Run with dry_run=true first to see the resolved paths.",
   input: {
     source_dir: z.string().describe("Folder with modified files"),
-    mod_dir: z.string().describe("The target mods/<modname> folder in the MW2 game directory"),
+    dest_dir: z.string().describe("Target game folder: the MW2 mods/<modname> folder or the userraw folder"),
     dry_run: z.boolean().optional().default(false).describe("If true, validates without copying"),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false },
-  run: ({ source_dir, mod_dir, dry_run }) => copyToDestination(source_dir, mod_dir, dry_run),
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+  run: ({ source_dir, dest_dir, dry_run }) => copyToDestination(source_dir, dest_dir, dry_run),
   render: (d) => renderCopy(d),
 });
 
-const userrawSync = command({
-  name: "userraw_sync",
-  title: "Sync to Userraw Directory",
-  description:
-    "Copies modified loose files from your workspace into the MW2 userraw installation folder. " +
-    "Files placed here are loaded globally by the engine, overriding everything else.",
-  input: {
-    source_dir: z.string().describe("Folder with modified files"),
-    userraw_dir: z.string().describe("The absolute path to the MW2 userraw folder"),
-    dry_run: z.boolean().optional().default(false).describe("If true, validates without copying"),
-  },
-  annotations: { readOnlyHint: false, destructiveHint: false },
-  run: ({ source_dir, userraw_dir, dry_run }) => copyToDestination(source_dir, userraw_dir, dry_run),
-  render: (d) => renderCopy(d, "global userraw directory"),
-});
-
-export const SYNC_COMMANDS: AnyCommand[] = [modsSync, userrawSync];
+export const SYNC_COMMANDS: AnyCommand[] = [syncLooseFiles];

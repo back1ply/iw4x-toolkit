@@ -84,7 +84,7 @@ const iwdExtract = command({
   name: "iwd_extract",
   title: "Extract Archive Entries",
   description:
-    "Extract entries from an IWD archive to a directory on disk. " +
+    "Extract entries from an IWD archive to a directory on disk, overwriting files with the same name there. " +
     "Once extracted, standard shell tools (rg, fd, bat) work natively. " +
     "Use entry_glob to extract only a subset of files. " +
     "Returns the destination path and list of extracted files.",
@@ -94,7 +94,7 @@ const iwdExtract = command({
     entry_glob: z.string().optional().describe("Optional glob to extract only matching entries (e.g. '**/*.gsc', 'maps/**/*.gsc')"),
     dry_run: z.boolean().optional().default(false).describe("If true, lists what would be extracted without writing any files"),
   },
-  annotations: { readOnlyHint: false, destructiveHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: true },  // overwrites existing files in dest
   async run({ path: iwdPath, dest, entry_glob, dry_run }): Promise<ExtractData> {
     const resolvedDest = path.resolve(dest);
     const { resolved, zip } = requireIwd(iwdPath);

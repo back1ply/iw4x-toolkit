@@ -37,7 +37,7 @@
 2. (Use standard tools: replace_file_content, run_command, etc.)
    → edit the loose files in ./workspace
 
-3. mods_sync  source_dir="./workspace"  mod_dir="C:/path/to/game/mods/my_mod"
+3. sync_loose_files  source_dir="./workspace"  dest_dir="C:/path/to/game/mods/my_mod"
    → copy loose files to the engine's mod override directory for instant live testing
 
 4. iwd_sync  source_dir="./workspace"  dest_path="mod.iwd"

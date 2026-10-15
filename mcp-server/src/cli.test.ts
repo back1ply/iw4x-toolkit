@@ -86,9 +86,10 @@ describe("CLI ↔ MCP parity", () => {
 
   it("marks every tool that modifies files as destructive", async () => {
     const { tools } = await client.listTools();
-    const hints = Object.fromEntries(tools.map((t) => [t.name, t.annotations?.destructiveHint]));
-    expect(hints.iwd_rename).toBe(true);
-    expect(hints.iwd_copy).toBe(true);
+    // Every writing tool here can overwrite or delete files, so none may claim to be additive-only.
+    const writers = tools.filter((t) => t.annotations?.readOnlyHint === false);
+    expect(writers.length).toBeGreaterThan(0);
+    for (const t of writers) expect(t.annotations?.destructiveHint, t.name).toBe(true);
   });
 
   it("iwd_textconv output does not depend on entry order and normalizes line endings", async () => {

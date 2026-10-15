@@ -1554,9 +1554,9 @@ describe("MCP tool handlers", () => {
     });
   });
 
-  // --- mods_sync ---
+  // --- sync_loose_files ---
 
-  describe("mods_sync", () => {
+  describe("sync_loose_files", () => {
     let sourceDir: string;
     let modDir: string;
 
@@ -1570,8 +1570,8 @@ describe("MCP tool handlers", () => {
 
     it("copies loose files to the target mod directory", async () => {
       const result = await client.callTool({
-        name: "mods_sync",
-        arguments: { source_dir: sourceDir, mod_dir: modDir },
+        name: "sync_loose_files",
+        arguments: { source_dir: sourceDir, dest_dir: modDir },
       });
       expect(result.isError).toBeFalsy();
 
@@ -1582,51 +1582,24 @@ describe("MCP tool handlers", () => {
 
     it("dry_run validates without copying anything", async () => {
       const result = await client.callTool({
-        name: "mods_sync",
-        arguments: { source_dir: sourceDir, mod_dir: modDir, dry_run: true },
+        name: "sync_loose_files",
+        arguments: { source_dir: sourceDir, dest_dir: modDir, dry_run: true },
       });
       expect(result.isError).toBeFalsy();
       const text = (result.content as Array<{ type: string; text: string }>)[0].text;
       expect(text).toContain("[dry_run]");
       expect(fs.existsSync(modDir)).toBe(false);
     });
-  });
 
-  // --- userraw_sync ---
-
-  describe("userraw_sync", () => {
-    let sourceDir: string;
-    let userrawDir: string;
-
-    beforeEach(() => {
-      sourceDir = path.join(tmpDir, "userraw-source");
-      fs.mkdirSync(sourceDir);
-      fs.writeFileSync(path.join(sourceDir, "global.gsc"), "// global");
-
-      userrawDir = path.join(tmpDir, "userraw");
-    });
-
-    it("copies loose files to the userraw directory", async () => {
+    it("overwrites an existing file with the same name", async () => {
+      fs.mkdirSync(modDir, { recursive: true });
+      fs.writeFileSync(path.join(modDir, "fast.gsc"), "// old");
       const result = await client.callTool({
-        name: "userraw_sync",
-        arguments: { source_dir: sourceDir, userraw_dir: userrawDir },
+        name: "sync_loose_files",
+        arguments: { source_dir: sourceDir, dest_dir: modDir },
       });
       expect(result.isError).toBeFalsy();
-
-      const outPath = path.join(userrawDir, "global.gsc");
-      expect(fs.existsSync(outPath)).toBe(true);
-      expect(fs.readFileSync(outPath, "utf-8")).toBe("// global");
-    });
-
-    it("dry_run validates without copying anything", async () => {
-      const result = await client.callTool({
-        name: "userraw_sync",
-        arguments: { source_dir: sourceDir, userraw_dir: userrawDir, dry_run: true },
-      });
-      expect(result.isError).toBeFalsy();
-      const text = (result.content as Array<{ type: string; text: string }>)[0].text;
-      expect(text).toContain("[dry_run]");
-      expect(fs.existsSync(userrawDir)).toBe(false);
+      expect(fs.readFileSync(path.join(modDir, "fast.gsc"), "utf-8")).toBe("// fast");
     });
   });
 });

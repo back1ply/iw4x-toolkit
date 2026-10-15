@@ -141,17 +141,17 @@ async function run() {
     });
     console.log(res.content[0].text);
 
-    console.log("\n=== 15. Testing mods_sync (Workspace -> mods_dummy) ===");
+    console.log("\n=== 15. Testing sync_loose_files (Workspace -> mods_dummy) ===");
     res = await client.callTool({
-      name: "mods_sync",
-      arguments: { source_dir: extractDest, mod_dir: dummyModsDir }
+      name: "sync_loose_files",
+      arguments: { source_dir: extractDest, dest_dir: dummyModsDir }
     });
     console.log(res.content[0].text);
 
-    console.log("\n=== 16. Testing userraw_sync (Workspace -> userraw_dummy) ===");
+    console.log("\n=== 16. Testing sync_loose_files (Workspace -> userraw_dummy) ===");
     res = await client.callTool({
-      name: "userraw_sync",
-      arguments: { source_dir: extractDest, userraw_dir: dummyUserrawDir }
+      name: "sync_loose_files",
+      arguments: { source_dir: extractDest, dest_dir: dummyUserrawDir }
     });
     console.log(res.content[0].text);
 
