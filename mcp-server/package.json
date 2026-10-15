@@ -1,6 +1,7 @@
 {
   "name": "iw4x-toolkit-mcp",
   "version": "3.0.0",
+  "license": "MIT",
   "description": "IW4X/MW2 modding toolkit — MCP server and iw4x-toolkit CLI for IWD archives, GSC tooling, and DVAR reference",
   "type": "module",
   "main": "dist/index.js",
