@@ -119,6 +119,7 @@ __export(util_exports, {
   required: () => required,
   safeExtend: () => safeExtend,
   shallowClone: () => shallowClone,
+  sizeCaps: () => sizeCaps,
   slugify: () => slugify,
   stringifyPrimitive: () => stringifyPrimitive,
   toZod: () => toZod,
@@ -541,6 +542,18 @@ function prefixIssues(path8, issues) {
 }
 function unwrapMessage(message) {
   return typeof message === "string" ? message : message?.message;
+}
+function sizeCaps(defChecks) {
+  const caps = [];
+  for (const ch of defChecks ?? []) {
+    const d = ch._zod.def;
+    if (!/_(length|size)$|_equals$/.test(d.check))
+      break;
+    const max = d.maximum ?? d.length ?? d.size;
+    if (max >= 0)
+      caps.push([max, ch]);
+  }
+  return caps;
 }
 function attachSchema(issues, start, inst) {
   var _a3;
@@ -2105,7 +2118,7 @@ var init_versions = __esm({
     version = {
       major: 4,
       minor: 6,
-      patch: 5
+      patch: 7
     };
   }
 });
@@ -2266,6 +2279,28 @@ function isValidJWT(token, algorithm = null) {
   } catch {
     return false;
   }
+}
+function capSize(inst, size) {
+  const caps = sizeCaps(inst._zod.def.checks);
+  if (!caps.length)
+    return;
+  const cap = Math.min(...caps.map((c) => c[0]));
+  const parse3 = inst._zod.parse;
+  inst._zod.parse = (payload, ctx) => {
+    const n = size(payload.value);
+    if (n > cap && !ctx?.skipChecks && ctx?.direction !== "backward") {
+      for (const [max, ch] of sizeCaps(inst._zod.def.checks)) {
+        if (n > max && ch._zod.def.when(payload)) {
+          const start = payload.issues.length;
+          ch._zod.check(payload);
+          payload.issues[start].continue = false;
+          attachSchema(payload.issues, start, inst);
+          return payload;
+        }
+      }
+    }
+    return parse3(payload, ctx);
+  };
 }
 function handleArrayResult(result, final, index) {
   if (result.issues.length) {
@@ -2767,7 +2802,7 @@ function handleRefineResult(result, payload, input2, inst) {
     payload.issues.push(issue(_iss));
   }
 }
-var $ZodType, toStandardResult, $ZodString, $ZodStringFormat, $ZodGUID, $ZodUUID, $ZodEmail, URL_BAD_FORMAT, URL_UNPARSEABLE, asciiTabOrNewline, $ZodURL, $ZodEmoji, $ZodNanoID, $ZodCUID, $ZodCUID2, $ZodULID, $ZodXID, $ZodKSUID, $ZodISODateTime, $ZodISODate, $ZodISOTime, $ZodISODuration, $ZodIPv4, ipv6Alphabet, $ZodIPv6, $ZodMAC, $ZodCIDRv4, $ZodCIDRv6, base64Charset, $ZodBase64, base64urlCharset, $ZodBase64URL, $ZodE164, CC_SANITIZE, $ZodCreditCard, $ZodIBAN, $ZodJWT, $ZodCustomStringFormat, $ZodNumber, $ZodNumberFormat, $ZodBoolean, $ZodBigInt, $ZodBigIntFormat, $ZodSymbol, $ZodUndefined, $ZodNull, $ZodAny, $ZodUnknown, $ZodNever, $ZodVoid, $ZodDate, $ZodArray, NO_SYMBOL_KEYS, $ZodObject, $ZodObjectJIT, $ZodUnion, $ZodXor, $ZodDiscriminatedUnion, $ZodIntersection, $ZodTuple, $ZodRecord, $ZodMap, $ZodSet, $ZodEnum, $ZodLiteral, $ZodFile, $ZodTransform, $ZodOptional, $ZodExactOptional, $ZodNullable, $ZodDefault, $ZodPrefault, $ZodNonOptional, $ZodSuccess, $ZodCatch, $ZodNaN, $ZodPipe, $ZodCodec, $ZodPreprocess, $ZodReadonly, $ZodTemplateLiteral, $ZodFunction, $ZodPromise, $ZodLazy, $ZodCustom;
+var $ZodType, toStandardResult, $ZodString, $ZodStringFormat, $ZodGUID, $ZodUUID, $ZodEmail, URL_BAD_FORMAT, URL_UNPARSEABLE, asciiTabOrNewline, $ZodURL, $ZodEmoji, $ZodNanoID, $ZodCUID, $ZodCUID2, $ZodULID, $ZodXID, $ZodKSUID, $ZodISODateTime, $ZodISODate, $ZodISOTime, $ZodISODuration, $ZodIPv4, ipv6Alphabet, $ZodIPv6, $ZodMAC, $ZodCIDRv4, $ZodCIDRv6, base64Charset, $ZodBase64, base64urlCharset, $ZodBase64URL, $ZodE164, CC_SANITIZE, $ZodCreditCard, $ZodIBAN, $ZodJWT, $ZodCustomStringFormat, $ZodNumber, $ZodNumberFormat, $ZodBoolean, $ZodBigInt, $ZodBigIntFormat, $ZodSymbol, $ZodUndefined, $ZodNull, $ZodAny, $ZodUnknown, $ZodNever, $ZodVoid, $ZodDate, arraySize, mapSize, setSize, $ZodArray, NO_SYMBOL_KEYS, $ZodObject, $ZodObjectJIT, $ZodUnion, $ZodXor, $ZodDiscriminatedUnion, $ZodIntersection, $ZodTuple, $ZodRecord, $ZodMap, $ZodSet, $ZodEnum, $ZodLiteral, $ZodFile, $ZodTransform, $ZodOptional, $ZodExactOptional, $ZodNullable, $ZodDefault, $ZodPrefault, $ZodNonOptional, $ZodSuccess, $ZodCatch, $ZodNaN, $ZodPipe, $ZodCodec, $ZodPreprocess, $ZodReadonly, $ZodTemplateLiteral, $ZodFunction, $ZodPromise, $ZodLazy, $ZodCustom;
 var init_schemas = __esm({
   "node_modules/zod/v4/core/schemas.js"() {
     init_checks();
@@ -3374,6 +3409,9 @@ var init_schemas = __esm({
         return payload;
       };
     });
+    arraySize = (input2) => Array.isArray(input2) ? input2.length : -1;
+    mapSize = (input2) => input2 instanceof Map ? input2.size : -1;
+    setSize = (input2) => input2 instanceof Set ? input2.size : -1;
     $ZodArray = /* @__PURE__ */ $constructor("$ZodArray", (inst, def) => {
       $ZodType.init(inst, def);
       const memo3 = globalConfig.memoizer;
@@ -3411,6 +3449,7 @@ var init_schemas = __esm({
         }
         return payload;
       };
+      capSize(inst, arraySize);
     });
     NO_SYMBOL_KEYS = [];
     $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
@@ -4049,6 +4088,7 @@ var init_schemas = __esm({
           return Promise.all(proms).then(() => payload);
         return payload;
       };
+      capSize(inst, mapSize);
     });
     $ZodSet = /* @__PURE__ */ $constructor("$ZodSet", (inst, def) => {
       $ZodType.init(inst, def);
@@ -4085,6 +4125,7 @@ var init_schemas = __esm({
           return Promise.all(proms).then(() => payload);
         return payload;
       };
+      capSize(inst, setSize);
     });
     $ZodEnum = /* @__PURE__ */ $constructor("$ZodEnum", (inst, def) => {
       $ZodType.init(inst, def);
@@ -13874,9 +13915,15 @@ function generateNullableCheck(doc, ctx, schema, accessor, buildsValue = true) {
   doc.write(`}`);
   return outputVar;
 }
+function generateSizeGate(doc, schema, size) {
+  for (const [max, check2] of sizeCaps(schema._zod.def.checks)) {
+    doc.write(`if (${size} > ${numericOperand(max, check2._zod.def.check)}) return INVALID;`);
+  }
+}
 function generateArrayCheck(doc, ctx, schema, accessor, buildsValue = true) {
   const def = schema._zod.def;
   doc.write(`if (!Array.isArray(${accessor})) return INVALID;`);
+  generateSizeGate(doc, schema, `${accessor}.length`);
   const outputVar = buildsValue ? newVar(ctx) : null;
   const iVar = newVar(ctx);
   const elemVar = newVar(ctx);
@@ -14276,6 +14323,7 @@ function literalPropertyKey(ctx, key) {
 function generateMapCheck(doc, ctx, schema, accessor) {
   const def = schema._zod.def;
   doc.write(`if (!(${accessor} instanceof Map)) return INVALID;`);
+  generateSizeGate(doc, schema, `${accessor}.size`);
   const outputVar = newVar(ctx);
   const kVar = newVar(ctx);
   const valVar = newVar(ctx);
@@ -14292,6 +14340,7 @@ function generateMapCheck(doc, ctx, schema, accessor) {
 function generateSetCheck(doc, ctx, schema, accessor) {
   const def = schema._zod.def;
   doc.write(`if (!(${accessor} instanceof Set)) return INVALID;`);
+  generateSizeGate(doc, schema, `${accessor}.size`);
   const outputVar = newVar(ctx);
   const valVar = newVar(ctx);
   doc.write(`const ${outputVar} = new Set();`);
@@ -71846,10 +71895,10 @@ var init_v4 = __esm({
   }
 });
 
-// node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/auth-BNDyLTqp.mjs
+// node_modules/@modelcontextprotocol/core/dist/auth-BNDyLTqp.mjs
 var LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS, RELATED_TASK_META_KEY, PROTOCOL_VERSION_META_KEY, CLIENT_INFO_META_KEY, SERVER_INFO_META_KEY, CLIENT_CAPABILITIES_META_KEY, SUBSCRIPTION_ID_META_KEY, LOG_LEVEL_META_KEY, JSONRPC_VERSION, JSONValueSchema, JSONObjectSchema, JSONArraySchema, ProgressTokenSchema, CursorSchema, TaskMetadataSchema, RelatedTaskMetadataSchema, RequestMetaSchema, BaseRequestParamsSchema, TaskAugmentedRequestParamsSchema, RequestSchema, NotificationsParamsSchema, NotificationSchema, ResultMetaObjectSchema, ResultSchema, RequestIdSchema, JSONRPCRequestSchema, JSONRPCNotificationSchema, JSONRPCResultResponseSchema, JSONRPCErrorResponseSchema, JSONRPCMessageSchema, JSONRPCResponseSchema, EmptyResultSchema, CancelledNotificationParamsSchema, CancelledNotificationSchema, IconSchema, IconsSchema, BaseMetadataSchema, ImplementationSchema, FormElicitationCapabilitySchema, ElicitationCapabilitySchema, ClientTasksCapabilitySchema, ServerTasksCapabilitySchema, ClientCapabilitiesSchema, InitializeRequestParamsSchema, InitializeRequestSchema, ServerCapabilitiesSchema, InitializeResultSchema, InitializedNotificationSchema, DiscoverRequestSchema, DiscoverResultSchema, PingRequestSchema, ProgressSchema, ProgressNotificationParamsSchema, ProgressNotificationSchema, PaginatedRequestParamsSchema, PaginatedRequestSchema, PaginatedResultSchema, ResourceContentsSchema, TextResourceContentsSchema, Base64Schema, BlobResourceContentsSchema, RoleSchema, AnnotationsSchema, ResourceSchema, ResourceTemplateSchema, ListResourcesRequestSchema, ListResourcesResultSchema, ListResourceTemplatesRequestSchema, ListResourceTemplatesResultSchema, ResourceRequestParamsSchema, ReadResourceRequestParamsSchema, ReadResourceRequestSchema, ReadResourceResultSchema, ResourceListChangedNotificationSchema, SubscribeRequestParamsSchema, SubscribeRequestSchema, UnsubscribeRequestParamsSchema, UnsubscribeRequestSchema, SubscriptionFilterSchema, SubscriptionsListenRequestParamsSchema, SubscriptionsListenRequestSchema, SubscriptionsAcknowledgedNotificationParamsSchema, SubscriptionsAcknowledgedNotificationSchema, SubscriptionsListenResultMetaSchema, SubscriptionsListenResultSchema, ResourceUpdatedNotificationParamsSchema, ResourceUpdatedNotificationSchema, PromptArgumentSchema, PromptSchema, ListPromptsRequestSchema, ListPromptsResultSchema, GetPromptRequestParamsSchema, GetPromptRequestSchema, TextContentSchema, ImageContentSchema, AudioContentSchema, ToolUseContentSchema, EmbeddedResourceSchema, ResourceLinkSchema, ContentBlockSchema, PromptMessageSchema, GetPromptResultSchema, PromptListChangedNotificationSchema, ToolAnnotationsSchema, ToolExecutionSchema, ToolSchema, ListToolsRequestSchema, ListToolsResultSchema, CallToolResultSchema, CompatibilityCallToolResultSchema, CallToolRequestParamsSchema, CallToolRequestSchema, ToolListChangedNotificationSchema, ListChangedOptionsBaseSchema, LoggingLevelSchema, SetLevelRequestParamsSchema, SetLevelRequestSchema, LoggingMessageNotificationParamsSchema, LoggingMessageNotificationSchema, ModelHintSchema, ModelPreferencesSchema, ToolChoiceSchema, ToolResultContentSchema, SamplingContentSchema, SamplingMessageContentBlockSchema, SamplingMessageSchema, CreateMessageRequestParamsSchema, CreateMessageRequestSchema, CreateMessageResultSchema, CreateMessageResultWithToolsSchema, BooleanSchemaSchema, StringSchemaSchema, NumberSchemaSchema, UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema, LegacyTitledEnumSchemaSchema, SingleSelectEnumSchemaSchema, UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema, MultiSelectEnumSchemaSchema, EnumSchemaSchema, PrimitiveSchemaDefinitionSchema, ElicitRequestFormParamsSchema, ElicitRequestURLParamsSchema, ElicitRequestParamsSchema, ElicitRequestSchema, ElicitationCompleteNotificationParamsSchema, ElicitationCompleteNotificationSchema, ElicitResultSchema, ResourceTemplateReferenceSchema, PromptReferenceSchema, CompleteRequestParamsSchema, CompleteRequestSchema, CompleteResultSchema, RootSchema, ListRootsRequestSchema, ListRootsResultSchema, RootsListChangedNotificationSchema, TaskCreationParamsSchema, TaskStatusSchema, TaskSchema, CreateTaskResultSchema, TaskStatusNotificationParamsSchema, TaskStatusNotificationSchema, GetTaskRequestSchema, GetTaskResultSchema, GetTaskPayloadRequestSchema, GetTaskPayloadResultSchema, ListTasksRequestSchema, ListTasksResultSchema, CancelTaskRequestSchema, CancelTaskResultSchema, ClientRequestSchema, ClientNotificationSchema, ClientResultSchema, ServerRequestSchema, ServerNotificationSchema, ServerResultSchema, SafeUrlSchema, OAuthProtectedResourceMetadataSchema, OAuthMetadataSchema, OpenIdProviderMetadataSchema, OpenIdProviderDiscoveryMetadataSchema, OAuthTokensSchema, IdJagTokenExchangeResponseSchema, OAuthErrorResponseSchema, OptionalSafeUrlSchema, OAuthClientMetadataSchema, OAuthClientInformationSchema, OAuthClientInformationFullSchema, OAuthClientRegistrationErrorSchema, OAuthTokenRevocationRequestSchema;
 var init_auth_BNDyLTqp = __esm({
-  "node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/auth-BNDyLTqp.mjs"() {
+  "node_modules/@modelcontextprotocol/core/dist/auth-BNDyLTqp.mjs"() {
     init_v4();
     LATEST_PROTOCOL_VERSION = "2025-11-25";
     SUPPORTED_PROTOCOL_VERSIONS = [
@@ -72793,9 +72842,9 @@ var init_auth_BNDyLTqp = __esm({
   }
 });
 
-// node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/internal.mjs
+// node_modules/@modelcontextprotocol/core/dist/internal.mjs
 var init_internal = __esm({
-  "node_modules/@modelcontextprotocol/server/node_modules/@modelcontextprotocol/core/dist/internal.mjs"() {
+  "node_modules/@modelcontextprotocol/core/dist/internal.mjs"() {
     init_auth_BNDyLTqp();
   }
 });
