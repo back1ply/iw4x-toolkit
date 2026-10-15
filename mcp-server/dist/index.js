@@ -85015,7 +85015,7 @@ var GSC_COMMANDS = [
 ];
 
 // src/commands.ts
-var VERSION = "2.0.0";
+var VERSION = "3.0.0";
 var COMMANDS = [
   ...READ_COMMANDS,
   ...WRITE_COMMANDS,

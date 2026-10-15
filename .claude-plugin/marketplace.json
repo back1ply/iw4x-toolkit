@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "Claude Code plugin for IW4X/MW2 modding: IWD archive tools, GSC linting and formatting, and a searchable DVAR knowledge base.",
-    "version": "2.0.0"
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "iw4x-toolkit",
       "description": "IW4X/MW2 modding toolkit — IWD archive tools, GSC lint/format/orphan analysis, and a DVAR knowledge base, as MCP tools and the iw4x-toolkit CLI",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "source": "./",
       "author": {
         "name": "back1ply"

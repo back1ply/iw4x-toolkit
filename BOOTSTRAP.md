@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-09-17 · **Version:** 2.0.0
+**Last updated:** 2026-10-15 · **Version:** 3.0.0
 
 Start here when picking the project back up.
 
