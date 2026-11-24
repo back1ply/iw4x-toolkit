@@ -1,7 +1,7 @@
 # Changelog
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follow [SemVer](https://semver.org/).
-Releases before 3.0.0 are in the [git history](https://github.com/back1ply/iw4x-toolkit/commits/master).
+Releases before 3.0.0 are in the [git history](https://github.com/back1ply/iw4x-toolkit/commits/main).
 
 ## [3.0.0] - 2026-10-15
 

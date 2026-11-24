@@ -26,7 +26,7 @@ Superseded: the May 2026 plan to drop the MCP server, rename to `cod-forge`, and
 
 ## Open work
 
-- Push `master` to GitHub
+- Push `main` to GitHub
 - Binary release workflow (GitHub Action running `build:binary` per platform)
 - Interface ideas in `docs/plans/2026-09-16-interfaces-research.md`: `.iwd` git diff driver, published knowledge base + `llms.txt`, game bridge (rcon + console log, dedicated server only), watch mode, CI/pre-commit hooks, tree-sitter grammar
 - Roadmap items in `docs/TODO.md`

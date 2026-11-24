@@ -1,5 +1,5 @@
 {
-  "$id": "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/schemas/gsc-anti-patterns.schema.json",
+  "$id": "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@main/knowledge/schemas/gsc-anti-patterns.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {

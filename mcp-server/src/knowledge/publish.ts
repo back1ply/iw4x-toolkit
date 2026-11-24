@@ -13,8 +13,8 @@ import {
 } from "./schemas.js";
 
 export const REPO_URL = "https://github.com/back1ply/iw4x-toolkit";
-/** jsDelivr serves files from the public GitHub repo; replace @master with a release tag to pin a version. */
-export const CDN_BASE = "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge";
+/** jsDelivr serves files from the public GitHub repo; replace @main with a release tag to pin a version. */
+export const CDN_BASE = "https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@main/knowledge";
 
 const n = (x: number) => x.toLocaleString("en-US");
 
@@ -35,7 +35,7 @@ function llmsTxt(): string {
     "> Reference data for modding Call of Duty: Modern Warfare 2 (2009) on the IW4X client: DVARs, GSC built-in functions, " +
       "GSC anti-patterns, code templates, and a HUD menu reference. JSON files, each with a JSON Schema.",
     "",
-    `URLs track the master branch. To pin a version, replace \`@master\` with a release tag. Source and issues: ${REPO_URL}`,
+    `URLs track the main branch. To pin a version, replace \`@main\` with a release tag. Source and issues: ${REPO_URL}`,
     "",
     "## Data",
     "",
