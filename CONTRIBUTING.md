@@ -67,7 +67,7 @@ npx vitest run -t "iwd_grep"      # tests whose name matches
 
 ## Pull Requests
 
-1. Branch from `master` (`git checkout -b feat/my-change`).
+1. Branch from `main` (`git checkout -b feat/my-change`).
 2. Make the change with tests; run `npm test` and `npm run build`.
 3. Commit with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
 4. Push and open a pull request.

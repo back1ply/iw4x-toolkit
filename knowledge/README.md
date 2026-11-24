@@ -17,10 +17,10 @@ Current counts and download links are in [`llms.txt`](llms.txt). Each file has a
 Every file is served by jsDelivr from the public repository:
 
 ```
-https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@master/knowledge/<file>
+https://cdn.jsdelivr.net/gh/back1ply/iw4x-toolkit@main/knowledge/<file>
 ```
 
-Replace `@master` with a release tag (e.g. `@v2.0.0`) for content that will not change under you.
+Replace `@main` with a release tag (e.g. `@v2.0.0`) for content that will not change under you.
 
 ## Editing
 
